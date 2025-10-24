@@ -1,5 +1,8 @@
 ﻿node_modules/
-dist/
 .env
-prisma/dev.db
+dev.db
+dist/
+.prisma/
 *.log
+.DS_Store
+Thumbs.db
