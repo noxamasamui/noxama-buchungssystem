@@ -1,0 +1,159 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Contact and Table Booking</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+</head>
+<body>
+<div class="container">
+  <img class="logo" src="/logo.png" alt="Logo"/>
+
+  <h1>Contact and Table Booking</h1>
+
+  <div class="card">
+    <div id="contactBox" class="contact">
+      <p><b>Address</b><br/><span id="venueAddress"></span></p>
+      <p><b>Phone</b> <span id="venuePhone"></span><br/><b>Email</b> <span id="venueEmail"></span></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Date</label>
+    <div class="row">
+      <input id="date" type="date"/>
+      <button id="reload" class="btn" type="button">↻</button>
+    </div>
+
+    <div id="dayInfo" class="banner hidden"></div>
+
+    <label style="margin-top:10px;">Choose a time slot (15 minutes grid)</label>
+    <div id="slots" class="slot-grid"></div>
+
+    <div class="grid2">
+      <div>
+        <label>First name*</label>
+        <input id="firstName" required />
+      </div>
+      <div>
+        <label>Name*</label>
+        <input id="name" required />
+      </div>
+    </div>
+
+    <label>Email*</label>
+    <input id="email" type="email" required />
+
+    <label>Phone (optional)</label>
+    <input id="phone" />
+
+    <label>Guests*</label>
+    <select id="guests"></select>
+
+    <label>Notes</label>
+    <textarea id="notes" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
+
+    <div class="actions">
+      <button id="book" class="btn" type="button">Book now</button>
+      <span id="msg" class="badge"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Thank-you modal -->
+<div id="modal" class="modal hidden">
+  <div class="modal-body">
+    <h3>Thank you!</h3>
+    <p>Your reservation has been received. You will get a confirmation email shortly.</p>
+    <button id="closeModal" class="btn">OK</button>
+  </div>
+</div>
+
+<script>
+const todayISO = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+
+// Kontaktangaben laden
+fetch("/api/config").then(r=>r.json()).then(c=>{
+  document.getElementById("venueAddress").textContent = c.address || "";
+  document.getElementById("venuePhone").textContent   = c.phone || "";
+  document.getElementById("venueEmail").textContent   = c.email || "";
+});
+
+document.getElementById("date").value = todayISO();
+for(let i=1;i<=48;i++){ const o=document.createElement("option"); o.value=o.textContent=String(i); document.getElementById("guests").appendChild(o); }
+
+let selectedTime = null;
+
+async function loadSlots(){
+  selectedTime = null;
+  const d = document.getElementById("date").value;
+  const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}`);
+  const data = await r.json();
+  const box = document.getElementById("slots");
+  const banner = document.getElementById("dayInfo");
+  box.innerHTML = "";
+
+  // freundliche Meldung bei komplett gesperrtem Tag
+  const anyAllowed = data.some(s => s.allowed && s.canReserve);
+  if(!anyAllowed && data.length && data.every(s => s.reason === "Blockiert")){
+    banner.textContent = "This date is blocked for a private event. Please choose another day.";
+    banner.classList.remove("hidden");
+  } else {
+    banner.classList.add("hidden");
+    banner.textContent = "";
+  }
+
+  data.forEach(s=>{
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "slot " + (s.allowed && s.canReserve ? "" : "disabled");
+    b.textContent = s.time;
+    if (s.allowed && s.canReserve) {
+      b.onclick = ()=>{ document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active")); b.classList.add("active"); selectedTime = s.time; };
+    } else {
+      b.title = s.reason || "Not available";
+    }
+    box.appendChild(b);
+  });
+}
+document.getElementById("reload").onclick = loadSlots;
+document.getElementById("date").addEventListener("change", loadSlots);
+loadSlots();
+
+function friendlyError(e){
+  if(!e) return "Something went wrong.";
+  if(e.toLowerCase().includes("block")) return "This date is blocked for a private event. Please choose another day.";
+  if(e.toLowerCase().includes("öffnungs") || e.toLowerCase().includes("opening")) return "This time is outside our opening hours.";
+  if(e.toLowerCase().includes("ausgebucht") || e.toLowerCase().includes("fully")) return "We are fully booked at this time. Please select another slot.";
+  return e;
+}
+
+document.getElementById("book").onclick = async ()=>{
+  const d = document.getElementById("date").value;
+  const firstName = document.getElementById("firstName").value.trim();
+  const name = document.getElementById("name").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const guests = Number(document.getElementById("guests").value);
+  const notes = document.getElementById("notes").value.trim();
+  const m = document.getElementById("msg");
+
+  if(!selectedTime){ m.textContent="Please select a time slot"; return; }
+  if(!firstName || !name || !email){ m.textContent="Please fill in all required fields"; return; }
+
+  m.textContent = "";
+  const payload = { date:d, time:selectedTime, firstName, name, email, phone, guests, notes };
+  const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+  if(r.ok){
+    document.getElementById("modal").classList.remove("hidden");
+  }else{
+    const e = await r.json().catch(()=>({error:"Error"}));
+    m.textContent = friendlyError(e.error||"Error");
+  }
+};
+document.getElementById("closeModal").onclick = ()=>document.getElementById("modal").classList.add("hidden");
+</script>
+</body>
+</html>
+

@@ -1,0 +1,14 @@
+﻿
+Algorithm       Hash                                                                   Path                                                                                                                     
+---------       ----                                                                   ----                                                                                                                     
+SHA256          FC39B88FCF0A5C042B57883E4A4F3B380A5656CF526FF1E5063BEBC675431342       C:\dev\roestiland\buchungssystem\public\admin.html                                                                       
+SHA256          0CE891513C23A955E32AF96C6D586278E20D334E863455F9AD91E504EC1675B6       C:\dev\roestiland\buchungssystem\public\cancelled.html                                                                   
+SHA256          6068F1BE1E30059397095EFFC952161AF416F07256603019D8AC01D4D55258AC       C:\dev\roestiland\buchungssystem\public\index.html                                                                       
+SHA256          40416DAE8B0271D219452821E32C0D01CBED0763CBF3B51F3857A20C5E13229F       C:\dev\roestiland\buchungssystem\public\logo.png                                                                         
+SHA256          2584E810A3369B18C40D50FA57BCEF65F1FB8939F7724E793BC2D58E51747132       C:\dev\roestiland\buchungssystem\public\style.css                                                                        
+SHA256          EA1595A8662E162032735F4DE5740867CE4D5F6D8DAA211E3D972D7A279DDB87       C:\dev\roestiland\buchungssystem\src\datetime.ts                                                                         
+SHA256          81CA63C2811FF082128ACC3EF3D520B05B8B6F0519E9C3C93508B70A8CBC42D8       C:\dev\roestiland\buchungssystem\src\mailer.ts                                                                           
+SHA256          B51D79C468A038ECB422A03C874B9E23EF6330FAC0FA25109A2FDE19D88956C5       C:\dev\roestiland\buchungssystem\src\server.ts                                                                           
+SHA256          5FBD1D11E2879ED7142F256C1AA5FF0CC46CB3516C9F1F32421E754F2243551F       C:\dev\roestiland\buchungssystem\src\slots.ts                                                                            
+
+
