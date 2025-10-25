@@ -1,8 +1,8 @@
-﻿import express from "express";
+﻿import express, { Request, Response } from "express";
 import cors from "cors";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { format, addMinutes, addHours, isAfter, isBefore } from "date-fns";
+import { format, addMinutes, addHours } from "date-fns";
 import { nanoid } from "nanoid";
 import XLSX from "xlsx";
 import { mailer, verifyMailer, fromAddress } from "./mailer";
@@ -55,8 +55,16 @@ async function overlapping(dateYmd: string, start: Date, end: Date) {
 }
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const list = await overlapping(dateYmd, start, end);
-  const reserved = list.filter(r=>!r.isWalkIn).reduce((s,r)=>s+r.guests,0);
-  const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
+
+  // ---- nur Typen ergänzt, Logik unverändert
+  const reserved = list
+    .filter((r: any) => !r.isWalkIn)
+    .reduce((s: number, r: any) => s + r.guests, 0);
+
+  const walkins  = list
+    .filter((r: any) =>  r.isWalkIn)
+    .reduce((s: number, r: any) => s + r.guests, 0);
+
   return { reserved, walkins, total: reserved+walkins };
 }
 
@@ -84,15 +92,23 @@ async function slotAllowed(dateYmd: string, timeHHmm: string) {
 }
 
 // ---------- pages ----------
-app.get("/", (_req,res)=>res.sendFile(path.join(publicDir,"index.html")));
-app.get("/admin", (_req,res)=>res.sendFile(path.join(publicDir,"admin.html")));
+app.get("/", (_req: Request, res: Response)=>res.sendFile(path.join(publicDir,"index.html")));
+app.get("/admin", (_req: Request, res: Response)=>res.sendFile(path.join(publicDir,"admin.html")));
 
 // ---------- health / test mail ----------
-app.get("/api/health", async (_req,res)=>{ try{ await verifyMailer(); res.json({ok:true,mail:true}); } catch(e:any){ res.json({ok:true,mail:false,error:String(e?.message||e)}); }});
-app.post("/api/test-mail", async (_req,res)=>{ try{ await mailer().sendMail({from:fromAddress(), to:process.env.SMTP_USER, subject:"NOXAMA mail test", text:"Mail ok."}); res.json({ok:true}); } catch(e:any){ res.status(500).json({ok:false,error:String(e?.message||e)});} });
+app.get("/api/health", async (_req: Request,res: Response)=>{
+  try{ await verifyMailer(); res.json({ok:true,mail:true}); }
+  catch(e:any){ res.json({ok:true,mail:false,error:String(e?.message||e)}); }
+});
+app.post("/api/test-mail", async (_req: Request,res: Response)=>{
+  try{
+    await mailer().sendMail({from:fromAddress(), to:process.env.SMTP_USER, subject:"NOXAMA mail test", text:"Mail ok."});
+    res.json({ok:true});
+  }catch(e:any){ res.status(500).json({ok:false,error:String(e?.message||e)}); }
+});
 
 // ---------- public config (contact) ----------
-app.get("/api/config", (_req, res) => {
+app.get("/api/config", (_req: Request, res: Response) => {
   res.json({
     brand: process.env.BRAND_NAME || "NOXAMA SAMUI",
     address: process.env.VENUE_ADDRESS || "",
@@ -102,7 +118,7 @@ app.get("/api/config", (_req, res) => {
 });
 
 // ---------- slots ----------
-app.get("/api/slots", async (req,res)=>{
+app.get("/api/slots", async (req: Request,res: Response)=>{
   const date = normalizeYmd(String(req.query.date||""));
   if (!date) return res.json([]);
   const times = generateSlots(date, OPEN_HOUR, CLOSE_HOUR);
@@ -118,7 +134,7 @@ app.get("/api/slots", async (req,res)=>{
 });
 
 // ---------- create reservation ----------
-app.post("/api/reservations", async (req,res)=>{
+app.post("/api/reservations", async (req: Request,res: Response)=>{
   const { date, time, firstName, name, email, phone, guests, notes } = req.body;
   const allow = await slotAllowed(String(date), String(time));
   if (!allow.ok) {
@@ -154,7 +170,7 @@ app.post("/api/reservations", async (req,res)=>{
 });
 
 // ---------- walk-in ----------
-app.post("/api/walkin", async (req,res)=>{
+app.post("/api/walkin", async (req: Request,res: Response)=>{
   const { date, time, guests, notes } = req.body;
   const allow = await slotAllowed(String(date), String(time));
   if (!allow.ok) return res.status(400).json({ error: allow.reason==="Blockiert" ? "An diesem Tag ist geschlossen." : "Slot nicht verfügbar." });
@@ -173,7 +189,7 @@ app.post("/api/walkin", async (req,res)=>{
 });
 
 // ---------- admin list: day or range ----------
-app.get("/api/admin/reservations", async (req,res)=>{
+app.get("/api/admin/reservations", async (req: Request,res: Response)=>{
   const date = normalizeYmd(String(req.query.date||""));
   const view = String(req.query.view||"day"); // "day" | "week"
   if (view === "week" && date) {
@@ -192,11 +208,17 @@ app.get("/api/admin/reservations", async (req,res)=>{
 });
 
 // actions
-app.delete("/api/admin/reservations/:id", async (req,res)=>{ await prisma.reservation.delete({ where:{ id:req.params.id } }); res.json({ok:true}); });
-app.post("/api/admin/reservations/:id/noshow", async (req,res)=>{ const r = await prisma.reservation.update({ where:{ id:req.params.id }, data:{ status:"noshow" } }); res.json(r); });
+app.delete("/api/admin/reservations/:id", async (req: Request,res: Response)=>{
+  await prisma.reservation.delete({ where:{ id:req.params.id } });
+  res.json({ok:true});
+});
+app.post("/api/admin/reservations/:id/noshow", async (req: Request,res: Response)=>{
+  const r = await prisma.reservation.update({ where:{ id:req.params.id }, data:{ status:"noshow" } });
+  res.json(r);
+});
 
 // ---------- closures ----------
-app.post("/api/admin/closure", async (req,res)=>{
+app.post("/api/admin/closure", async (req: Request,res: Response)=>{
   const { startTs, endTs, reason } = req.body;
   const s = new Date(String(startTs).replace(" ","T"));
   const e = new Date(String(endTs).replace(" ","T"));
@@ -205,7 +227,7 @@ app.post("/api/admin/closure", async (req,res)=>{
   const c = await prisma.closure.create({ data:{ startTs:s, endTs:e, reason:String(reason||"Closed") } });
   res.json(c);
 });
-app.post("/api/admin/closure/day", async (req,res)=>{
+app.post("/api/admin/closure/day", async (req: Request,res: Response)=>{
   const date = normalizeYmd(String(req.body.date||""));
   if (!date) return res.status(400).json({ error:"Ungültiges Datum" });
   const { y,m,d } = splitYmd(date);
@@ -214,14 +236,17 @@ app.post("/api/admin/closure/day", async (req,res)=>{
   const c = await prisma.closure.create({ data:{ startTs:s, endTs:e, reason:String(req.body.reason||"Closed") } });
   res.json(c);
 });
-app.get("/api/admin/closure", async (_req,res)=>{
+app.get("/api/admin/closure", async (_req: Request,res: Response)=>{
   const list = await prisma.closure.findMany({ orderBy:{ startTs:"desc" } });
   res.json(list);
 });
-app.delete("/api/admin/closure/:id", async (req,res)=>{ await prisma.closure.delete({ where:{ id:req.params.id } }); res.json({ok:true}); });
+app.delete("/api/admin/closure/:id", async (req: Request,res: Response)=>{
+  await prisma.closure.delete({ where:{ id:req.params.id } });
+  res.json({ok:true});
+});
 
 // ---------- export: reservations (alle Status) + closures ----------
-app.get("/api/export", async (req,res)=>{
+app.get("/api/export", async (req: Request,res: Response)=>{
   const period = String(req.query.period || "daily");
   const norm = normalizeYmd(String(req.query.date || format(new Date(),"yyyy-MM-dd")));
   const base = new Date(norm+"T00:00:00");
@@ -235,7 +260,9 @@ app.get("/api/export", async (req,res)=>{
     where:{ startTs:{ gte:start }, endTs:{ lt:end } },
     orderBy:[{ date:"asc" }, { time:"asc" }]
   });
-  const rows = list.map(r=>({
+
+  // ---- nur Typ ergänzt
+  const rows = list.map((r: any) => ({
     Date:r.date, Time:r.time,
     DurationMin:(r.endTs.getTime()-r.startTs.getTime())/60000,
     FirstName:r.firstName, Name:r.name, Email:r.email,
@@ -244,7 +271,9 @@ app.get("/api/export", async (req,res)=>{
   }));
 
   const closures = await prisma.closure.findMany({ where:{ startTs:{ lt:end }, endTs:{ gt:start } }, orderBy:{ startTs:"asc" } });
-  const closRows = closures.map(c=>({
+
+  // ---- nur Typ ergänzt
+  const closRows = closures.map((c: any) => ({
     Start:c.startTs, End:c.endTs, Reason:c.reason
   }));
 
@@ -262,7 +291,7 @@ app.get("/api/export", async (req,res)=>{
 });
 
 // ---------- cancel ----------
-app.get("/cancel/:token", async (req,res)=>{
+app.get("/cancel/:token", async (req: Request,res: Response)=>{
   const r = await prisma.reservation.findUnique({ where:{ cancelToken:req.params.token } });
   if (!r) return res.status(404).send("Not found");
   await prisma.reservation.update({ where:{ id:r.id }, data:{ status:"canceled" } });
@@ -326,6 +355,8 @@ async function sendReminders() {
 // alle 30 Minuten prüfen
 setInterval(sendReminders, 30 * 60 * 1000);
 
-app.listen(PORT, async ()=>{ await prisma.$connect(); console.log(`Server running on ${PORT}`); });
-
-
+// ---------- START SERVER ----------
+app.listen(PORT, "0.0.0.0", async () => {
+  await prisma.$connect();
+  console.log(`Server running on ${PORT}`);
+});
