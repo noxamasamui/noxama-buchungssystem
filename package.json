@@ -22,13 +22,15 @@
     "nodemailer": "^6.9.14",
     "xlsx": "^0.18.5"
   },
+  {
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.4",
     "@types/node": "^20.11.30",
-    "@types/nodemailer": "^7.0.3",
-    "prisma": "^6.18.0",
+    "typescript": "^5.6.3",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.6.3"
+    "prisma": "^6.18.0",
+    "@types/express": "^5.0.4",
+    "@types/cors": "^2.8.19",
+    "@types/nodemailer": "^7.0.3"
   }
 }
+
