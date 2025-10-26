@@ -2,10 +2,12 @@
   "name": "noxama-buchungssystem",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": "20.x" },
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "npm install @types/node@20 --save-dev && tsc && npm prune --omit=dev"
+    "build": "tsc && npm prune --omit=dev",
     "prisma:gen": "prisma generate",
     "db:deploy": "prisma migrate deploy",
     "start:local": "node dist/server.js",
@@ -29,14 +31,5 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.3"
   }
-  "scripts": {
-  "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-  "build": "tsc && npm prune --omit=dev",
-  "prisma:gen": "prisma generate",
-  "db:deploy": "prisma migrate deploy",
-  "start:local": "node dist/server.js",
-  "start:render": "npm run db:deploy && npm run start:local"
-}
-
 }
 
