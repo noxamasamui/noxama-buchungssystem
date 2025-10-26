@@ -29,5 +29,14 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.6.3"
   }
+  "scripts": {
+  "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+  "build": "tsc && npm prune --omit=dev",
+  "prisma:gen": "prisma generate",
+  "db:deploy": "prisma migrate deploy",
+  "start:local": "node dist/server.js",
+  "start:render": "npm run db:deploy && npm run start:local"
+}
+
 }
 
