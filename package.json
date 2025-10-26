@@ -2,9 +2,7 @@
   "name": "noxama-buchungssystem",
   "version": "1.0.0",
   "private": true,
-  "engines": {
-    "node": "20.x"
-  },
+  "engines": { "node": "20.x" },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc && npm prune --omit=dev",
@@ -32,4 +30,3 @@
     "typescript": "^5.6.3"
   }
 }
-
