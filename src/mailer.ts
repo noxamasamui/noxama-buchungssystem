@@ -8,7 +8,6 @@ function bool(v: any, d = false) {
   if (s === "false") return false;
   return d;
 }
-
 function int(v: any, d: number) {
   const n = Number(v);
   return Number.isFinite(n) ? n : d;
@@ -27,7 +26,7 @@ export function mailer(): Transporter<SMTPTransport.SentMessageInfo> {
   const host = process.env.SMTP_HOST || "smtp.gmail.com";
   const port = int(process.env.SMTP_PORT, 587);
 
-  // Wenn nicht explizit gesetzt: 465 => secure, sonst STARTTLS
+  // Wenn nicht explizit gesetzt: 465 => secure (SMTPS), sonst STARTTLS
   const secure =
     process.env.SMTP_SECURE != null
       ? bool(process.env.SMTP_SECURE)
@@ -41,18 +40,16 @@ export function mailer(): Transporter<SMTPTransport.SentMessageInfo> {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
-    // Bei 587 -> STARTTLS erzwingen
+    // Bei 587 erzwingen wir TLS nach HELO
     requireTLS: !secure,
 
-    // Timeouts etwas großzügiger
+    // etwas großzügigere Timeouts
     connectionTimeout: int(process.env.SMTP_CONN_TIMEOUT_MS, 20000),
     greetingTimeout: int(process.env.SMTP_GREET_TIMEOUT_MS, 15000),
     socketTimeout: int(process.env.SMTP_SOCKET_TIMEOUT_MS, 20000),
 
-    // Pool optional – oft stabiler erstmal ohne
-    pool: bool(process.env.MAIL_POOL, false),
-    maxConnections: 1,
-    maxMessages: 50,
+    // Falls dein Provider self-signed Zert hat (meist nicht nötig):
+    // tls: { rejectUnauthorized: false },
   };
 
   return nodemailer.createTransport(options);
