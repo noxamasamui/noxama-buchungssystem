@@ -1,7 +1,7 @@
 // src/mailer.ts
-import type { SentMessageInfo } from "nodemailer/lib/smtp-transport";
-import nodemailer, { Transporter } from "nodemailer";
+import nodemailer from "nodemailer";
 
+// kleine Helfer
 function b(v: any, d = false) {
   const s = String(v ?? "").trim().toLowerCase();
   if (["true","1","yes","on"].includes(s)) return true;
@@ -30,12 +30,12 @@ export function fromAddress() {
 }
 
 /** SMTP Transport nur als Fallback ausserhalb Render Free */
-export function createSmtp(): Transporter<SentMessageInfo> {
+export function createSmtp(): nodemailer.Transporter {
   const host = process.env.SMTP_HOST || "smtp.mailersend.net";
   const port = n(process.env.SMTP_PORT, 587);
   const secure = process.env.SMTP_SECURE != null ? b(process.env.SMTP_SECURE) : port === 465;
 
-  const opts = {
+  const opts: any = {
     host,
     port,
     secure,
@@ -43,15 +43,23 @@ export function createSmtp(): Transporter<SentMessageInfo> {
       ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
       : undefined,
     requireTLS: !secure,
+
+    // Pool aktiv, darum KEINE smtp-transport Generics verwenden
     pool: b(process.env.SMTP_POOL, true),
     maxConnections: n(process.env.SMTP_MAX_CONNECTIONS, 3),
     maxMessages: n(process.env.SMTP_MAX_MESSAGES, 100),
+
     connectionTimeout: n(process.env.SMTP_CONN_TIMEOUT_MS, 20000),
     greetingTimeout: n(process.env.SMTP_GREET_TIMEOUT_MS, 15000),
     socketTimeout: n(process.env.SMTP_SOCKET_TIMEOUT_MS, 30000),
-  } as any;
+  };
 
   return nodemailer.createTransport(opts);
+}
+
+/** Rueckwaertskompatibel fuer server.ts */
+export function mailer(): nodemailer.Transporter {
+  return createSmtp();
 }
 
 export type SendEmailArgs = {
@@ -69,7 +77,7 @@ export type SendEmailArgs = {
   transactional?: boolean;
 };
 
-/** Hauptfunktion: nutzt zuerst MailerSend HTTP API, faellt sonst auf SMTP */
+/** bevorzugt MailerSend HTTP API, faellt sonst auf SMTP */
 export async function sendEmail(args: SendEmailArgs) {
   const from = fromAddress();
   const apiToken = process.env.MAILERSEND_API_TOKEN;
@@ -83,13 +91,12 @@ export async function sendEmail(args: SendEmailArgs) {
   };
 
   if (apiToken) {
-    // MailerSend HTTP API
     const messageId = args.idempotencyKey
       ? `${args.idempotencyKey}@${fromDomain(from)}`
       : undefined;
 
     const body: any = {
-      from: { email: from.replace(/^.*<|>$/g, "") , name: (process.env.MAIL_FROM_NAME || "").trim() || undefined },
+      from: { email: from.replace(/^.*<|>$/g, ""), name: (process.env.MAIL_FROM_NAME || "").trim() || undefined },
       to: (Array.isArray(args.to) ? args.to : [args.to]).map(e => ({ email: e })),
       subject: args.subject,
       html: args.html,
@@ -120,7 +127,6 @@ export async function sendEmail(args: SendEmailArgs) {
     return { api: "mailersend", data };
   }
 
-  // Fallback SMTP, z. B. lokal oder auf nicht geblockten Hosts
   const t = createSmtp();
   const info = await t.sendMail({
     from,
@@ -140,7 +146,6 @@ export async function sendEmail(args: SendEmailArgs) {
 
 export async function verifyMailer() {
   if (process.env.MAILERSEND_API_TOKEN) {
-    // leichter Healthcheck via /v1/domains oder nur Token Vorhandenheit
     return { ok: true as const, api: "mailersend" };
   }
   try {
@@ -151,3 +156,4 @@ export async function verifyMailer() {
     return { ok: false as const, api: "smtp", error: { code: err?.code, message: err?.message } };
   }
 }
+
