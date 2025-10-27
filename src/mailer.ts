@@ -4,48 +4,36 @@ type SendArgs = {
   subject: string;
   html?: string;
   text?: string;
-  transactional?: boolean;
   idempotencyKey?: string;
 };
 
-function bool(v: any, d = false) {
-  const s = String(v ?? "").trim().toLowerCase();
-  if (s === "true") return true;
-  if (s === "false") return false;
-  return d;
-}
-
 export function fromAddress() {
   const name = process.env.MAIL_FROM_NAME || "NOXAMA SAMUI";
-  const addr =
-    process.env.MAIL_FROM_ADDRESS ||
-    "noreply@noxamasamui.com";
+  const addr = process.env.MAIL_FROM_ADDRESS || "noreply@noxamasamui.com";
   return `${name} <${addr}>`;
 }
 
-function envStr(name: string, req = true) {
+function need(name: string) {
   const v = process.env[name];
-  if (!v && req) throw new Error(`Missing env ${name}`);
-  return String(v || "");
+  if (!v) throw new Error(`Missing env ${name}`);
+  return String(v);
 }
 
 export async function verifyMailer(): Promise<boolean> {
-  // minimal Token-Check (optional: leichte API-Abfrage)
   return !!process.env.MAILERSEND_API_TOKEN;
 }
 
-export async function sendEmail(args: SendArgs): Promise<void> {
-  const token = envStr("MAILERSEND_API_TOKEN");
-  const fromEmail =
-    (process.env.MAIL_FROM_ADDRESS || "noreply@noxamasamui.com").trim();
-  const fromName = process.env.MAIL_FROM_NAME || "NOXAMA SAMUI";
+export async function sendEmail(a: SendArgs): Promise<void> {
+  const token = need("MAILERSEND_API_TOKEN");
+  const fromEmail = (process.env.MAIL_FROM_ADDRESS || "noreply@noxamasamui.com").trim();
+  const fromName  = process.env.MAIL_FROM_NAME || "NOXAMA SAMUI";
 
   const body = {
     from: { email: fromEmail, name: fromName },
-    to: [{ email: args.to }],
-    subject: args.subject,
-    html: args.html || undefined,
-    text: args.text || undefined,
+    to: [{ email: a.to }],
+    subject: a.subject,
+    html: a.html,
+    text: a.text,
   };
 
   const res = await fetch("https://api.mailersend.com/v1/email", {
@@ -53,7 +41,7 @@ export async function sendEmail(args: SendArgs): Promise<void> {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      ...(args.idempotencyKey ? { "Idempotency-Key": args.idempotencyKey } : {})
+      ...(a.idempotencyKey ? { "Idempotency-Key": a.idempotencyKey } : {})
     },
     body: JSON.stringify(body),
   });
