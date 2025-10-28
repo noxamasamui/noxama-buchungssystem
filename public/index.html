@@ -33,14 +33,12 @@
   </div>
 
   <div class="card">
-    <!-- Step 1: Date -->
     <label>Date</label>
     <div class="row">
       <input id="date" type="date"/>
       <button id="reload" class="btn" type="button" title="Refresh">↻</button>
     </div>
 
-    <!-- Step 2: Guests (required before showing times) -->
     <div style="margin-top:10px">
       <label>Guests <span style="font-weight:normal;opacity:.75">(max 10 online)</span></label>
       <div class="row" style="gap:10px;align-items:flex-end">
@@ -49,16 +47,13 @@
       </div>
     </div>
 
-    <!-- Day info / no results -->
     <div id="dayInfo" class="banner hidden" style="margin-top:10px;"></div>
 
-    <!-- Step 3: Times (shown only after date + guests) -->
     <div id="timesBlock" class="hidden" style="margin-top:10px">
       <label>Choose a time slot</label>
       <div id="slots" class="slot-grid"></div>
     </div>
 
-    <!-- Guest details -->
     <div class="grid2" style="margin-top:10px">
       <div>
         <label>First name*</label>
@@ -86,7 +81,7 @@
   </div>
 </div>
 
-<!-- Thank-you modal (no loyalty hints) -->
+<!-- Thank-you modal -->
 <div id="modal" class="modal">
   <div class="modal-body">
     <h3>Thank you!</h3>
@@ -95,7 +90,7 @@
   </div>
 </div>
 
-<!-- Info modal (errors, fully booked, big groups) -->
+<!-- Info modal -->
 <div id="infoModal" class="modal">
   <div class="modal-body">
     <h3 id="infoTitle">Information</h3>
@@ -113,7 +108,6 @@ const todayISO = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d
 
 const cfg = { email:"", phone:"" };
 
-// Load contact data
 fetch("/api/config").then(r=>r.json()).then(c=>{
   document.getElementById("venueAddress").textContent = c.address || "";
   document.getElementById("venuePhone").textContent   = c.phone || "";
@@ -126,10 +120,9 @@ fetch("/api/config").then(r=>r.json()).then(c=>{
   cfg.phone = c.phone || "";
 });
 
-// init date
 document.getElementById("date").value = todayISO();
 
-// Guests 1..10 only
+// 1..10
 (function fillGuests(){
   const sel = document.getElementById("guests");
   sel.innerHTML = "";
@@ -144,7 +137,6 @@ document.getElementById("date").value = todayISO();
 
 let selectedTime = null;
 
-// Modal helpers
 function openInfo(title, html, showContact=false){
   document.getElementById("infoTitle").textContent = title || "Information";
   document.getElementById("infoText").innerHTML = html || "";
@@ -168,12 +160,10 @@ function openThanks(text){
 }
 document.getElementById("closeModal").onclick = ()=>document.getElementById("modal").classList.remove("show");
 
-// Big group button
 document.getElementById("bigGroup").addEventListener("click", ()=>{
   openInfo("Groups over 10", `Online bookings are limited to <b>10 guests</b>.<br/>Please contact us for larger groups.`, true);
 });
 
-// Load slots based on date AND guests (no capacity numbers shown)
 async function loadSlots(){
   selectedTime = null;
   const d = document.getElementById("date").value;
@@ -192,9 +182,11 @@ async function loadSlots(){
   const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}`);
   const data = await r.json();
 
-  const closedAll = data.length && data.every(s => !s.allowed && (s.reason||"").toLowerCase().includes("closed"));
-  if (closedAll){
-    banner.textContent = "We are closed on this date. Please choose another day.";
+  // vollständig geschlossen/blockiert → klares Datum-Statement
+  const allClosed = data.length && data.every(s => !s.allowed && ((s.reason||"").toLowerCase().includes("closed")));
+  const allBlocked = data.length && data.every(s => !s.allowed && ((s.reason||"").toLowerCase().includes("block")));
+  if (allClosed || allBlocked){
+    banner.textContent = "We are fully booked on this date. Please choose another day.";
     banner.classList.remove("hidden");
     block.classList.add("hidden");
     return;
@@ -210,14 +202,13 @@ async function loadSlots(){
   }
 
   banner.classList.add("hidden");
-  banner.textContent = "";
   block.classList.remove("hidden");
 
   available.forEach(s=>{
     const b = document.createElement("button");
     b.type = "button";
     b.className = "slot";
-    b.textContent = s.time; // no "left" text
+    b.textContent = s.time;  // keine Zahlenanzeige der Restplätze
     b.onclick = ()=>{
       document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active"));
       b.classList.add("active");
@@ -231,7 +222,6 @@ document.getElementById("reload").onclick = loadSlots;
 document.getElementById("date").addEventListener("change", loadSlots);
 document.getElementById("guests").addEventListener("change", loadSlots);
 
-// Booking
 document.getElementById("book").onclick = async ()=>{
   const d = document.getElementById("date").value;
   const guestsVal = document.getElementById("guests").value;
@@ -257,6 +247,8 @@ document.getElementById("book").onclick = async ()=>{
     const s = String(e.error||"").toLowerCase();
     if(s.includes("limited to 10")){
       openInfo("Groups over 10", `Online bookings are limited to <b>10 guests</b>. Please contact us for larger groups.`, true);
+    }else if(s.includes("closed") || s.includes("block")){
+      openInfo("Fully booked", "We are fully booked on this date. Please choose another day.");
     }else if(s.includes("fully booked")){
       openInfo("Fully booked", "We are fully booked at this time. Please choose another slot or a different day.");
     }else{
