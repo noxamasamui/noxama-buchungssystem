@@ -1,3 +1,4 @@
+// src/server.ts
 import express from "express";
 import cors from "cors";
 import path from "path";
@@ -28,7 +29,7 @@ const FROM_EMAIL =
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.SMTP_USER || "";
 
-// ---- Seats & Opening Hours ----
+// Seats & opening hours
 const MAX_SEATS_TOTAL = Number(process.env.MAX_SEATS_TOTAL || 48);
 const MAX_SEATS_RESERVABLE = Number(process.env.MAX_SEATS_RESERVABLE || 40);
 const MAX_ONLINE_GUESTS = 10;
@@ -43,7 +44,7 @@ const CLOSE_HOUR = hourFrom(process.env.CLOSE_HOUR || "22", 22);
 const SUNDAY_CLOSED =
   String(process.env.SUNDAY_CLOSED || "true").toLowerCase() === "true";
 
-// ---- Helpers ----
+// Helpers
 function normalizeYmd(input: string): string {
   const s = String(input || "").trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -63,12 +64,10 @@ function normalizeYmd(input: string): string {
     )}-${String(d.getDate()).padStart(2, "0")}`;
   return "";
 }
-
 function isSundayYmd(ymd: string) {
   const { y, m, d } = splitYmd(ymd);
   return localDate(y, m, d).getDay() === 0;
 }
-
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
     where: {
@@ -78,14 +77,12 @@ async function overlapping(dateYmd: string, start: Date, end: Date) {
     },
   });
 }
-
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const list = await overlapping(dateYmd, start, end);
   const reserved = list.filter(r => !r.isWalkIn).reduce((s, r) => s + r.guests, 0);
-  const walkins = list.filter(r => r.isWalkIn).reduce((s, r) => s + r.guests, 0);
+  const walkins  = list.filter(r => r.isWalkIn).reduce((s, r) => s + r.guests, 0);
   return { reserved, walkins, total: reserved + walkins };
 }
-
 async function slotAllowed(dateYmd: string, timeHHmm: string) {
   const norm = normalizeYmd(dateYmd);
   if (!norm || !timeHHmm) return { ok: false, reason: "Invalid time" };
@@ -102,7 +99,7 @@ async function slotAllowed(dateYmd: string, timeHHmm: string) {
   const open = localDate(y, m, d, OPEN_HOUR, 0, 0);
   const close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
   if (start < open) return { ok: false, reason: "Before opening" };
-  if (end > close) return { ok: false, reason: "After closing" };
+  if (end > close)  return { ok: false, reason: "After closing" };
 
   const blocked = await prisma.closure.findFirst({
     where: { AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }] },
@@ -112,16 +109,16 @@ async function slotAllowed(dateYmd: string, timeHHmm: string) {
   return { ok: true, start, end, minutes, norm };
 }
 
-// ---- Email ----
+// Mail
 async function sendEmailSMTP(to: string, subject: string, html: string) {
   await mailer().sendMail({ from: fromAddress(), to, subject, html });
 }
 
-// ---- Pages ----
+// Pages
 app.get("/", (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
 app.get("/admin", (_req, res) => res.sendFile(path.join(publicDir, "admin.html")));
 
-// ---- Config ----
+// Public config
 app.get("/api/config", (_req, res) => {
   res.json({
     brand: BRAND_NAME,
@@ -131,7 +128,7 @@ app.get("/api/config", (_req, res) => {
   });
 });
 
-// ---- Slots ----
+// Slots (includes "left" so das Frontend filtern kann)
 app.get("/api/slots", async (req, res) => {
   const date = normalizeYmd(String(req.query.date || ""));
   if (!date) return res.json([]);
@@ -140,30 +137,26 @@ app.get("/api/slots", async (req, res) => {
   for (const t of times) {
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
-      out.push({
-        time: t,
-        allowed: false,
-        reason: allow.reason,
-        canReserve: false,
-      });
+      out.push({ time: t, allowed: false, reason: allow.reason, canReserve: false, left: 0 });
       continue;
     }
     const sums = await sumsForInterval(date, allow.start!, allow.end!);
-    const canReserve =
-      sums.reserved < MAX_SEATS_RESERVABLE && sums.total < MAX_SEATS_TOTAL;
+    const left = Math.max(0, MAX_SEATS_RESERVABLE - sums.reserved);
+    const canReserve = left > 0 && sums.total < MAX_SEATS_TOTAL;
     out.push({
       time: t,
-      allowed: true,
+      allowed: canReserve,
+      reason: canReserve ? null : "Fully booked",
       canReserve,
       reserved: sums.reserved,
       total: sums.total,
-      left: MAX_SEATS_RESERVABLE - sums.reserved,
+      left,
     });
   }
   res.json(out);
 });
 
-// ---- Reservations ----
+// Reservations
 app.post("/api/reservations", async (req, res) => {
   const { date, time, firstName, name, email, phone, guests, notes } = req.body;
   const g = Number(guests);
@@ -180,12 +173,11 @@ app.post("/api/reservations", async (req, res) => {
 
   const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
   if (sums.reserved + g > MAX_SEATS_RESERVABLE)
-    return res.status(400).json({
-      error: "Fully booked at this time. Please select another slot.",
-    });
+    return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
+  if (sums.total + g > MAX_SEATS_TOTAL)
+    return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
 
   const token = nanoid();
-
   const created = await prisma.reservation.create({
     data: {
       date: allow.norm!,
@@ -204,18 +196,16 @@ app.post("/api/reservations", async (req, res) => {
     },
   });
 
-  // Loyalty count
-  const count = await prisma.reservation.count({
-    where: {
-      email: created.email,
-      status: { in: ["confirmed", "noshow"] },
-    },
+  // Visits zählen: nur confirmed/noshow (canceled zählt NICHT)
+  const visitCount = await prisma.reservation.count({
+    where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
   });
 
+  // Aktive Discount-Stufe ermitteln
   let discount = 0;
-  if (count >= 15) discount = 15;
-  else if (count >= 10) discount = 10;
-  else if (count >= 5) discount = 5;
+  if (visitCount >= 15) discount = 15;
+  else if (visitCount >= 10) discount = 10;
+  else if (visitCount >= 5) discount = 5;
 
   const cancelUrl = `${BASE_URL}/cancel/${token}`;
   const html = confirmationHtml(
@@ -225,7 +215,7 @@ app.post("/api/reservations", async (req, res) => {
     created.time,
     created.guests,
     cancelUrl,
-    count,
+    visitCount,
     { current: discount }
   );
 
@@ -235,23 +225,93 @@ app.post("/api/reservations", async (req, res) => {
     console.error("Mail Error:", e);
   }
 
-  res.json({ ok: true, reservation: created, visitCount: count, discount });
+  res.json({ ok: true, reservation: created, visitCount, discount });
 });
 
-// ---- Cancel ----
+// Cancel (setzt Status = canceled; dadurch fällt die Buchung künftig aus der Zählung)
 app.get("/cancel/:token", async (req, res) => {
-  const r = await prisma.reservation.findUnique({
-    where: { cancelToken: req.params.token },
-  });
+  const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
   if (!r) return res.status(404).send("Not found");
-  await prisma.reservation.update({
-    where: { id: r.id },
-    data: { status: "canceled" },
-  });
+  await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
-// ---- Email Content ----
+// Admin: List + Loyalty-Felder (damit Buttons & Liste funktionieren)
+app.get("/api/admin/reservations", async (req, res) => {
+  const date = normalizeYmd(String(req.query.date || ""));
+  const view = String(req.query.view || "day");
+
+  let list: any[] = [];
+  if (view === "week" && date) {
+    const base = new Date(`${date}T00:00:00`);
+    const from = new Date(base);
+    const to = new Date(base); to.setDate(to.getDate() + 7);
+    list = await prisma.reservation.findMany({
+      where: { startTs: { gte: from }, endTs: { lt: to } },
+      orderBy: [{ date: "asc" }, { time: "asc" }],
+    });
+  } else {
+    const where: any = date ? { date } : {};
+    list = await prisma.reservation.findMany({ where, orderBy: [{ date: "asc" }, { time: "asc" }] });
+  }
+
+  const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
+  const counts = new Map<string, number>();
+  await Promise.all(
+    emails.map(async em => {
+      const c = await prisma.reservation.count({
+        where: { email: em, status: { in: ["confirmed", "noshow"] } },
+      });
+      counts.set(em, c);
+    })
+  );
+
+  const withLoyalty = list.map(r => {
+    const vc = counts.get(r.email || "") || 0;
+    const d = vc >= 15 ? 15 : vc >= 10 ? 10 : vc >= 5 ? 5 : 0;
+    return { ...r, visitCount: vc, discount: d };
+  });
+
+  res.json(withLoyalty);
+});
+app.delete("/api/admin/reservations/:id", async (req, res) => {
+  await prisma.reservation.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+app.post("/api/admin/reservations/:id/noshow", async (req, res) => {
+  const r = await prisma.reservation.update({ where: { id: req.params.id }, data: { status: "noshow" } });
+  res.json(r);
+});
+
+// Admin: Closures
+app.post("/api/admin/closure", async (req, res) => {
+  const { startTs, endTs, reason } = req.body;
+  const s = new Date(String(startTs).replace(" ", "T"));
+  const e = new Date(String(endTs).replace(" ", "T"));
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return res.status(400).json({ error: "Invalid time range" });
+  if (e <= s) return res.status(400).json({ error: "End must be after start" });
+  const c = await prisma.closure.create({ data: { startTs: s, endTs: e, reason: String(reason || "Closed") } });
+  res.json(c);
+});
+app.post("/api/admin/closure/day", async (req, res) => {
+  const date = normalizeYmd(String(req.body.date || ""));
+  if (!date) return res.status(400).json({ error: "Invalid date" });
+  const { y, m, d } = splitYmd(date);
+  const s = localDate(y, m, d, OPEN_HOUR, 0, 0);
+  const e = localDate(y, m, d, CLOSE_HOUR, 0, 0);
+  const c = await prisma.closure.create({ data: { startTs: s, endTs: e, reason: String(req.body.reason || "Closed") } });
+  res.json(c);
+});
+app.get("/api/admin/closure", async (_req, res) => {
+  const list = await prisma.closure.findMany({ orderBy: { startTs: "desc" } });
+  res.json(list);
+});
+app.delete("/api/admin/closure/:id", async (req, res) => {
+  await prisma.closure.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
+// Mail template (emotional; zeigt Besuchszahl immer, Rabatt nur wenn aktiv)
 function confirmationHtml(
   firstName: string,
   name: string,
@@ -265,11 +325,9 @@ function confirmationHtml(
   const logo = process.env.MAIL_LOGO_URL || "/logo.png";
   const site = BRAND_NAME;
 
-  let gratitude = `
-    <div style="margin:16px 0 6px 0;text-align:center;">
-      <div style="font-size:16px;">We’re truly grateful you chose ${site}.</div>
-      <div style="font-size:14px;opacity:.85;">Seeing familiar faces is the heart of our place — thank you for being part of our community.</div>
-    </div>`;
+  const visitLine = `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">
+    This is your <b>${visitCount}${visitCount === 1 ? "st" : "th"}</b> visit. Thank you for coming back to us.
+  </div>`;
 
   let reward = "";
   if (loyalty.current >= 15) {
@@ -306,28 +364,41 @@ function confirmationHtml(
     <div style="text-align:center;margin-bottom:10px;">
       <img src="${logo}" alt="Logo" style="width:150px;height:auto;"/>
     </div>
-    <h2 style="text-align:center;margin:6px 0 14px 0;">Your Reservation at ${site}</h2>
-    <p>Hi ${firstName} ${name},</p>
-    <p>Thank you for choosing <b>${site}</b>! We’ve saved your table:</p>
+    <h2 style="text-align:center;margin:6px 0 14px 0;letter-spacing:.5px;">Your Reservation at ${site}</h2>
+
+    <p style="font-size:16px;margin:0 0 10px 0;">Hi ${firstName} ${name},</p>
+    <p style="font-size:16px;margin:0 0 12px 0;">
+      Thank you for choosing <b>${site}</b>. We value loyalty deeply — regular guests are the heart of our little community.
+    </p>
+
     <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
-      <p><b>Date</b> ${date}</p>
-      <p><b>Time</b> ${time}</p>
-      <p><b>Guests</b> ${guests}</p>
+      <p style="margin:0;"><b>Date</b> ${date}</p>
+      <p style="margin:0;"><b>Time</b> ${time}</p>
+      <p style="margin:0;"><b>Guests</b> ${guests}</p>
     </div>
-    ${gratitude}
+
+    ${visitLine}
     ${reward}
+
     <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
       <b>Punctuality</b><br/>
       Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
     </div>
+
     <p style="margin-top:18px;text-align:center;">
-      <a href="${cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a>
+      <a href="${cancelUrl}"
+         style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">
+        Cancel reservation
+      </a>
     </p>
-    <p style="margin-top:16px;text-align:center;">We can’t wait to welcome you!<br/><b>Warm greetings from ${site}</b></p>
+
+    <p style="margin-top:16px;font-size:14px;text-align:center;">
+      We can’t wait to welcome you!<br/><b>Warm greetings from ${site}</b>
+    </p>
   </div>`;
 }
 
-// ---- Reminder Job ----
+// Reminder job
 async function sendReminders() {
   const now = new Date();
   const from = addHours(now, 24);
@@ -346,15 +417,13 @@ async function sendReminders() {
       <div style="font-family:Georgia,'Times New Roman',serif;color:#3a2f28;">
         <p>Friendly reminder for your reservation tomorrow:</p>
         <p><b>Date</b> ${r.date} — <b>Time</b> ${r.time} — <b>Guests</b> ${r.guests}</p>
+        <p>Please arrive on time — tables may be released after 15 minutes of delay.</p>
         <p>If your plans change, please cancel here:<br/><a href="${cancelUrl}">${cancelUrl}</a></p>
         <p>See you soon,<br/>${BRAND_NAME}</p>
       </div>`;
     try {
       await sendEmailSMTP(r.email, "Reservation reminder", html);
-      await prisma.reservation.update({
-        where: { id: r.id },
-        data: { reminderSent: true },
-      });
+      await prisma.reservation.update({ where: { id: r.id }, data: { reminderSent: true } });
     } catch (e) {
       console.error("Reminder mail error:", e);
     }
@@ -362,13 +431,12 @@ async function sendReminders() {
 }
 setInterval(sendReminders, 30 * 60 * 1000);
 
-// ---- Start ----
+// Start
 async function start() {
   await prisma.$connect();
   await verifyMailer();
   app.listen(PORT, "0.0.0.0", () => console.log(`Server running on ${PORT}`));
 }
-
 start().catch(err => {
   console.error("Fatal start error", err);
   process.exit(1);
