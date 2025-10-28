@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
@@ -73,7 +73,7 @@
 <script>
 const todayISO = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-// Kontaktangaben laden
+// contact
 fetch("/api/config").then(r=>r.json()).then(c=>{
   document.getElementById("venueAddress").textContent = c.address || "";
   document.getElementById("venuePhone").textContent   = c.phone || "";
@@ -85,6 +85,15 @@ for(let i=1;i<=48;i++){ const o=document.createElement("option"); o.value=o.text
 
 let selectedTime = null;
 
+function msgForReason(reason){
+  const r = String(reason||"").toLowerCase();
+  if(r.includes("sunday")) return "We are closed on Sundays.";
+  if(r.includes("fully")) return "All time slots are fully booked for this day. Please choose another day.";
+  if(r.includes("blockiert") || r.includes("temporarily")) return "This date is blocked for a private event. Please choose another day.";
+  if(r.includes("opening") || r.includes("öffnun") || r.includes("closing")) return "This time is outside our opening hours.";
+  return reason || "Not available";
+}
+
 async function loadSlots(){
   selectedTime = null;
   const d = document.getElementById("date").value;
@@ -92,12 +101,16 @@ async function loadSlots(){
   const data = await r.json();
   const box = document.getElementById("slots");
   const banner = document.getElementById("dayInfo");
+  const btnBook = document.getElementById("book");
   box.innerHTML = "";
+  btnBook.disabled = true;
 
-  // freundliche Meldung bei komplett gesperrtem Tag
-  const anyAllowed = data.some(s => s.allowed && s.canReserve);
-  if(!anyAllowed && data.length && data.every(s => s.reason === "Blockiert")){
-    banner.textContent = "This date is blocked for a private event. Please choose another day.";
+  // Banner: wenn der Tag komplett gesperrt ist oder alles voll
+  if (data.length && data.every(s => !s.allowed || !s.canReserve)) {
+    // wenn alle den gleichen Grund haben, diesen anzeigen – sonst generisch
+    const reasons = Array.from(new Set(data.map(s => s.reason || "")));
+    const main = reasons.length === 1 ? msgForReason(reasons[0]) : "No available time slots for this day. Please choose another day.";
+    banner.textContent = main;
     banner.classList.remove("hidden");
   } else {
     banner.classList.add("hidden");
@@ -110,9 +123,14 @@ async function loadSlots(){
     b.className = "slot " + (s.allowed && s.canReserve ? "" : "disabled");
     b.textContent = s.time;
     if (s.allowed && s.canReserve) {
-      b.onclick = ()=>{ document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active")); b.classList.add("active"); selectedTime = s.time; };
+      b.onclick = ()=>{
+        document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active"));
+        b.classList.add("active");
+        selectedTime = s.time;
+        btnBook.disabled = false;
+      };
     } else {
-      b.title = s.reason || "Not available";
+      b.title = msgForReason(s.reason);
     }
     box.appendChild(b);
   });
@@ -123,9 +141,11 @@ loadSlots();
 
 function friendlyError(e){
   if(!e) return "Something went wrong.";
-  if(e.toLowerCase().includes("block")) return "This date is blocked for a private event. Please choose another day.";
-  if(e.toLowerCase().includes("öffnungs") || e.toLowerCase().includes("opening")) return "This time is outside our opening hours.";
-  if(e.toLowerCase().includes("ausgebucht") || e.toLowerCase().includes("fully")) return "We are fully booked at this time. Please select another slot.";
+  const t = String(e).toLowerCase();
+  if(t.includes("sunday")) return "We are closed on Sundays.";
+  if(t.includes("fully")) return "We are fully booked at this time. Please select another slot.";
+  if(t.includes("block")) return "This date is blocked for a private event. Please choose another day.";
+  if(t.includes("opening") || t.includes("closing")) return "This time is outside our opening hours.";
   return e;
 }
 
@@ -147,6 +167,7 @@ document.getElementById("book").onclick = async ()=>{
   const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   if(r.ok){
     document.getElementById("modal").classList.remove("hidden");
+    loadSlots();
   }else{
     const e = await r.json().catch(()=>({error:"Error"}));
     m.textContent = friendlyError(e.error||"Error");
@@ -156,4 +177,3 @@ document.getElementById("closeModal").onclick = ()=>document.getElementById("mod
 </script>
 </body>
 </html>
-
