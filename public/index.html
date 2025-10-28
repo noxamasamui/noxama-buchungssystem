@@ -33,27 +33,32 @@
   </div>
 
   <div class="card">
+    <!-- Date -->
     <label>Date</label>
     <div class="row">
       <input id="date" type="date"/>
       <button id="reload" class="btn" type="button" title="Refresh">↻</button>
     </div>
 
+    <!-- Guests -->
     <div style="margin-top:10px">
       <label>Guests <span style="font-weight:normal;opacity:.75">(max 10 online)</span></label>
       <div class="row" style="gap:10px;align-items:flex-end">
         <select id="guests"></select>
-        <button id="bigGroup" class="btn-plain" type="button" title="Groups 11+">Group 11+?</button>
+        <button id="bigGroup" class="btn-plain" type="button">Group 11+?</button>
       </div>
     </div>
 
+    <!-- Info -->
     <div id="dayInfo" class="banner hidden" style="margin-top:10px;"></div>
 
+    <!-- Times -->
     <div id="timesBlock" class="hidden" style="margin-top:10px">
       <label>Choose a time slot</label>
       <div id="slots" class="slot-grid"></div>
     </div>
 
+    <!-- Details -->
     <div class="grid2" style="margin-top:10px">
       <div>
         <label>First name*</label>
@@ -108,6 +113,7 @@ const todayISO = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d
 
 const cfg = { email:"", phone:"" };
 
+// load contact
 fetch("/api/config").then(r=>r.json()).then(c=>{
   document.getElementById("venueAddress").textContent = c.address || "";
   document.getElementById("venuePhone").textContent   = c.phone || "";
@@ -122,7 +128,7 @@ fetch("/api/config").then(r=>r.json()).then(c=>{
 
 document.getElementById("date").value = todayISO();
 
-// 1..10
+// guests 1..10
 (function fillGuests(){
   const sel = document.getElementById("guests");
   sel.innerHTML = "";
@@ -182,16 +188,21 @@ async function loadSlots(){
   const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}`);
   const data = await r.json();
 
-  // vollständig geschlossen/blockiert → klares Datum-Statement
-  const allClosed = data.length && data.every(s => !s.allowed && ((s.reason||"").toLowerCase().includes("closed")));
-  const allBlocked = data.length && data.every(s => !s.allowed && ((s.reason||"").toLowerCase().includes("block")));
-  if (allClosed || allBlocked){
+  // ---- NEU: robuster Check für komplett blockierten/geschlossenen Tag ----
+  const anyAllowed = data.some(s => s.allowed);
+  const everyForbidden = data.length && data.every(s => !s.allowed);
+  const looksBlocked = data.length && data.every(s => !s.allowed && /blocked|closed/i.test(String(s.reason||"")));
+
+  if (!anyAllowed && (looksBlocked || everyForbidden)) {
+    // Ganzer Tag dicht: klarer Datum-Hinweis
     banner.textContent = "We are fully booked on this date. Please choose another day.";
     banner.classList.remove("hidden");
     block.classList.add("hidden");
     return;
   }
+  // -----------------------------------------------------------------------
 
+  // Slots, die die gewünschte Gästezahl tragen können
   const available = data.filter(s => s.allowed && s.canReserve && Number(s.left||0) >= g);
 
   if (available.length === 0) {
@@ -208,7 +219,7 @@ async function loadSlots(){
     const b = document.createElement("button");
     b.type = "button";
     b.className = "slot";
-    b.textContent = s.time;  // keine Zahlenanzeige der Restplätze
+    b.textContent = s.time;  // keine Restplatz-Zahl
     b.onclick = ()=>{
       document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active"));
       b.classList.add("active");
@@ -222,6 +233,7 @@ document.getElementById("reload").onclick = loadSlots;
 document.getElementById("date").addEventListener("change", loadSlots);
 document.getElementById("guests").addEventListener("change", loadSlots);
 
+// Book
 document.getElementById("book").onclick = async ()=>{
   const d = document.getElementById("date").value;
   const guestsVal = document.getElementById("guests").value;
