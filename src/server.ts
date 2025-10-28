@@ -57,7 +57,7 @@ const SUNDAY_CLOSED =
   String(process.env.SUNDAY_CLOSED || "true").toLowerCase() === "true";
 
 // ------------------------------------------------------
-//  Helper functions
+//  Helpers
 // ------------------------------------------------------
 function normalizeYmd(input: string): string {
   const s = String(input || "").trim();
@@ -96,12 +96,8 @@ async function overlapping(dateYmd: string, start: Date, end: Date) {
 
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const list = await overlapping(dateYmd, start, end);
-  const reserved = list
-    .filter(r => !r.isWalkIn)
-    .reduce((s, r) => s + r.guests, 0);
-  const walkins = list
-    .filter(r => r.isWalkIn)
-    .reduce((s, r) => s + r.guests, 0);
+  const reserved = list.filter(r => !r.isWalkIn).reduce((s, r) => s + r.guests, 0);
+  const walkins  = list.filter(r => r.isWalkIn).reduce((s, r) => s + r.guests, 0);
   return { reserved, walkins, total: reserved + walkins };
 }
 
@@ -186,7 +182,7 @@ app.get("/api/config", (_req, res) => {
 });
 
 // ------------------------------------------------------
-//  Slots
+//  Slots  (returns `left`; gray out in UI if left === 0)
 // ------------------------------------------------------
 app.get("/api/slots", async (req, res) => {
   const date = normalizeYmd(String(req.query.date || ""));
@@ -210,36 +206,49 @@ app.get("/api/slots", async (req, res) => {
       continue;
     }
     const sums = await sumsForInterval(date, allow.start!, allow.end!);
-    const left =
-      Math.min(MAX_SEATS_RESERVABLE, MAX_SEATS_TOTAL) - sums.total;
-    const canReserve = left > 0;
-    out.push({
-      time: t,
-      allowed: true,
-      reason: null,
-      minutes: allow.minutes,
-      canReserve,
-      reserved: sums.reserved,
-      walkins: sums.walkins,
-      total: sums.total,
-      left,
-    });
+    const left = Math.max(0, MAX_SEATS_RESERVABLE - sums.reserved);
+    const canReserve = left > 0 && sums.total < MAX_SEATS_TOTAL;
+
+    if (!canReserve) {
+      out.push({
+        time: t,
+        allowed: false,
+        reason: "Fully booked",
+        minutes: allow.minutes,
+        canReserve: false,
+        reserved: sums.reserved,
+        walkins: sums.walkins,
+        total: sums.total,
+        left: 0,
+      });
+    } else {
+      out.push({
+        time: t,
+        allowed: true,
+        reason: null,
+        minutes: allow.minutes,
+        canReserve: true,
+        reserved: sums.reserved,
+        walkins: sums.walkins,
+        total: sums.total,
+        left,
+      });
+    }
   }
   res.json(out);
 });
 
 // ------------------------------------------------------
-//  Reservations
+//  Reservations  (cap 10 guests; loyalty in mail)
 // ------------------------------------------------------
 app.post("/api/reservations", async (req, res) => {
   const { date, time, firstName, name, email, phone, guests, notes } = req.body;
 
+  // hard cap per booking
   const GUEST_CAP = 10;
   const g = Number(guests);
   if (g > GUEST_CAP) {
-    const contact = `${process.env.VENUE_EMAIL || FROM_EMAIL}${
-      process.env.VENUE_PHONE ? " or " + process.env.VENUE_PHONE : ""
-    }`;
+    const contact = `${process.env.VENUE_EMAIL || FROM_EMAIL}${process.env.VENUE_PHONE ? " or " + process.env.VENUE_PHONE : ""}`;
     return res.status(400).json({
       error: `Online bookings are limited to ${GUEST_CAP} guests. For larger groups, please contact us via ${contact}.`,
     });
@@ -247,18 +256,19 @@ app.post("/api/reservations", async (req, res) => {
 
   const allow = await slotAllowed(String(date), String(time));
   if (!allow.ok) {
-    return res.status(400).json({ error: allow.reason || "Not available" });
+    const msg =
+      allow.reason === "Blocked" ? "We are closed at that time. Please pick a different day."
+      : allow.reason === "Before opening hours" || allow.reason === "After closing hours" ? "This time is outside of our opening hours."
+      : allow.reason === "Closed on Sunday" ? "We are closed on Sundays."
+      : "This time slot is not available.";
+    return res.status(400).json({ error: msg });
   }
 
   const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
   if (sums.reserved + g > MAX_SEATS_RESERVABLE)
-    return res
-      .status(400)
-      .json({ error: "We are fully booked at this time. Please choose another slot." });
+    return res.status(400).json({ error: "We are fully booked at this time. Please choose another slot." });
   if (sums.total + g > MAX_SEATS_TOTAL)
-    return res
-      .status(400)
-      .json({ error: "We are fully booked at this time. Please choose another slot." });
+    return res.status(400).json({ error: "We are fully booked at this time. Please choose another slot." });
 
   const token = nanoid();
   const created = await prisma.reservation.create({
@@ -279,7 +289,7 @@ app.post("/api/reservations", async (req, res) => {
     },
   });
 
-  // loyalty info
+  // loyalty info (count confirmed + noshow for that email, including this one)
   const visitCount = await prisma.reservation.count({
     where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
   });
@@ -307,7 +317,169 @@ app.post("/api/reservations", async (req, res) => {
 });
 
 // ------------------------------------------------------
-//  Cancel
+//  Admin: list with loyalty fields (visitCount, discount)
+// ------------------------------------------------------
+app.get("/api/admin/reservations", async (req: Request, res: Response) => {
+  const date = normalizeYmd(String(req.query.date || ""));
+  const view = String(req.query.view || "day"); // "day" | "week"
+
+  let list: any[] = [];
+  if (view === "week" && date) {
+    const base = new Date(`${date}T00:00:00`);
+    const from = new Date(base);
+    const to = new Date(base);
+    to.setDate(to.getDate() + 7);
+    list = await prisma.reservation.findMany({
+      where: { startTs: { gte: from }, endTs: { lt: to } },
+      orderBy: [{ date: "asc" }, { time: "asc" }],
+    });
+  } else {
+    const where: any = date ? { date } : {};
+    list = await prisma.reservation.findMany({
+      where,
+      orderBy: [{ date: "asc" }, { time: "asc" }],
+    });
+  }
+
+  // collect distinct emails
+  const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
+  // fetch counts for all emails in one go (parallel)
+  const counts = new Map<string, number>();
+  await Promise.all(
+    emails.map(async (em) => {
+      const c = await prisma.reservation.count({
+        where: { email: em, status: { in: ["confirmed", "noshow"] } },
+      });
+      counts.set(em, c);
+    })
+  );
+
+  const withLoyalty = list.map(r => {
+    const vc = counts.get(r.email || "") || 1;
+    const dc = discountFromCount(vc);
+    return { ...r, visitCount: vc, discount: dc };
+  });
+
+  res.json(withLoyalty);
+});
+
+// ------------------------------------------------------
+//  Admin: delete / noshow
+// ------------------------------------------------------
+app.delete("/api/admin/reservations/:id", async (req: Request, res: Response) => {
+  await prisma.reservation.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
+app.post("/api/admin/reservations/:id/noshow", async (req: Request, res: Response) => {
+  const r = await prisma.reservation.update({
+    where: { id: req.params.id },
+    data: { status: "noshow" },
+  });
+  res.json(r);
+});
+
+// ------------------------------------------------------
+//  Walk-in (Admin UI)
+// ------------------------------------------------------
+app.post("/api/walkin", async (req: Request, res: Response) => {
+  const { date, time, guests, notes } = req.body;
+  const allow = await slotAllowed(String(date), String(time));
+  if (!allow.ok) return res.status(400).json({ error: "This time is not available." });
+
+  const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
+  if (sums.total + Number(guests) > MAX_SEATS_TOTAL) return res.status(400).json({ error: "We are full at that time." });
+
+  const created = await prisma.reservation.create({
+    data: {
+      date: allow.norm!, time, startTs: allow.start!, endTs: allow.end!,
+      firstName: "Walk", name: "In", email: "walkin@noxama.local",
+      guests: Number(guests), notes, status: "confirmed", cancelToken: nanoid(), isWalkIn: true,
+    },
+  });
+  res.json(created);
+});
+
+// ------------------------------------------------------
+//  Closures (Admin UI)
+// ------------------------------------------------------
+app.post("/api/admin/closure", async (req: Request, res: Response) => {
+  const { startTs, endTs, reason } = req.body;
+  const s = new Date(String(startTs).replace(" ", "T"));
+  const e = new Date(String(endTs).replace(" ", "T"));
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return res.status(400).json({ error: "Invalid time range" });
+  if (e <= s) return res.status(400).json({ error: "End must be after start" });
+  const c = await prisma.closure.create({ data: { startTs: s, endTs: e, reason: String(reason || "Closed") } });
+  res.json(c);
+});
+
+app.post("/api/admin/closure/day", async (req: Request, res: Response) => {
+  const date = normalizeYmd(String(req.body.date || ""));
+  if (!date) return res.status(400).json({ error: "Invalid date" });
+  const { y, m, d } = splitYmd(date);
+  const s = localDate(y, m, d, OPEN_HOUR, 0, 0);
+  const e = localDate(y, m, d, CLOSE_HOUR, 0, 0);
+  const c = await prisma.closure.create({ data: { startTs: s, endTs: e, reason: String(req.body.reason || "Closed") } });
+  res.json(c);
+});
+
+app.get("/api/admin/closure", async (_req: Request, res: Response) => {
+  const list = await prisma.closure.findMany({ orderBy: { startTs: "desc" } });
+  res.json(list);
+});
+
+app.delete("/api/admin/closure/:id", async (req: Request, res: Response) => {
+  await prisma.closure.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
+// ------------------------------------------------------
+//  Export (Excel) — unchanged except context
+// ------------------------------------------------------
+app.get("/api/export", async (req: Request, res: Response) => {
+  const period = String(req.query.period || "daily");
+  const norm = normalizeYmd(
+    String(req.query.date || format(new Date(), "yyyy-MM-dd"))
+  );
+  const base = new Date(norm + "T00:00:00");
+  const start = new Date(base), end = new Date(base);
+  if (period === "daily") end.setDate(end.getDate() + 1);
+  else if (period === "weekly") end.setDate(end.getDate() + 7);
+  else if (period === "monthly") end.setMonth(end.getMonth() + 1);
+  else if (period === "yearly") end.setFullYear(end.getFullYear() + 1);
+
+  const list = await prisma.reservation.findMany({
+    where: { startTs: { gte: start }, endTs: { lt: end } },
+    orderBy: [{ date: "asc" }, { time: "asc" }],
+  });
+
+  const rows = list.map((r: any) => ({
+    Date: r.date,
+    Time: r.time,
+    DurationMin: (r.endTs.getTime() - r.startTs.getTime()) / 60000,
+    FirstName: r.firstName,
+    Name: r.name,
+    Email: r.email,
+    Phone: r.phone || "",
+    Guests: r.guests,
+    Status: r.status,
+    Notes: r.notes || "",
+    WalkIn: r.isWalkIn ? "yes" : "no",
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws1, "Reservations");
+
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+  const fname = `export_${period}_${format(base, "yyyyMMdd")}.xlsx`;
+  res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.send(buf);
+});
+
+// ------------------------------------------------------
+//  Cancel page
 // ------------------------------------------------------
 app.get("/cancel/:token", async (req, res) => {
   const r = await prisma.reservation.findUnique({
@@ -322,7 +494,7 @@ app.get("/cancel/:token", async (req, res) => {
 });
 
 // ------------------------------------------------------
-//  Confirmation Email Template
+//  Confirmation Email Template (logo centered, loyalty, 15-min rule)
 // ------------------------------------------------------
 function confirmationHtml(
   firstName: string,
