@@ -5,6 +5,14 @@
   <title>Contact and Table Booking</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    /* kleine Extras damit das Popup auch ohne weitere CSS-Datei gut aussieht */
+    .modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.35); }
+    .modal.hidden { display: none; }
+    .modal-body { background: #fff; color:#3a2f28; padding: 20px; border-radius: 10px; width: min(560px, 92vw); box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+    .modal-body h3 { margin-top: 0; }
+    .btn-ghost { background: #eee3d5; border: 1px solid #d8c6b2; color:#3a2f28; border-radius:8px; padding:10px 14px; cursor:pointer; }
+  </style>
 </head>
 <body>
 <div class="container">
@@ -61,12 +69,14 @@
   </div>
 </div>
 
-<!-- Thank-you modal -->
-<div id="modal" class="modal hidden">
+<!-- Modal -->
+<div id="modal" class="modal hidden" aria-modal="true" role="dialog">
   <div class="modal-body">
-    <h3>Thank you!</h3>
-    <p>Your reservation has been received. You will get a confirmation email shortly.</p>
-    <button id="closeModal" class="btn">OK</button>
+    <h3 id="modalTitle">Thank you!</h3>
+    <p id="modalText">Your reservation has been received. You will get a confirmation email shortly.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+      <button id="closeModal" class="btn">OK</button>
+    </div>
   </div>
 </div>
 
@@ -85,13 +95,31 @@ for(let i=1;i<=48;i++){ const o=document.createElement("option"); o.value=o.text
 
 let selectedTime = null;
 
-function msgForReason(reason){
+// unified modal helpers
+function showModal(title, text){
+  document.getElementById("modalTitle").textContent = title || "Info";
+  document.getElementById("modalText").textContent = text || "";
+  document.getElementById("modal").classList.remove("hidden");
+}
+document.getElementById("closeModal").onclick = ()=>document.getElementById("modal").classList.add("hidden");
+
+// translate any backend reason (de/en) to clean English for the UI
+function toEnglishReason(reason){
   const r = String(reason||"").toLowerCase();
-  if(r.includes("sunday")) return "We are closed on Sundays.";
-  if(r.includes("fully")) return "All time slots are fully booked for this day. Please choose another day.";
-  if(r.includes("blockiert") || r.includes("temporarily")) return "This date is blocked for a private event. Please choose another day.";
-  if(r.includes("opening") || r.includes("öffnun") || r.includes("closing")) return "This time is outside our opening hours.";
-  return reason || "Not available";
+
+  if(r.includes("sonntag") || r.includes("sunday"))
+    return "We are closed on Sundays.";
+
+  if(r.includes("fully") || r.includes("ausgebucht") || r.includes("voll"))
+    return "This time is fully booked. Please choose another time or a different day.";
+
+  if(r.includes("blockiert") || r.includes("temporarily") || r.includes("blocked"))
+    return "This date is blocked for a private event. Please choose another day.";
+
+  if(r.includes("opening") || r.includes("öffnun") || r.includes("closing"))
+    return "This time is outside our opening hours.";
+
+  return reason || "Not available.";
 }
 
 async function loadSlots(){
@@ -105,11 +133,10 @@ async function loadSlots(){
   box.innerHTML = "";
   btnBook.disabled = true;
 
-  // Banner: wenn der Tag komplett gesperrt ist oder alles voll
+  // Banner bei komplett nicht buchbarem Tag
   if (data.length && data.every(s => !s.allowed || !s.canReserve)) {
-    // wenn alle den gleichen Grund haben, diesen anzeigen – sonst generisch
-    const reasons = Array.from(new Set(data.map(s => s.reason || "")));
-    const main = reasons.length === 1 ? msgForReason(reasons[0]) : "No available time slots for this day. Please choose another day.";
+    const reasons = Array.from(new Set(data.map(s => toEnglishReason(s.reason))));
+    const main = reasons.length === 1 ? reasons[0] : "No available time slots for this day. Please choose another day.";
     banner.textContent = main;
     banner.classList.remove("hidden");
   } else {
@@ -122,6 +149,7 @@ async function loadSlots(){
     b.type = "button";
     b.className = "slot " + (s.allowed && s.canReserve ? "" : "disabled");
     b.textContent = s.time;
+
     if (s.allowed && s.canReserve) {
       b.onclick = ()=>{
         document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active"));
@@ -130,7 +158,11 @@ async function loadSlots(){
         btnBook.disabled = false;
       };
     } else {
-      b.title = msgForReason(s.reason);
+      const reason = toEnglishReason(s.reason);
+      b.title = reason;
+
+      // Wichtig: auch bei disabled Slot zeigen wir ein Popup
+      b.onclick = ()=>showModal("Not available", reason);
     }
     box.appendChild(b);
   });
@@ -139,13 +171,14 @@ document.getElementById("reload").onclick = loadSlots;
 document.getElementById("date").addEventListener("change", loadSlots);
 loadSlots();
 
+// friendly error popup
 function friendlyError(e){
   if(!e) return "Something went wrong.";
   const t = String(e).toLowerCase();
-  if(t.includes("sunday")) return "We are closed on Sundays.";
-  if(t.includes("fully")) return "We are fully booked at this time. Please select another slot.";
-  if(t.includes("block")) return "This date is blocked for a private event. Please choose another day.";
-  if(t.includes("opening") || t.includes("closing")) return "This time is outside our opening hours.";
+  if(t.includes("sunday") || t.includes("sonntag")) return "We are closed on Sundays.";
+  if(t.includes("fully") || t.includes("ausgebucht") || t.includes("voll")) return "This time is fully booked. Please choose another time or a different day.";
+  if(t.includes("block") || t.includes("blockiert")) return "This date is blocked for a private event. Please choose another day.";
+  if(t.includes("opening") || t.includes("closing") || t.includes("öffnun")) return "This time is outside our opening hours.";
   return e;
 }
 
@@ -157,23 +190,30 @@ document.getElementById("book").onclick = async ()=>{
   const phone = document.getElementById("phone").value.trim();
   const guests = Number(document.getElementById("guests").value);
   const notes = document.getElementById("notes").value.trim();
-  const m = document.getElementById("msg");
 
-  if(!selectedTime){ m.textContent="Please select a time slot"; return; }
-  if(!firstName || !name || !email){ m.textContent="Please fill in all required fields"; return; }
+  if(!selectedTime){ return showModal("Select a time", "Please choose a time slot before booking."); }
+  if(!firstName || !name || !email){ return showModal("Missing information", "Please fill in first name, name and email."); }
 
-  m.textContent = "";
-  const payload = { date:d, time:selectedTime, firstName, name, email, phone, guests, notes };
-  const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-  if(r.ok){
-    document.getElementById("modal").classList.remove("hidden");
-    loadSlots();
-  }else{
-    const e = await r.json().catch(()=>({error:"Error"}));
-    m.textContent = friendlyError(e.error||"Error");
+  try {
+    const payload = { date:d, time:selectedTime, firstName, name, email, phone, guests, notes };
+    const resp = await fetch("/api/reservations", {
+      method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload)
+    });
+
+    if(resp.ok){
+      showModal("Reservation confirmed", "Thank you! We have received your reservation and sent a confirmation email.");
+      loadSlots();
+    } else {
+      // zeige server text, aber englisch-aufbereitet
+      const raw = await resp.text();
+      let errMsg = "";
+      try { errMsg = (JSON.parse(raw).error) || raw; } catch { errMsg = raw || "Error"; }
+      showModal("Not available", friendlyError(errMsg));
+    }
+  } catch {
+    showModal("Network error", "Please try again in a moment.");
   }
 };
-document.getElementById("closeModal").onclick = ()=>document.getElementById("modal").classList.add("hidden");
 </script>
 </body>
 </html>
