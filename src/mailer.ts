@@ -1,9 +1,8 @@
-// src/mailer.ts
 import nodemailer, { Transporter } from "nodemailer";
 
-/* ----------------------------- env helpers ------------------------------ */
+let _transporter: Transporter | null = null;
 
-function getEnv(name: string, fallback?: string): string {
+function env(name: string, fallback?: string) {
   const v = process.env[name];
   if (v === undefined || v === null || v === "") {
     if (fallback !== undefined) return fallback;
@@ -12,121 +11,88 @@ function getEnv(name: string, fallback?: string): string {
   return v;
 }
 
-function getBool(name: string, fallback = false): boolean {
-  const v = process.env[name];
-  if (v === undefined || v === null || v === "") return fallback;
-  return String(v).toLowerCase() === "true" || v === "1" || v === "yes";
-}
+type Dial = {
+  host: string;
+  port: number;
+  secure: boolean;
+  requireTLS?: boolean;
+};
 
-function getInt(name: string, fallback: number): number {
-  const v = process.env[name];
-  const n = v === undefined ? NaN : Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-/* ---------------------------- transporter ------------------------------- */
-
-let _transporter: Transporter | null = null;
-
-function buildTransport(): Transporter {
-  // Pflichtwerte
-  const host = getEnv("SMTP_HOST");                         // z. B. mail.webador.com
-  const port = getInt("SMTP_PORT", 465);                    // 465=SMTPS (secure), 587=STARTTLS
-  const user = getEnv("SMTP_USER");                         // info@noxamasamui.com
-  const pass = getEnv("SMTP_PASS");                         // Mailbox-Passwort
-
-  // Ableitung/Optionen
-  const secure =
-    process.env.SMTP_SECURE !== undefined
-      ? getBool("SMTP_SECURE", true)
-      : port === 465;                                       // 465 -> secure true, sonst false
-
-  const usePool = getBool("MAIL_POOL", true);               // Pooling reduziert Verbindungsaufbau
-  const maxConnections = getInt("MAIL_POOL_CONN", 3);
-  const maxMessages    = getInt("MAIL_POOL_MSG", 100);
-
-  // TLS-Optionen – standardmäßig sicher; bei exotischen Hosts kann man lockern
-  const tlsRejectUnauthorized = getBool("SMTP_TLS_REJECT_UNAUTHORIZED", true);
-  const ignoreTLS = getBool("SMTP_IGNORE_TLS", false);      // nur sinnvoll bei Port 587, selten nötig
-
-  // Optionales DKIM (nur setzen, wenn alle 3 Werte da sind)
-  const dkimDomain   = process.env.DKIM_DOMAIN;
-  const dkimSelector = process.env.DKIM_SELECTOR;
-  const dkimKey      = process.env.DKIM_PRIVATE_KEY;
-
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
+function createTransport(d: Dial, user: string, pass: string): Transporter {
+  return nodemailer.createTransport({
+    host: d.host,
+    port: d.port,
+    secure: d.secure,            // 465 = true, 587 = false (mit STARTTLS)
+    requireTLS: d.requireTLS,    // für 587 erzwingen wir TLS nach HELO
     auth: { user, pass },
-    pool: usePool,
-    maxConnections,
-    maxMessages,
-    // Timeouts (ms)
-    connectionTimeout: getInt("SMTP_CONNECTION_TIMEOUT", 20_000),
-    greetingTimeout:   getInt("SMTP_GREETING_TIMEOUT",   20_000),
-    socketTimeout:     getInt("SMTP_SOCKET_TIMEOUT",     30_000),
-    // TLS
-    ignoreTLS,
-    tls: { rejectUnauthorized: tlsRejectUnauthorized },
-    // Nodemailer setzt UTF-8/8BIT automatisch; nichts weiter nötig
-  } as any);
-
-  if (dkimDomain && dkimSelector && dkimKey) {
-    // @ts-ignore – Typen in nodemailer erlauben dkim optional
-    transporter.options.dkim = {
-      domainName: dkimDomain,
-      keySelector: dkimSelector,
-      privateKey: dkimKey,
-    };
-  }
-
-  return transporter;
+    connectionTimeout: 15000,    // 15s
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+    tls: {
+      minVersion: "TLSv1.2",     // etwas strenger
+      // rejectUnauthorized: false, // nur setzen, wenn wirklich nötig
+    },
+  });
 }
 
-/* ------------------------------ exports -------------------------------- */
+async function verify(t: Transporter) {
+  // verify() baut eine Verbindung auf und beendet sie wieder
+  await t.verify();
+}
+
+async function buildTransportAuto(): Promise<Transporter> {
+  const host = env("SMTP_HOST");
+  const user = env("SMTP_USER");
+  const pass = env("SMTP_PASS");
+
+  // 1) zuerst das, was in den ENVs steht
+  const firstPort = Number(env("SMTP_PORT", "587"));
+  const firstSecure = String(process.env.SMTP_SECURE || "false").toLowerCase() === "true";
+
+  const attempts: Dial[] = [
+    { host, port: firstPort, secure: firstSecure, requireTLS: !firstSecure },
+    // Fallbacks in sinnvoller Reihenfolge
+    { host, port: 587, secure: false, requireTLS: true }, // STARTTLS
+    { host, port: 465, secure: true },                    // SMTPS
+  ];
+
+  let lastErr: any;
+  const tried = new Set<string>();
+
+  for (const d of attempts) {
+    const key = `${d.host}:${d.port}/${d.secure ? "ssl" : "starttls"}`;
+    if (tried.has(key)) continue;
+    tried.add(key);
+
+    try {
+      const t = createTransport(d, user, pass);
+      await verify(t);
+      return t;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
 
 export function mailer(): Transporter {
-  if (!_transporter) _transporter = buildTransport();
+  if (!_transporter) {
+    // lazy, aber synchrones Getter: wir erstellen async im Hintergrund
+    // und werfen Fehler erst beim ersten sendMail/verify
+    // (alternativ: server-start await buildTransportAuto())
+    throw new Error(
+      "Mailer not initialized. Call await verifyMailer() at startup once."
+    );
+  }
   return _transporter;
 }
 
 export async function verifyMailer(): Promise<void> {
-  try {
-    await mailer().verify();
-  } catch (err: any) {
-    // Mehr Kontext für Logs
-    const host = process.env.SMTP_HOST ?? "<unset>";
-    const port = process.env.SMTP_PORT ?? "<unset>";
-    const user = process.env.SMTP_USER ?? "<unset>";
-    throw new Error(
-      `SMTP verify failed (${host}:${port}, user=${user}): ${err?.message || err}`
-    );
-  }
+  _transporter = await buildTransportAuto();
 }
 
 export function fromAddress(): string {
-  const name = process.env.MAIL_FROM_NAME || "RÖSTILAND BY NOXAMA SAMUI";
-  const addr = process.env.MAIL_FROM_ADDRESS || getEnv("SMTP_USER");
+  const name = process.env.MAIL_FROM_NAME || "NOXAMA SAMUI";
+  const addr = process.env.MAIL_FROM_ADDRESS || env("SMTP_USER");
   return name ? `${name} <${addr}>` : addr;
-}
-
-/**
- * Komfortfunktion: eine Mail versenden.
- * (Optional – falls du direkt mailer().sendMail(...) nutzt, kannst du das weglassen.)
- */
-export async function sendMail(opts: {
-  to: string | string[];
-  subject: string;
-  text?: string;
-  html?: string;
-  cc?: string | string[];
-  bcc?: string | string[];
-  replyTo?: string;
-}) {
-  const info = await mailer().sendMail({
-    from: fromAddress(),
-    ...opts,
-  });
-  return info.messageId;
 }
