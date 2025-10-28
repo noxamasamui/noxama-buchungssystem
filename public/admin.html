@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
@@ -93,7 +93,7 @@ const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.ge
 document.getElementById("fltDate").value = today();
 document.getElementById("wDate").value = today();
 
-// Walk-in Zeiten in 15-Minuten-Schritten
+// Walk-in times
 function fillWalkInTimes(){
   const sel = document.getElementById("wTime");
   sel.innerHTML = "";
@@ -140,14 +140,24 @@ async function loadList(){
   });
 
   document.getElementById("sum").textContent = `Total bookings: ${data.length}   Total guests: ${totalGuests}`;
-
-  tb.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", async ()=>{
-    await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"}); loadList();
-  }));
-  tb.querySelectorAll("[data-ns]").forEach(b=>b.addEventListener("click", async ()=>{
-    await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"}); loadList();
-  }));
 }
+
+// Delegation: Buttons funktionieren stabil auch nach Re-Render
+document.querySelector("#tbl tbody").addEventListener("click", async (ev)=>{
+  const btn = ev.target.closest("button");
+  if(!btn) return;
+  if(btn.dataset.del){
+    if(!confirm("Delete reservation?")) return;
+    const resp = await fetch(`/api/admin/reservations/${btn.dataset.del}`, {method:"DELETE"});
+    if(!resp.ok) return alert("Delete failed");
+    loadList();
+  } else if(btn.dataset.ns){
+    const resp = await fetch(`/api/admin/reservations/${btn.dataset.ns}/noshow`, {method:"POST"});
+    if(!resp.ok) return alert("Update failed");
+    loadList();
+  }
+});
+
 document.getElementById("btnLoad").addEventListener("click", loadList);
 document.getElementById("view").addEventListener("change", loadList);
 loadList();
@@ -166,7 +176,7 @@ document.getElementById("btnWalk").addEventListener("click", async ()=>{
   const payload = { date:d, time:t, guests:Number(document.getElementById("wGuests").value), notes:document.getElementById("wNotes").value };
   const r = await fetch("/api/walkin", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   const m = document.getElementById("wMsg");
-  if(r.ok){ m.textContent="Saved"; loadList(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  if(r.ok){ m.textContent="Saved"; loadList(); } else { const e = await r.json().catch(()=>({error:"Error"})); m.textContent = e.error || "Error"; }
 });
 
 // Closures
@@ -198,7 +208,7 @@ document.getElementById("btnBlock").addEventListener("click", async ()=>{
   };
   const r = await fetch("/api/admin/closure", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   const m = document.getElementById("cMsg");
-  if(r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  if(r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json().catch(()=>({error:"Error"})); m.textContent = e.error || "Error"; }
 });
 
 document.getElementById("btnBlockDayPicker").addEventListener("click", async ()=>{
@@ -208,9 +218,8 @@ document.getElementById("btnBlockDayPicker").addEventListener("click", async ()=
   const reason = document.getElementById("cReason").value || "Closed";
   const r = await fetch("/api/admin/closure/day", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ date: iso, reason }) });
   const m = document.getElementById("cMsg");
-  if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json().catch(()=>({error:"Error"})); m.textContent = e.error || "Error"; }
 });
 </script>
 </body>
 </html>
-
