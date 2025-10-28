@@ -127,12 +127,15 @@ async function slotAllowed(dateYmd: string, timeHHmm: string) {
   return { ok: true, start, end, minutes, norm };
 }
 
-// Loyalty: discount by visit count
-function discountFromCount(n: number): number {
-  if (n >= 15) return 15;
-  if (n >= 5) return 10;
-  if (n >= 3) return 5;
-  return 0;
+// ---------------- Loyalty mapping exactly per your spec ----------------
+type Loyalty = { current: number; nextAt?: number; nextPercent?: number };
+function loyaltyFromVisitCount(vc: number): Loyalty {
+  // vc = total visits INCLUDING this newly created reservation
+  if (vc >= 15) return { current: 15 };
+  if (vc >= 10) return { current: 10, nextAt: 15, nextPercent: 15 }; // at 14 we'll show explicit hint in mail
+  if (vc >= 5)  return { current: 5,  nextAt: 10, nextPercent: 10 }; // at 9 we'll show explicit hint
+  // vc <= 4 -> still no discount; at 4 we hint next one
+  return { current: 0, nextAt: 5, nextPercent: 5 };
 }
 
 // ------------------------------------------------------
@@ -150,24 +153,8 @@ async function sendEmailSMTP(to: string, subject: string, html: string) {
 // ------------------------------------------------------
 //  Pages
 // ------------------------------------------------------
-app.get("/", (_req, res) =>
-  res.sendFile(path.join(publicDir, "index.html"))
-);
-app.get("/admin", (_req, res) =>
-  res.sendFile(path.join(publicDir, "admin.html"))
-);
-
-// ------------------------------------------------------
-//  Health / Test-Mail
-// ------------------------------------------------------
-app.get("/__health/email", async (_req, res) => {
-  try {
-    await verifyMailer();
-    res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ ok: false, error: String(e?.message || e) });
-  }
-});
+app.get("/", (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
+app.get("/admin", (_req, res) => res.sendFile(path.join(publicDir, "admin.html")));
 
 // ------------------------------------------------------
 //  Public Config
@@ -182,7 +169,7 @@ app.get("/api/config", (_req, res) => {
 });
 
 // ------------------------------------------------------
-//  Slots  (returns `left`; gray out in UI if left === 0)
+//  Slots (returns left; UI should gray out when left===0)
 // ------------------------------------------------------
 app.get("/api/slots", async (req, res) => {
   const date = normalizeYmd(String(req.query.date || ""));
@@ -239,7 +226,7 @@ app.get("/api/slots", async (req, res) => {
 });
 
 // ------------------------------------------------------
-//  Reservations  (cap 10 guests; loyalty in mail)
+//  Reservations (cap 10; loyalty messaging)
 // ------------------------------------------------------
 app.post("/api/reservations", async (req, res) => {
   const { date, time, firstName, name, email, phone, guests, notes } = req.body;
@@ -289,11 +276,12 @@ app.post("/api/reservations", async (req, res) => {
     },
   });
 
-  // loyalty info (count confirmed + noshow for that email, including this one)
+  // loyalty info (including this visit)
   const visitCount = await prisma.reservation.count({
     where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
   });
-  const discount = discountFromCount(visitCount);
+  const loyalty = loyaltyFromVisitCount(visitCount);
+  const discount = loyalty.current;
 
   const cancelUrl = `${BASE_URL}/cancel/${token}`;
   const html = confirmationHtml(
@@ -304,7 +292,7 @@ app.post("/api/reservations", async (req, res) => {
     created.guests,
     cancelUrl,
     visitCount,
-    discount
+    loyalty
   );
 
   try {
@@ -317,11 +305,11 @@ app.post("/api/reservations", async (req, res) => {
 });
 
 // ------------------------------------------------------
-//  Admin: list with loyalty fields (visitCount, discount)
+//  Admin: list + loyalty fields
 // ------------------------------------------------------
 app.get("/api/admin/reservations", async (req: Request, res: Response) => {
   const date = normalizeYmd(String(req.query.date || ""));
-  const view = String(req.query.view || "day"); // "day" | "week"
+  const view = String(req.query.view || "day");
 
   let list: any[] = [];
   if (view === "week" && date) {
@@ -341,9 +329,8 @@ app.get("/api/admin/reservations", async (req: Request, res: Response) => {
     });
   }
 
-  // collect distinct emails
+  // collect distinct emails and count visits
   const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
-  // fetch counts for all emails in one go (parallel)
   const counts = new Map<string, number>();
   await Promise.all(
     emails.map(async (em) => {
@@ -356,15 +343,15 @@ app.get("/api/admin/reservations", async (req: Request, res: Response) => {
 
   const withLoyalty = list.map(r => {
     const vc = counts.get(r.email || "") || 1;
-    const dc = discountFromCount(vc);
-    return { ...r, visitCount: vc, discount: dc };
+    const d = loyaltyFromVisitCount(vc).current;
+    return { ...r, visitCount: vc, discount: d };
   });
 
   res.json(withLoyalty);
 });
 
 // ------------------------------------------------------
-//  Admin: delete / noshow
+//  Admin actions
 // ------------------------------------------------------
 app.delete("/api/admin/reservations/:id", async (req: Request, res: Response) => {
   await prisma.reservation.delete({ where: { id: req.params.id } });
@@ -380,7 +367,7 @@ app.post("/api/admin/reservations/:id/noshow", async (req: Request, res: Respons
 });
 
 // ------------------------------------------------------
-//  Walk-in (Admin UI)
+//  Walk-in
 // ------------------------------------------------------
 app.post("/api/walkin", async (req: Request, res: Response) => {
   const { date, time, guests, notes } = req.body;
@@ -401,7 +388,7 @@ app.post("/api/walkin", async (req: Request, res: Response) => {
 });
 
 // ------------------------------------------------------
-//  Closures (Admin UI)
+//  Closures
 // ------------------------------------------------------
 app.post("/api/admin/closure", async (req: Request, res: Response) => {
   const { startTs, endTs, reason } = req.body;
@@ -434,7 +421,7 @@ app.delete("/api/admin/closure/:id", async (req: Request, res: Response) => {
 });
 
 // ------------------------------------------------------
-//  Export (Excel) — unchanged except context
+//  Export (Excel)
 // ------------------------------------------------------
 app.get("/api/export", async (req: Request, res: Response) => {
   const period = String(req.query.period || "daily");
@@ -494,7 +481,10 @@ app.get("/cancel/:token", async (req, res) => {
 });
 
 // ------------------------------------------------------
-//  Confirmation Email Template (logo centered, loyalty, 15-min rule)
+//  Confirmation Email Template
+//  - celebratory
+//  - punctuality note
+//  - exact tier messages incl. "next visit" hints at 4, 9, 14
 // ------------------------------------------------------
 function confirmationHtml(
   firstName: string,
@@ -504,26 +494,50 @@ function confirmationHtml(
   guests: number,
   cancelUrl: string,
   visitCount: number,
-  discount: number
+  loyalty: Loyalty
 ) {
   const logo = process.env.MAIL_LOGO_URL || "/logo.png";
   const site = BRAND_NAME;
 
-  const loyaltyHtml =
-    discount > 0
-      ? `
+  // Compose loyalty block according to exact rules
+  let loyaltyBlock = "";
+  if (loyalty.current >= 15) {
+    loyaltyBlock = `
       <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
-        <div style="font-size:22px;line-height:1.2;margin-bottom:6px;">🎉 <b>Fantastic news!</b> 🎉</div>
-        <div style="font-size:16px;">
-          This is your <b>${visitCount}${visitCount === 1 ? "st" : "th"}</b> visit.<br/>
-          You’ve unlocked a <b style="color:#b3822f;">${discount}% loyalty discount</b> for your next reservation! 🥂
-        </div>
-      </div>`
-      : `
-      <div style="margin:16px 0 6px 0;font-size:15px;text-align:center;">
-        You’ve visited us <b>${visitCount}</b> ${visitCount === 1 ? "time" : "times"} so far.
-        After 3 visits you get <b>5%</b>, after 5 visits <b>10%</b> and after 15 visits <b>15%</b> off!
+        <div style="font-size:22px;margin-bottom:6px;">🎉 <b>Legendary loyalty!</b> 🎉</div>
+        <div style="font-size:16px;">You enjoy a <b style="color:#b3822f;">15% loyalty discount</b>. Thank you for being with us!</div>
       </div>`;
+  } else if (loyalty.current >= 10) {
+    const nextHint = visitCount === 14
+      ? `<div style="margin-top:8px;font-size:14px;opacity:.8;">You’re one visit away from <b>15%</b> — starting with your next reservation.</div>`
+      : "";
+    loyaltyBlock = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 <b>Wonderful!</b> 🎉</div>
+        <div style="font-size:16px;">You enjoy a <b style="color:#b3822f;">10% loyalty discount</b> on this reservation.</div>
+        ${nextHint}
+      </div>`;
+  } else if (loyalty.current >= 5) {
+    const nextHint = visitCount === 9
+      ? `<div style="margin-top:8px;font-size:14px;opacity:.8;">You’re one visit away from <b>10%</b> — starting with your 10th reservation.</div>`
+      : "";
+    loyaltyBlock = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 <b>Great news!</b> 🎉</div>
+        <div style="font-size:16px;">You enjoy a <b style="color:#b3822f;">5% loyalty discount</b> on this reservation.</div>
+        ${nextHint}
+      </div>`;
+  } else {
+    // current = 0; at vc=4 we show the "next will be 5%"
+    const next5 = visitCount === 4
+      ? `<div style="margin-top:8px;font-size:14px;opacity:.9;"><b>Almost there:</b> your next reservation will include <b>5% off</b>!</div>`
+      : `<div style="margin-top:8px;font-size:14px;opacity:.85;">Collect visits to unlock rewards — 5% from your 5th visit, 10% from your 10th, and 15% from your 15th.</div>`;
+    loyaltyBlock = `
+      <div style="margin:16px 0 6px 0;text-align:center;">
+        <div style="font-size:16px;">This is your <b>${visitCount}${visitCount === 1 ? "st" : "th"}</b> visit — thank you!</div>
+        ${next5}
+      </div>`;
+  }
 
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
@@ -542,7 +556,7 @@ function confirmationHtml(
       <p style="margin:0;"><b>Guests</b> ${guests}</p>
     </div>
 
-    ${loyaltyHtml}
+    ${loyaltyBlock}
 
     <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
       <b>Punctuality</b><br/>
@@ -557,13 +571,13 @@ function confirmationHtml(
     </p>
 
     <p style="margin-top:16px;font-size:14px;text-align:center;">
-      We can’t wait to welcome you!<br/><b>Warm greetings from ${site}</b>
+      We can’t wait to celebrate with you!<br/><b>Warm greetings from ${site}</b>
     </p>
   </div>`;
 }
 
 // ------------------------------------------------------
-//  Reminder Job
+//  Reminder Job (unchanged, with punctuality note)
 // ------------------------------------------------------
 async function sendReminders() {
   const now = new Date();
