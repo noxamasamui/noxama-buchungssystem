@@ -15,7 +15,6 @@
     .modal.show{display:flex}
     .modal-body{background:#fff;color:#3a2f28;padding:20px;border-radius:12px;max-width:580px;width:92%;box-shadow:0 10px 30px rgba(0,0,0,.25)}
     .modal-body h3{margin-top:0}
-    .btn-link{background:transparent;border:none;color:#b3822f;text-decoration:underline;cursor:pointer;padding:0}
     @media (max-width:740px){ .slot-grid{grid-template-columns:repeat(3,1fr)} }
   </style>
 </head>
@@ -87,11 +86,11 @@
   </div>
 </div>
 
-<!-- Thank-you modal -->
+<!-- Thank-you modal (no loyalty hints) -->
 <div id="modal" class="modal">
   <div class="modal-body">
     <h3>Thank you!</h3>
-    <p id="modalText">Your reservation has been received. You will get a confirmation email shortly.</p>
+    <p id="modalText">Your reservation has been received. A confirmation email is on its way.</p>
     <button id="closeModal" class="btn">OK</button>
   </div>
 </div>
@@ -130,14 +129,13 @@ fetch("/api/config").then(r=>r.json()).then(c=>{
 // init date
 document.getElementById("date").value = todayISO();
 
-// Guests 1..10 only (no “48” anymore)
+// Guests 1..10 only
 (function fillGuests(){
   const sel = document.getElementById("guests");
   sel.innerHTML = "";
-  const placeholder = document.createElement("option");
-  placeholder.value = ""; placeholder.textContent = "Select guests…";
-  placeholder.disabled = true; placeholder.selected = true;
-  sel.appendChild(placeholder);
+  const ph = document.createElement("option");
+  ph.value = ""; ph.textContent = "Select guests…"; ph.disabled = true; ph.selected = true;
+  sel.appendChild(ph);
   for(let i=1;i<=10;i++){
     const o=document.createElement("option"); o.value=String(i); o.textContent=String(i);
     sel.appendChild(o);
@@ -164,20 +162,18 @@ function openInfo(title, html, showContact=false){
 }
 document.getElementById("infoClose").onclick = ()=>document.getElementById("infoModal").classList.remove("show");
 
-function openThanks(html){
-  document.getElementById("modalText").innerHTML = html;
+function openThanks(text){
+  document.getElementById("modalText").innerHTML = text || "Your reservation has been received. A confirmation email is on its way.";
   document.getElementById("modal").classList.add("show");
 }
 document.getElementById("closeModal").onclick = ()=>document.getElementById("modal").classList.remove("show");
 
-// Big group button opens contact modal
+// Big group button
 document.getElementById("bigGroup").addEventListener("click", ()=>{
-  openInfo("Groups over 10",
-    `Online bookings are limited to <b>10 guests</b>.<br/>Please contact us for larger groups.`,
-    true);
+  openInfo("Groups over 10", `Online bookings are limited to <b>10 guests</b>.<br/>Please contact us for larger groups.`, true);
 });
 
-// Load slots based on date AND guests
+// Load slots based on date AND guests (no capacity numbers shown)
 async function loadSlots(){
   selectedTime = null;
   const d = document.getElementById("date").value;
@@ -188,27 +184,14 @@ async function loadSlots(){
   const box    = document.getElementById("slots");
   box.innerHTML = "";
 
-  // require both date and guests
-  if(!d || !guestsVal){
-    banner.classList.add("hidden");
-    banner.textContent = "";
-    block.classList.add("hidden");
-    return;
-  }
+  if(!d || !guestsVal){ banner.classList.add("hidden"); banner.textContent = ""; block.classList.add("hidden"); return; }
 
   const g = Number(guestsVal);
-  if (g > 10) {
-    openInfo("Groups over 10",
-      `Online bookings are limited to <b>10 guests</b>.<br/>Please contact us for larger groups.`,
-      true);
-    block.classList.add("hidden");
-    return;
-  }
+  if (g > 10) { openInfo("Groups over 10", `Online bookings are limited to <b>10 guests</b>.`, true); block.classList.add("hidden"); return; }
 
   const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}`);
   const data = await r.json();
 
-  // if entire day closed
   const closedAll = data.length && data.every(s => !s.allowed && (s.reason||"").toLowerCase().includes("closed"));
   if (closedAll){
     banner.textContent = "We are closed on this date. Please choose another day.";
@@ -217,7 +200,6 @@ async function loadSlots(){
     return;
   }
 
-  // filter: only slots that can fit the requested guests
   const available = data.filter(s => s.allowed && s.canReserve && Number(s.left||0) >= g);
 
   if (available.length === 0) {
@@ -235,7 +217,7 @@ async function loadSlots(){
     const b = document.createElement("button");
     b.type = "button";
     b.className = "slot";
-    b.textContent = s.time;            // no "left" indicator shown
+    b.textContent = s.time; // no "left" text
     b.onclick = ()=>{
       document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active"));
       b.classList.add("active");
@@ -249,18 +231,7 @@ document.getElementById("reload").onclick = loadSlots;
 document.getElementById("date").addEventListener("change", loadSlots);
 document.getElementById("guests").addEventListener("change", loadSlots);
 
-// Friendly error mapping
-function friendlyError(e){
-  if(!e) return "Something went wrong.";
-  const s = e.toLowerCase();
-  if(s.includes("closed on sunday")) return "We are closed on Sundays. Please choose another day.";
-  if(s.includes("before opening") || s.includes("after closing")) return "This time is outside our opening hours.";
-  if(s.includes("fully booked")) return "We are fully booked at this time. Please choose another slot.";
-  if(s.includes("limited to 10")) return "Online bookings are limited to 10 guests.";
-  return e;
-}
-
-// Book
+// Booking
 document.getElementById("book").onclick = async ()=>{
   const d = document.getElementById("date").value;
   const guestsVal = document.getElementById("guests").value;
@@ -269,7 +240,6 @@ document.getElementById("book").onclick = async ()=>{
   const email = document.getElementById("email").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const notes = document.getElementById("notes").value.trim();
-  const m = document.getElementById("msg");
 
   if(!d){ openInfo("Choose a date", "Please select a date first."); return; }
   if(!guestsVal){ openInfo("Guests required", "Please select the number of guests."); return; }
@@ -278,30 +248,19 @@ document.getElementById("book").onclick = async ()=>{
 
   const guests = Number(guestsVal);
   const payload = { date:d, time:selectedTime, firstName, name, email, phone, guests, notes };
-  m.textContent = "";
 
   const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   if(r.ok){
-    const data = await r.json().catch(()=>({}));
-    const visits = data.visitCount ?? 1;
-    const disc = data.discount ?? 0;
-    const loyalty = disc > 0
-      ? `<div style="margin-top:12px;padding:10px;background:#fff3df;border:1px solid #ead6b6;border-radius:8px;text-align:center;">
-           🎉 This is your <b>${visits}${visits===1?"st":"th"}</b> visit — you have <b>${disc}%</b> loyalty discount!
-         </div>`
-      : "";
-    openThanks(`Your reservation has been received.<br/>A confirmation email is on its way.${loyalty}`);
+    openThanks("Your reservation has been received. A confirmation email is on its way.");
   }else{
     const e = await r.json().catch(()=>({error:"Error"}));
-    const msg = friendlyError(e.error||"Error");
-    if(msg.toLowerCase().includes("limited to 10")){
-      openInfo("Groups over 10",
-        `Online bookings are limited to <b>10 guests</b>.<br/>Please contact us for larger groups.`,
-        true);
-    }else if(msg.toLowerCase().includes("fully booked")){
+    const s = String(e.error||"").toLowerCase();
+    if(s.includes("limited to 10")){
+      openInfo("Groups over 10", `Online bookings are limited to <b>10 guests</b>. Please contact us for larger groups.`, true);
+    }else if(s.includes("fully booked")){
       openInfo("Fully booked", "We are fully booked at this time. Please choose another slot or a different day.");
     }else{
-      openInfo("Error", msg);
+      openInfo("Error", e.error || "Something went wrong.");
     }
   }
 };
