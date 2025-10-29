@@ -26,7 +26,7 @@ const BRAND_NAME = process.env.BRAND_NAME || "ROESTILAND BY NOXAMA SAMUI";
 
 const MAX_SEATS_TOTAL = Number(process.env.MAX_SEATS_TOTAL || 48);
 const MAX_SEATS_RESERVABLE = Number(process.env.MAX_SEATS_RESERVABLE || 40);
-const WALKIN_BUFFER = 8;                    // die ersten 8 Walk-ins zählen nicht gegen die Online-Kapazität
+const WALKIN_BUFFER = 8;               // die ersten 8 Walk-ins zählen nicht gegen die Online-Kapazität
 const MAX_ONLINE_GUESTS = 10;
 
 function hourFrom(v?: string, fb = 0) {
@@ -236,7 +236,6 @@ app.post("/api/walkin", async (req, res) => {
       open = allow.open!;
       close = allow.close!;
     } else {
-      // lenient: Ende auf close kappen
       const start = localDateFrom(norm, String(time));
       const { y, m, d } = splitYmd(norm);
       open = localDate(y, m, d, OPEN_HOUR, 0, 0);
@@ -288,26 +287,45 @@ app.get("/cancel/:token", async (req, res) => {
   const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
   if (!r) return res.status(404).send("Not found");
 
+  // Update to canceled
   await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
 
-  // Canceled email to guest (skip for walk-in)
+  // Visits AFTER cancellation (confirmed + noshow only)
+  const visitCount = r.email
+    ? await prisma.reservation.count({
+        where: { email: r.email, status: { in: ["confirmed", "noshow"] } },
+      })
+    : 0;
+
+  // Guest email (skip for walk-in placeholder)
   const rebookUrl = `${BASE_URL}/`;
   if (r.email && r.email !== "walkin@noxama.local") {
     const guestHtml = canceledGuestHtml(r.firstName, r.name, r.date, r.time, r.guests, rebookUrl);
-    try { await sendEmailSMTP(r.email, `${BRAND_NAME} — Reservation canceled`, guestHtml); } catch {}
+    try { await sendEmailSMTP(r.email, "We hope this goodbye is only for now 😢", guestHtml); } catch {}
   }
-  // Admin notify
-  notifyAdmin(
-    `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`,
-    `<p>Reservation canceled:</p>
-     <p><b>${r.firstName} ${r.name}</b> — ${r.email || "-"}</p>
-     <p>${r.date} ${r.time} — ${r.guests} guests</p>`
-  );
+
+  // Stylish Admin email incl. visit count (no discount info)
+  if (ADMIN_EMAIL) {
+    const adminHtml = canceledAdminHtml({
+      logo: process.env.MAIL_LOGO_URL || "/logo.png",
+      brand: BRAND_NAME,
+      firstName: r.firstName,
+      lastName: r.name,
+      email: r.email || "",
+      phone: r.phone || "",
+      guests: r.guests,
+      date: r.date,
+      time: r.time,
+      notes: r.notes || "",
+      visitCount,
+    });
+    notifyAdmin("Guest canceled reservation — FYI", adminHtml);
+  }
 
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
-// ---------------- Admin List ----------------
+// ---------------- Admin List (with loyalty) ----------------
 app.get("/api/admin/reservations", async (req, res) => {
   const date = normalizeYmd(String(req.query.date || ""));
   const view = String(req.query.view || "day");
@@ -330,7 +348,7 @@ app.get("/api/admin/reservations", async (req, res) => {
     });
   }
 
-  // Visits per email
+  // Count visits per email (confirmed + noshow)
   const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
   const counts = new Map<string, number>();
   await Promise.all(
@@ -504,6 +522,7 @@ function nextMilestoneTeaser(visitCount: number): string {
   if (visitCount === 14) return teaserBox("Big milestone ahead","From your next visit you’ll receive a <b>15% loyalty thank-you</b>.");
   return "";
 }
+
 function confirmationHtml(
   firstName: string, name: string, date: string, time: string, guests: number,
   cancelUrl: string, visitCount: number, currentDiscount: number
@@ -555,18 +574,51 @@ function confirmationHtml(
   </div>`;
 }
 
-function canceledGuestHtml(firstName: string, name: string, date: string, time: string, guests: number, rebookUrl: string) {
+// ----- Canceled email templates -----
+function canceledGuestHtml(
+  firstName: string, name: string, date: string, time: string, guests: number, rebookUrl: string
+) {
   const logo = process.env.MAIL_LOGO_URL || "/logo.png";
   const site = BRAND_NAME;
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
-    <div style="text-align:center;margin-bottom:10px;"><img src="${logo}" alt="Logo" style="width:150px;height:auto;"/></div>
-    <h2 style="text-align:center;margin:6px 0 14px 0;">Your reservation was canceled</h2>
+    <div style="text-align:center;margin-bottom:10px;">
+      <img src="${logo}" alt="Logo" style="width:150px;height:auto;"/>
+    </div>
+    <h2 style="text-align:center;margin:6px 0 14px 0;">We’ll miss you this round 😢</h2>
     <p>Hi ${firstName} ${name},</p>
-    <p>We’re sorry to miss you this time. Your table for <b>${guests}</b> on <b>${date}</b> at <b>${time}</b> has been released.</p>
-    <p>If plans change, we would love to welcome you soon. You can book again here:</p>
-    <p style="text-align:center;margin:14px 0;"><a href="${rebookUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Book a new table</a></p>
-    <p>Warm regards,<br/><b>${site}</b></p>
+    <p>Your reservation for <b>${guests}</b> on <b>${date}</b> at <b>${time}</b> has been canceled.</p>
+    <p>We completely understand — plans change. Just know that your favorite table will be waiting when you’re ready to come back.</p>
+    <p style="text-align:center;margin:16px 0;">
+      <a href="${rebookUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">
+        Book your comeback
+      </a>
+    </p>
+    <p>With warm regards,<br/><b>${site}</b></p>
+  </div>`;
+}
+
+function canceledAdminHtml(opts: {
+  logo: string; brand: string;
+  firstName: string; lastName: string; email: string; phone: string;
+  guests: number; date: string; time: string; notes: string; visitCount: number;
+}) {
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    <div style="text-align:center;margin-bottom:10px;">
+      <img src="${opts.logo}" alt="Logo" style="width:150px;height:auto;"/>
+    </div>
+    <h2 style="text-align:center;margin:6px 0 8px 0;">Reservation canceled 😢</h2>
+    <div style="text-align:center;opacity:.9;margin-bottom:12px;">The guest has canceled their reservation.</div>
+    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
+      <p style="margin:0;"><b>Guest</b> ${opts.firstName} ${opts.lastName} (${opts.email})</p>
+      <p style="margin:0;"><b>Phone</b> ${opts.phone || "-"}</p>
+      <p style="margin:0;"><b>Date</b> ${opts.date} &nbsp; <b>Time</b> ${opts.time}</p>
+      <p style="margin:0;"><b>Guests</b> ${opts.guests}</p>
+      <p style="margin:0;"><b>Notes</b> ${opts.notes || "-"}</p>
+      <p style="margin:0;"><b>Total past visits</b> ${opts.visitCount}</p>
+    </div>
+    <p style="text-align:center;margin-top:10px;"><b>${opts.brand}</b></p>
   </div>`;
 }
 
