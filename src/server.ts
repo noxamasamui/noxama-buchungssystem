@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { addMinutes, addHours, format } from "date-fns";
+import { addMinutes, addHours, format, differenceInMinutes } from "date-fns";
 import { nanoid } from "nanoid";
 import XLSX from "xlsx";
 
@@ -26,6 +26,7 @@ const BRAND_NAME = process.env.BRAND_NAME || "ROESTILAND BY NOXAMA SAMUI";
 
 const MAX_SEATS_TOTAL = Number(process.env.MAX_SEATS_TOTAL || 48);
 const MAX_SEATS_RESERVABLE = Number(process.env.MAX_SEATS_RESERVABLE || 40);
+const WALKIN_BUFFER = 8;                    // die ersten 8 Walk-ins „zählen nicht“ für online
 const MAX_ONLINE_GUESTS = 10;
 
 function hourFrom(v?: string, fb = 0) {
@@ -37,6 +38,8 @@ const OPEN_HOUR = hourFrom(process.env.OPEN_HOUR || "10", 10);
 const CLOSE_HOUR = hourFrom(process.env.CLOSE_HOUR || "22", 22);
 const SUNDAY_CLOSED =
   String(process.env.SUNDAY_CLOSED || "true").toLowerCase() === "true";
+
+const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || "");
 
 // ---------------- Helpers ----------------
 function normalizeYmd(input: string): string {
@@ -69,12 +72,24 @@ async function overlapping(dateYmd: string, start: Date, end: Date) {
     },
   });
 }
+
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const list = await overlapping(dateYmd, start, end);
-  const reserved = list.filter(r => !r.isWalkIn).reduce((s, r) => s + r.guests, 0);
-  const walkins = list.filter(r => r.isWalkIn).reduce((s, r) => s + r.guests, 0);
+  const reserved = list
+    .filter(r => !r.isWalkIn)
+    .reduce((s, r) => s + r.guests, 0);
+  const walkins = list
+    .filter(r => r.isWalkIn)
+    .reduce((s, r) => s + r.guests, 0);
   return { reserved, walkins, total: reserved + walkins };
 }
+
+function capacityOnlineLeft(reserved: number, walkins: number) {
+  // Online-Kapazität: 40 minus Reservierungen minus Walk-ins über dem Buffer
+  const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER);
+  return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
+}
+
 async function slotAllowed(dateYmd: string, timeHHmm: string) {
   const norm = normalizeYmd(dateYmd);
   if (!norm || !timeHHmm) return { ok: false, reason: "Invalid time" };
@@ -97,11 +112,15 @@ async function slotAllowed(dateYmd: string, timeHHmm: string) {
   });
   if (blocked) return { ok: false, reason: "Blocked" };
 
-  return { ok: true, start, end, minutes, norm };
+  return { ok: true, start, end, minutes, norm, open, close };
 }
 
 async function sendEmailSMTP(to: string, subject: string, html: string) {
   await mailer().sendMail({ from: fromAddress(), to, subject, html });
+}
+async function notifyAdmin(subject: string, html: string) {
+  if (!ADMIN_EMAIL) return;
+  try { await sendEmailSMTP(ADMIN_EMAIL, subject, html); } catch { /* ignore */ }
 }
 
 // ---------------- Pages ----------------
@@ -131,22 +150,26 @@ app.get("/api/slots", async (req, res) => {
       continue;
     }
     const sums = await sumsForInterval(date, allow.start!, allow.end!);
-    const left = Math.max(0, MAX_SEATS_RESERVABLE - sums.reserved);
-    const canReserve = left > 0 && sums.total < MAX_SEATS_TOTAL;
+
+    // Online-Left nach neuer Regel
+    const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
+
+    const canReserve = leftOnline > 0 && sums.total < MAX_SEATS_TOTAL;
     out.push({
       time: t,
       allowed: canReserve,
       reason: canReserve ? null : "Fully booked",
       canReserve,
       reserved: sums.reserved,
+      walkins: sums.walkins,
       total: sums.total,
-      left,
+      left: leftOnline,         // Index-UI prüft gegen guests
     });
   }
   res.json(out);
 });
 
-// ---------------- Reservation API ----------------
+// ---------------- Reservation API (online) ----------------
 app.post("/api/reservations", async (req, res) => {
   const { date, time, firstName, name, email, phone, guests, notes } = req.body;
   const g = Number(guests);
@@ -161,10 +184,17 @@ app.post("/api/reservations", async (req, res) => {
   if (!allow.ok) return res.status(400).json({ error: allow.reason || "Not available" });
 
   const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
-  if (sums.reserved + g > MAX_SEATS_RESERVABLE)
+
+  // Online-Kapazität mit Walk-in-Puffer
+  const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
+  if (g > leftOnline) {
     return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
-  if (sums.total + g > MAX_SEATS_TOTAL)
+  }
+
+  // weiterhin harte Gesamtgrenze 48
+  if (sums.total + g > MAX_SEATS_TOTAL) {
     return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
+  }
 
   const token = nanoid();
   const created = await prisma.reservation.create({
@@ -185,7 +215,7 @@ app.post("/api/reservations", async (req, res) => {
     },
   });
 
-  // Visits for this guest (includes the created reservation)
+  // Besuche (nur confirmed/noshow zählen) – inkl. aktueller
   const visitCount = await prisma.reservation.count({
     where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
   });
@@ -209,37 +239,64 @@ app.post("/api/reservations", async (req, res) => {
     console.error("Mail Error:", e);
   }
 
+  // Admin-Info
+  notifyAdmin(
+    `[RESERVATION] ${created.date} ${created.time} — ${created.guests}p`,
+    `<p>New online reservation:</p>
+     <p><b>${created.firstName} ${created.name}</b> — ${created.email}<br/>
+     ${created.date} ${created.time} — ${created.guests} guests</p>`
+  );
+
   res.json({ ok: true, reservation: created, visitCount, discount });
 });
 
-// ---------------- NEW: Walk-in API ----------------
+// ---------------- Walk-in API ----------------
 app.post("/api/walkin", async (req, res) => {
   try {
     const { date, time, guests, notes } = req.body;
     const g = Number(guests || 0);
     if (!date || !time || !g || g < 1) return res.status(400).json({ error: "Invalid input" });
 
-    const allow = await slotAllowed(String(date), String(time));
-    if (!allow.ok) {
-      const msg =
-        allow.reason === "Blocked"
-          ? "This date/time is blocked."
-          : "Slot not available.";
-      return res.status(400).json({ error: msg });
+    const norm = normalizeYmd(String(date));
+    const allow = await slotAllowed(norm, String(time));
+
+    // Für Walk-ins „lenient“ behandeln: wenn nur das Ende > close ist, kappen wir es auf close
+    let startTs: Date, endTs: Date, open: Date, close: Date;
+    if (allow.ok) {
+      startTs = allow.start!;
+      endTs = allow.end!;
+      open = allow.open!;
+      close = allow.close!;
+    } else {
+      // Wenn der einzige Grund „After closing“ war, versuchen wir zu kappen
+      const start = localDateFrom(norm, String(time));
+      const { y, m, d } = splitYmd(norm);
+      open = localDate(y, m, d, OPEN_HOUR, 0, 0);
+      close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
+      if (isNaN(start.getTime()) || start < open) {
+        return res.status(400).json({ error: "Slot not available." });
+      }
+      // cap duration to remaining minutes until close
+      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
+      startTs = start;
+      endTs = addMinutes(start, minutes);
+      if (endTs > close) endTs = close;
     }
 
-    // Walk-ins zählen nur gegen die Gesamt-Kapazität
-    const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
+    // Kapazität prüfen
+    const sums = await sumsForInterval(norm, startTs, endTs);
+
+    // Walk-ins dürfen die Online-Kapazität nicht direkt betreffen; nur die harte 48-Grenze gilt hier
     if (sums.total + g > MAX_SEATS_TOTAL) {
       return res.status(400).json({ error: "Total capacity reached" });
     }
 
     const r = await prisma.reservation.create({
       data: {
-        date: allow.norm!,
-        time,
-        startTs: allow.start!,
-        endTs: allow.end!,
+        date: norm,
+        time: String(time),
+        startTs,
+        endTs,
         firstName: "Walk",
         name: "In",
         email: "walkin@noxama.local",
@@ -251,6 +308,14 @@ app.post("/api/walkin", async (req, res) => {
         isWalkIn: true,
       },
     });
+
+    // Admin-Info
+    notifyAdmin(
+      `[WALK-IN] ${r.date} ${r.time} — ${r.guests}p`,
+      `<p>New walk-in recorded:</p>
+       <p>${r.date} ${r.time} — ${r.guests} guests</p>
+       <p>Notes: ${r.notes || "-"}</p>`
+    );
 
     res.json(r);
   } catch (err) {
