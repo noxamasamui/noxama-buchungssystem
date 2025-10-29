@@ -85,7 +85,7 @@
   </div>
 </div>
 
-<!-- Lightweight info modal (for errors / group info) -->
+<!-- Lightweight info modal -->
 <div id="infoModal" class="modal" style="display:none">
   <div class="modal-body">
     <h3 id="infoTitle">Information</h3>
@@ -173,11 +173,22 @@ async function loadSlots(){
   const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}`);
   const data = await r.json();
 
-  // Full-day blocked / closed
+  // Detect “closed on Sunday”
+  const reasons = data.map(s => String(s.reason||"")).join(" ").toLowerCase();
+  const noneAllowed = data.length && data.every(s => !s.allowed);
+  const anySunday = /sunday/.test(reasons);
+
+  if (noneAllowed && anySunday) {
+    banner.textContent = "We are closed on Sundays. Please choose another day.";
+    banner.classList.remove("hidden");
+    block.classList.add("hidden");
+    return;
+  }
+
+  // Full-day blocked / other cases
   const anyAllowed = data.some(s => s.allowed);
-  const everyForbidden = data.length && data.every(s => !s.allowed);
   const looksBlocked = data.length && data.every(s => !s.allowed && /blocked|closed/i.test(String(s.reason||"")));
-  if (!anyAllowed && (looksBlocked || everyForbidden)) {
+  if (!anyAllowed && (looksBlocked || noneAllowed)) {
     banner.textContent = "We are fully booked on this date. Please choose another day.";
     banner.classList.remove("hidden");
     block.classList.add("hidden");
@@ -215,9 +226,19 @@ document.getElementById("reload").onclick = loadSlots;
 document.getElementById("date").addEventListener("change", loadSlots);
 document.getElementById("guests").addEventListener("change", loadSlots);
 
-// Final “close page” view (with fallback if window can't be closed)
+// Build back target once (used after success)
+function resolveReturnUrl(){
+  const qp = new URLSearchParams(location.search);
+  const ret = qp.get("return");
+  if (ret) return ret;
+  if (document.referrer) return document.referrer;
+  return "/";
+}
+
+// Final “thank-you” view WITHOUT auto-close
 function renderFinalThankYou(emailTo){
   const app = document.getElementById("app");
+  const backUrl = resolveReturnUrl();
   const supportLine = (cfg.email || cfg.phone)
     ? `If you don’t see it, please <a href="mailto:${cfg.email}">email us</a>${cfg.phone ? " or <a href=\"tel:"+cfg.phone.replace(/[^+\\d]/g,"")+"\">call us</a>" : ""}.`
     : `If you don’t see it, please contact us.`;
@@ -232,14 +253,11 @@ function renderFinalThankYou(emailTo){
         <p style="text-align:center;margin:0 0 10px 0;">We’ve saved your reservation and a confirmation email ${emailTo ? "to <b>"+emailTo+"</b> " : ""}is on its way. It usually arrives within a minute.</p>
         <p style="text-align:center;margin:0 0 14px 0;">Please also check your <b>Spam/Junk</b> folder. ${supportLine}</p>
         <div style="text-align:center;margin-top:14px;">
-          <button class="btn" onclick="window.close()">Close</button>
+          <a class="btn" href="${backUrl}">Back to website</a>
         </div>
       </div>
     </div>
   `;
-
-  // try to close the tab (will only work if tab was script-opened)
-  setTimeout(()=>{ try{ window.close(); }catch(_){} }, 1200);
 }
 
 // Book
@@ -262,13 +280,14 @@ document.getElementById("book").onclick = async ()=>{
 
   const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   if(r.ok){
-    // Replace page with final thank-you and try to close window
     renderFinalThankYou(email);
   }else{
     const e = await r.json().catch(()=>({error:"Error"}));
     const s = String(e.error||"").toLowerCase();
     if(s.includes("limited to 10")){
       openInfo("Groups over 10", `Online bookings are limited to <b>10 guests</b>. Please contact us for larger groups.`, true);
+    }else if(s.includes("sunday")){
+      openInfo("Closed", "We are closed on Sundays. Please choose another day.");
     }else if(s.includes("closed") || s.includes("block")){
       openInfo("Fully booked", "We are fully booked on this date. Please choose another day.");
     }else if(s.includes("fully booked")){
@@ -278,6 +297,9 @@ document.getElementById("book").onclick = async ()=>{
     }
   }
 };
+
+// initial load
+loadSlots();
 </script>
 </body>
 </html>
