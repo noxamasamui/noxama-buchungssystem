@@ -1,3 +1,4 @@
+// src/server.ts
 import express from "express";
 import cors from "cors";
 import path from "path";
@@ -507,7 +508,7 @@ app.get("/api/export", async (req, res) => {
   }
 });
 
-// ---------------- Email templates & helpers ----------------
+// ---------------- Email helpers ----------------
 function ordinalSuffix(n: number) {
   const v = n % 100;
   if (v >= 11 && v <= 13) return "th";
@@ -533,6 +534,7 @@ function nextMilestoneTeaser(visitCount: number): string {
   return "";
 }
 
+// -------- Confirmation E-Mail (FIX: korrekte Interpolation) --------
 function confirmationHtml(
   firstName: string, name: string, date: string, time: string, guests: number,
   cancelUrl: string, visitCount: number, currentDiscount: number
@@ -559,28 +561,28 @@ function confirmationHtml(
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
     <div style="text-align:center;margin-bottom:10px;">
-      <img src="\${logo}" alt="Logo" style="width:150px;height:auto;"/>
+      <img src="${logo}" alt="Logo" style="width:150px;height:auto;"/>
     </div>
-    <h2 style="text-align:center;margin:6px 0 14px 0;letter-spacing:.5px;">Your Reservation at \${site}</h2>
-    <p style="font-size:16px;margin:0 0 10px 0;">Hi \${firstName} \${name},</p>
-    <p style="font-size:16px;margin:0 0 12px 0;">Thank you for choosing <b>\${site}</b>. We value loyalty deeply — regular guests are the heart of our little community.</p>
+    <h2 style="text-align:center;margin:6px 0 14px 0;letter-spacing:.5px;">Your Reservation at ${site}</h2>
+    <p style="font-size:16px;margin:0 0 10px 0;">Hi ${firstName} ${name},</p>
+    <p style="font-size:16px;margin:0 0 12px 0;">Thank you for choosing <b>${site}</b>. We value loyalty deeply — regular guests are the heart of our little community.</p>
 
     <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
-      <p style="margin:0;"><b>Date</b> \${date}</p>
-      <p style="margin:0;"><b>Time</b> \${time}</p>
-      <p style="margin:0;"><b>Guests</b> \${guests}</p>
+      <p style="margin:0;"><b>Date</b> ${date}</p>
+      <p style="margin:0;"><b>Time</b> ${time}</p>
+      <p style="margin:0;"><b>Guests</b> ${guests}</p>
     </div>
 
-    \${visitLine}
-    \${reward}
-    \${teaser}
+    ${visitLine}
+    ${reward}
+    ${teaser}
 
     <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
       <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
     </div>
 
-    <p style="margin-top:18px;text-align:center;"><a href="\${cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a></p>
-    <p style="margin-top:16px;font-size:14px;text-align:center;">We can’t wait to welcome you!<br/><b>Warm greetings from \${site}</b></p>
+    <p style="margin-top:18px;text-align:center;"><a href="${cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a></p>
+    <p style="margin-top:16px;font-size:14px;text-align:center;">We can’t wait to welcome you!<br/><b>Warm greetings from ${site}</b></p>
   </div>`;
 }
 
