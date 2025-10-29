@@ -26,7 +26,7 @@ const BRAND_NAME = process.env.BRAND_NAME || "ROESTILAND BY NOXAMA SAMUI";
 
 const MAX_SEATS_TOTAL = Number(process.env.MAX_SEATS_TOTAL || 48);
 const MAX_SEATS_RESERVABLE = Number(process.env.MAX_SEATS_RESERVABLE || 40);
-const WALKIN_BUFFER = 8;                    // die ersten 8 Walk-ins „zählen nicht“ für online
+const WALKIN_BUFFER = 8;                    // die ersten 8 Walk-ins zählen nicht gegen die Online-Kapazität
 const MAX_ONLINE_GUESTS = 10;
 
 function hourFrom(v?: string, fb = 0) {
@@ -72,27 +72,20 @@ async function overlapping(dateYmd: string, start: Date, end: Date) {
     },
   });
 }
-
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const list = await overlapping(dateYmd, start, end);
-  const reserved = list
-    .filter(r => !r.isWalkIn)
-    .reduce((s, r) => s + r.guests, 0);
-  const walkins = list
-    .filter(r => r.isWalkIn)
-    .reduce((s, r) => s + r.guests, 0);
+  const reserved = list.filter(r => !r.isWalkIn).reduce((s, r) => s + r.guests, 0);
+  const walkins  = list.filter(r => r.isWalkIn).reduce((s, r) => s + r.guests, 0);
   return { reserved, walkins, total: reserved + walkins };
 }
-
 function capacityOnlineLeft(reserved: number, walkins: number) {
-  // Online-Kapazität: 40 minus Reservierungen minus Walk-ins über dem Buffer
   const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER);
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
 }
 
 async function slotAllowed(dateYmd: string, timeHHmm: string) {
   const norm = normalizeYmd(dateYmd);
-  if (!norm || !timeHHmm) return { ok: false, reason: "Invalid time" };
+  if (!norm || !timeHHmm) return { ok: false, reason: "Closed/invalid" };
   if (SUNDAY_CLOSED && isSundayYmd(norm)) return { ok: false, reason: "Closed on Sunday" };
 
   const start = localDateFrom(norm, timeHHmm);
@@ -102,10 +95,10 @@ async function slotAllowed(dateYmd: string, timeHHmm: string) {
   const end = addMinutes(start, minutes);
 
   const { y, m, d } = splitYmd(norm);
-  const open = localDate(y, m, d, OPEN_HOUR, 0, 0);
+  const open  = localDate(y, m, d, OPEN_HOUR, 0, 0);
   const close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
   if (start < open) return { ok: false, reason: "Before opening" };
-  if (end > close) return { ok: false, reason: "After closing" };
+  if (end > close)  return { ok: false, reason: "After closing" };
 
   const blocked = await prisma.closure.findFirst({
     where: { AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }] },
@@ -150,10 +143,7 @@ app.get("/api/slots", async (req, res) => {
       continue;
     }
     const sums = await sumsForInterval(date, allow.start!, allow.end!);
-
-    // Online-Left nach neuer Regel
     const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
-
     const canReserve = leftOnline > 0 && sums.total < MAX_SEATS_TOTAL;
     out.push({
       time: t,
@@ -163,7 +153,7 @@ app.get("/api/slots", async (req, res) => {
       reserved: sums.reserved,
       walkins: sums.walkins,
       total: sums.total,
-      left: leftOnline,         // Index-UI prüft gegen guests
+      left: leftOnline,
     });
   }
   res.json(out);
@@ -184,17 +174,9 @@ app.post("/api/reservations", async (req, res) => {
   if (!allow.ok) return res.status(400).json({ error: allow.reason || "Not available" });
 
   const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
-
-  // Online-Kapazität mit Walk-in-Puffer
   const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
-  if (g > leftOnline) {
-    return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
-  }
-
-  // weiterhin harte Gesamtgrenze 48
-  if (sums.total + g > MAX_SEATS_TOTAL) {
-    return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
-  }
+  if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
+  if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
 
   const token = nanoid();
   const created = await prisma.reservation.create({
@@ -215,7 +197,6 @@ app.post("/api/reservations", async (req, res) => {
     },
   });
 
-  // Besuche (nur confirmed/noshow zählen) – inkl. aktueller
   const visitCount = await prisma.reservation.count({
     where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
   });
@@ -223,23 +204,11 @@ app.post("/api/reservations", async (req, res) => {
   const discount = discountForVisit(visitCount);
   const cancelUrl = `${BASE_URL}/cancel/${token}`;
   const html = confirmationHtml(
-    created.firstName,
-    created.name,
-    created.date,
-    created.time,
-    created.guests,
-    cancelUrl,
-    visitCount,
-    discount
+    created.firstName, created.name, created.date, created.time,
+    created.guests, cancelUrl, visitCount, discount
   );
 
-  try {
-    await sendEmailSMTP(created.email, `${BRAND_NAME} — Reservation`, html);
-  } catch (e) {
-    console.error("Mail Error:", e);
-  }
-
-  // Admin-Info
+  try { await sendEmailSMTP(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error(e); }
   notifyAdmin(
     `[RESERVATION] ${created.date} ${created.time} — ${created.guests}p`,
     `<p>New online reservation:</p>
@@ -260,7 +229,6 @@ app.post("/api/walkin", async (req, res) => {
     const norm = normalizeYmd(String(date));
     const allow = await slotAllowed(norm, String(time));
 
-    // Für Walk-ins „lenient“ behandeln: wenn nur das Ende > close ist, kappen wir es auf close
     let startTs: Date, endTs: Date, open: Date, close: Date;
     if (allow.ok) {
       startTs = allow.start!;
@@ -268,28 +236,20 @@ app.post("/api/walkin", async (req, res) => {
       open = allow.open!;
       close = allow.close!;
     } else {
-      // Wenn der einzige Grund „After closing“ war, versuchen wir zu kappen
+      // lenient: Ende auf close kappen
       const start = localDateFrom(norm, String(time));
       const { y, m, d } = splitYmd(norm);
       open = localDate(y, m, d, OPEN_HOUR, 0, 0);
       close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
-      if (isNaN(start.getTime()) || start < open) {
-        return res.status(400).json({ error: "Slot not available." });
-      }
-      // cap duration to remaining minutes until close
+      if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
       const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
       startTs = start;
       endTs = addMinutes(start, minutes);
       if (endTs > close) endTs = close;
     }
 
-    // Kapazität prüfen
     const sums = await sumsForInterval(norm, startTs, endTs);
-
-    // Walk-ins dürfen die Online-Kapazität nicht direkt betreffen; nur die harte 48-Grenze gilt hier
-    if (sums.total + g > MAX_SEATS_TOTAL) {
-      return res.status(400).json({ error: "Total capacity reached" });
-    }
+    if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached" });
 
     const r = await prisma.reservation.create({
       data: {
@@ -309,7 +269,6 @@ app.post("/api/walkin", async (req, res) => {
       },
     });
 
-    // Admin-Info
     notifyAdmin(
       `[WALK-IN] ${r.date} ${r.time} — ${r.guests}p`,
       `<p>New walk-in recorded:</p>
@@ -328,11 +287,27 @@ app.post("/api/walkin", async (req, res) => {
 app.get("/cancel/:token", async (req, res) => {
   const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
   if (!r) return res.status(404).send("Not found");
+
   await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
+
+  // Canceled email to guest (skip for walk-in)
+  const rebookUrl = `${BASE_URL}/`;
+  if (r.email && r.email !== "walkin@noxama.local") {
+    const guestHtml = canceledGuestHtml(r.firstName, r.name, r.date, r.time, r.guests, rebookUrl);
+    try { await sendEmailSMTP(r.email, `${BRAND_NAME} — Reservation canceled`, guestHtml); } catch {}
+  }
+  // Admin notify
+  notifyAdmin(
+    `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`,
+    `<p>Reservation canceled:</p>
+     <p><b>${r.firstName} ${r.name}</b> — ${r.email || "-"}</p>
+     <p>${r.date} ${r.time} — ${r.guests} guests</p>`
+  );
+
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
-// ---------------- Admin List (with loyalty) ----------------
+// ---------------- Admin List ----------------
 app.get("/api/admin/reservations", async (req, res) => {
   const date = normalizeYmd(String(req.query.date || ""));
   const view = String(req.query.view || "day");
@@ -355,7 +330,7 @@ app.get("/api/admin/reservations", async (req, res) => {
     });
   }
 
-  // Count visits per email (confirmed + noshow)
+  // Visits per email
   const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
   const counts = new Map<string, number>();
   await Promise.all(
@@ -444,7 +419,7 @@ app.delete("/api/admin/closure/:id", async (req, res) => {
   }
 });
 
-// ---------------- Export (Excel) ----------------
+// ---------------- Export ----------------
 app.get("/api/export", async (req, res) => {
   try {
     const period = String(req.query.period || "weekly");
@@ -454,10 +429,10 @@ app.get("/api/export", async (req, res) => {
     const to = new Date(base);
 
     switch (period) {
-      case "daily": to.setDate(to.getDate() + 1); break;
-      case "weekly": to.setDate(to.getDate() + 7); break;
+      case "daily":   to.setDate(to.getDate() + 1); break;
+      case "weekly":  to.setDate(to.getDate() + 7); break;
       case "monthly": to.setMonth(to.getMonth() + 1); break;
-      case "yearly": to.setFullYear(to.getFullYear() + 1); break;
+      case "yearly":  to.setFullYear(to.getFullYear() + 1); break;
     }
 
     const list = await prisma.reservation.findMany({
@@ -474,7 +449,6 @@ app.get("/api/export", async (req, res) => {
       prog.set(key, nowCount);
 
       const disc = discountForVisit(nowCount);
-
       return {
         Date: r.date,
         Time: r.time,
@@ -497,10 +471,7 @@ app.get("/api/export", async (req, res) => {
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     const fname = `reservations_${format(from, "yyyyMMdd")}_${period}.xlsx`;
     res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
+    res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.send(buf);
   } catch (err) {
     console.error("Export error:", err);
@@ -508,21 +479,16 @@ app.get("/api/export", async (req, res) => {
   }
 });
 
-// ---------------- Email template & helpers ----------------
+// ---------------- Email templates & helpers ----------------
 function ordinalSuffix(n: number) {
   const v = n % 100;
   if (v >= 11 && v <= 13) return "th";
-  switch (n % 10) {
-    case 1: return "st";
-    case 2: return "nd";
-    case 3: return "rd";
-    default: return "th";
-  }
+  switch (n % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
 }
 function discountForVisit(visitCount: number): number {
-  if (visitCount >= 15) return 15;  // 15+
-  if (visitCount >= 10) return 10;  // 10..14
-  if (visitCount >= 5)  return 5;   // 5..9
+  if (visitCount >= 15) return 15;   // 15+
+  if (visitCount >= 10) return 10;   // 10..14
+  if (visitCount >= 5)  return 5;    // 5..9
   return 0;
 }
 function teaserBox(title: string, line: string) {
@@ -539,14 +505,8 @@ function nextMilestoneTeaser(visitCount: number): string {
   return "";
 }
 function confirmationHtml(
-  firstName: string,
-  name: string,
-  date: string,
-  time: string,
-  guests: number,
-  cancelUrl: string,
-  visitCount: number,
-  currentDiscount: number
+  firstName: string, name: string, date: string, time: string, guests: number,
+  cancelUrl: string, visitCount: number, currentDiscount: number
 ) {
   const logo = process.env.MAIL_LOGO_URL || "/logo.png";
   const site = BRAND_NAME;
@@ -554,34 +514,17 @@ function confirmationHtml(
 
   const visitLine =
     visitCount < 5
-      ? `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">
-           This is your <b>${visitCount}${suffix}</b> visit. Thank you for coming back to us.
-         </div>`
-      : `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">
-           This is your <b>${visitCount}${suffix}</b> visit.
-         </div>`;
+      ? `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">This is your <b>${visitCount}${suffix}</b> visit. Thank you for coming back to us.</div>`
+      : `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">This is your <b>${visitCount}${suffix}</b> visit.</div>`;
 
   let reward = "";
   if (currentDiscount === 15) {
-    reward = `
-      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
-        <div style="font-size:22px;margin-bottom:6px;">🎉 A heartfelt thank-you! 🎉</div>
-        <div style="font-size:16px;">As a token of appreciation for your continued support, you enjoy a <b style="color:#b3822f;">15% loyalty thank-you</b>.</div>
-      </div>`;
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 A heartfelt thank-you! 🎉</div><div style="font-size:16px;">As a token of appreciation for your continued support, you enjoy a <b style="color:#b3822f;">15% loyalty thank-you</b>.</div></div>`;
   } else if (currentDiscount === 10) {
-    reward = `
-      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
-        <div style="font-size:22px;margin-bottom:6px;">🎉 Thank you for coming back! 🎉</div>
-        <div style="font-size:16px;">Your loyalty means the world to us — please enjoy a <b style="color:#b3822f;">10% loyalty thank-you</b>.</div>
-      </div>`;
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 Thank you for coming back! 🎉</div><div style="font-size:16px;">Your loyalty means the world to us — please enjoy a <b style="color:#b3822f;">10% loyalty thank-you</b>.</div></div>`;
   } else if (currentDiscount === 5) {
-    reward = `
-      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
-        <div style="font-size:22px;margin-bottom:6px;">🎉 You make our day! 🎉</div>
-        <div style="font-size:16px;">We love welcoming you back — please enjoy a <b style="color:#b3822f;">5% loyalty thank-you</b>.</div>
-      </div>`;
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 You make our day! 🎉</div><div style="font-size:16px;">We love welcoming you back — please enjoy a <b style="color:#b3822f;">5% loyalty thank-you</b>.</div></div>`;
   }
-
   const teaser = nextMilestoneTeaser(visitCount);
 
   return `
@@ -590,7 +533,6 @@ function confirmationHtml(
       <img src="${logo}" alt="Logo" style="width:150px;height:auto;"/>
     </div>
     <h2 style="text-align:center;margin:6px 0 14px 0;letter-spacing:.5px;">Your Reservation at ${site}</h2>
-
     <p style="font-size:16px;margin:0 0 10px 0;">Hi ${firstName} ${name},</p>
     <p style="font-size:16px;margin:0 0 12px 0;">Thank you for choosing <b>${site}</b>. We value loyalty deeply — regular guests are the heart of our little community.</p>
 
@@ -608,11 +550,23 @@ function confirmationHtml(
       <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
     </div>
 
-    <p style="margin-top:18px;text-align:center;">
-      <a href="${cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a>
-    </p>
-
+    <p style="margin-top:18px;text-align:center;"><a href="${cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a></p>
     <p style="margin-top:16px;font-size:14px;text-align:center;">We can’t wait to welcome you!<br/><b>Warm greetings from ${site}</b></p>
+  </div>`;
+}
+
+function canceledGuestHtml(firstName: string, name: string, date: string, time: string, guests: number, rebookUrl: string) {
+  const logo = process.env.MAIL_LOGO_URL || "/logo.png";
+  const site = BRAND_NAME;
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    <div style="text-align:center;margin-bottom:10px;"><img src="${logo}" alt="Logo" style="width:150px;height:auto;"/></div>
+    <h2 style="text-align:center;margin:6px 0 14px 0;">Your reservation was canceled</h2>
+    <p>Hi ${firstName} ${name},</p>
+    <p>We’re sorry to miss you this time. Your table for <b>${guests}</b> on <b>${date}</b> at <b>${time}</b> has been released.</p>
+    <p>If plans change, we would love to welcome you soon. You can book again here:</p>
+    <p style="text-align:center;margin:14px 0;"><a href="${rebookUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Book a new table</a></p>
+    <p>Warm regards,<br/><b>${site}</b></p>
   </div>`;
 }
 
