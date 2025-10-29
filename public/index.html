@@ -11,15 +11,14 @@
     .slot.active{outline:2px solid #b3822f}
     .hidden{display:none}
     .banner{padding:10px;border-radius:8px;background:#fdeee9;border:1px solid #f3d0c7;color:#6b4a3a}
-    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.36);z-index:60}
-    .modal.show{display:flex}
-    .modal-body{background:#fff;color:#3a2f28;padding:20px;border-radius:12px;max-width:580px;width:92%;box-shadow:0 10px 30px rgba(0,0,0,.25)}
-    .modal-body h3{margin-top:0}
     @media (max-width:740px){ .slot-grid{grid-template-columns:repeat(3,1fr)} }
+    /* thank-you screen */
+    .ty-wrap{min-height:60vh;display:flex;align-items:center;justify-content:center}
+    .ty-card{max-width:680px;background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;padding:22px;color:#3a2f28;box-shadow:0 8px 20px rgba(0,0,0,.08)}
   </style>
 </head>
 <body>
-<div class="container">
+<div class="container" id="app">
   <img class="logo" src="/logo.png" alt="Logo"/>
 
   <h1>Contact and Table Booking</h1>
@@ -86,17 +85,8 @@
   </div>
 </div>
 
-<!-- Thank-you modal -->
-<div id="modal" class="modal">
-  <div class="modal-body">
-    <h3>Thank you!</h3>
-    <p id="modalText">Your reservation has been received. A confirmation email is on its way.</p>
-    <button id="closeModal" class="btn">OK</button>
-  </div>
-</div>
-
-<!-- Info modal -->
-<div id="infoModal" class="modal">
+<!-- Lightweight info modal (for errors / group info) -->
+<div id="infoModal" class="modal" style="display:none">
   <div class="modal-body">
     <h3 id="infoTitle">Information</h3>
     <div id="infoText"></div>
@@ -146,6 +136,7 @@ let selectedTime = null;
 function openInfo(title, html, showContact=false){
   document.getElementById("infoTitle").textContent = title || "Information";
   document.getElementById("infoText").innerHTML = html || "";
+  const m = document.getElementById("infoModal");
   const mail = document.getElementById("infoMail");
   const tel  = document.getElementById("infoTel");
   if(showContact && (cfg.email || cfg.phone)){
@@ -156,15 +147,9 @@ function openInfo(title, html, showContact=false){
   }else{
     mail.style.display = tel.style.display = "none";
   }
-  document.getElementById("infoModal").classList.add("show");
+  m.style.display = "flex";
 }
-document.getElementById("infoClose").onclick = ()=>document.getElementById("infoModal").classList.remove("show");
-
-function openThanks(text){
-  document.getElementById("modalText").innerHTML = text || "Your reservation has been received. A confirmation email is on its way.";
-  document.getElementById("modal").classList.add("show");
-}
-document.getElementById("closeModal").onclick = ()=>document.getElementById("modal").classList.remove("show");
+document.getElementById("infoClose").onclick = ()=>{ document.getElementById("infoModal").style.display="none"; };
 
 document.getElementById("bigGroup").addEventListener("click", ()=>{
   openInfo("Groups over 10", `Online bookings are limited to <b>10 guests</b>.<br/>Please contact us for larger groups.`, true);
@@ -188,21 +173,18 @@ async function loadSlots(){
   const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}`);
   const data = await r.json();
 
-  // ---- NEU: robuster Check für komplett blockierten/geschlossenen Tag ----
+  // Full-day blocked / closed
   const anyAllowed = data.some(s => s.allowed);
   const everyForbidden = data.length && data.every(s => !s.allowed);
   const looksBlocked = data.length && data.every(s => !s.allowed && /blocked|closed/i.test(String(s.reason||"")));
-
   if (!anyAllowed && (looksBlocked || everyForbidden)) {
-    // Ganzer Tag dicht: klarer Datum-Hinweis
     banner.textContent = "We are fully booked on this date. Please choose another day.";
     banner.classList.remove("hidden");
     block.classList.add("hidden");
     return;
   }
-  // -----------------------------------------------------------------------
 
-  // Slots, die die gewünschte Gästezahl tragen können
+  // Only show slots that can hold the selected number of guests
   const available = data.filter(s => s.allowed && s.canReserve && Number(s.left||0) >= g);
 
   if (available.length === 0) {
@@ -219,7 +201,7 @@ async function loadSlots(){
     const b = document.createElement("button");
     b.type = "button";
     b.className = "slot";
-    b.textContent = s.time;  // keine Restplatz-Zahl
+    b.textContent = s.time;  // no “x left”
     b.onclick = ()=>{
       document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active"));
       b.classList.add("active");
@@ -232,6 +214,33 @@ async function loadSlots(){
 document.getElementById("reload").onclick = loadSlots;
 document.getElementById("date").addEventListener("change", loadSlots);
 document.getElementById("guests").addEventListener("change", loadSlots);
+
+// Final “close page” view (with fallback if window can't be closed)
+function renderFinalThankYou(emailTo){
+  const app = document.getElementById("app");
+  const supportLine = (cfg.email || cfg.phone)
+    ? `If you don’t see it, please <a href="mailto:${cfg.email}">email us</a>${cfg.phone ? " or <a href=\"tel:"+cfg.phone.replace(/[^+\\d]/g,"")+"\">call us</a>" : ""}.`
+    : `If you don’t see it, please contact us.`;
+
+  app.innerHTML = `
+    <div class="ty-wrap">
+      <div class="ty-card">
+        <div style="text-align:center">
+          <img src="/logo.png" alt="Logo" style="width:120px;height:auto;margin-bottom:8px"/>
+        </div>
+        <h2 style="text-align:center;margin:6px 0 10px 0;">Booking received — thank you!</h2>
+        <p style="text-align:center;margin:0 0 10px 0;">We’ve saved your reservation and a confirmation email ${emailTo ? "to <b>"+emailTo+"</b> " : ""}is on its way. It usually arrives within a minute.</p>
+        <p style="text-align:center;margin:0 0 14px 0;">Please also check your <b>Spam/Junk</b> folder. ${supportLine}</p>
+        <div style="text-align:center;margin-top:14px;">
+          <button class="btn" onclick="window.close()">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // try to close the tab (will only work if tab was script-opened)
+  setTimeout(()=>{ try{ window.close(); }catch(_){} }, 1200);
+}
 
 // Book
 document.getElementById("book").onclick = async ()=>{
@@ -253,7 +262,8 @@ document.getElementById("book").onclick = async ()=>{
 
   const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   if(r.ok){
-    openThanks("Your reservation has been received. A confirmation email is on its way.");
+    // Replace page with final thank-you and try to close window
+    renderFinalThankYou(email);
   }else{
     const e = await r.json().catch(()=>({error:"Error"}));
     const s = String(e.error||"").toLowerCase();
