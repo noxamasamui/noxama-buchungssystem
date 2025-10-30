@@ -27,7 +27,7 @@ const BRAND_NAME = process.env.BRAND_NAME || "ROESTILAND BY NOXAMA SAMUI";
 
 const MAX_SEATS_TOTAL = Number(process.env.MAX_SEATS_TOTAL || 48);
 const MAX_SEATS_RESERVABLE = Number(process.env.MAX_SEATS_RESERVABLE || 40);
-const WALKIN_BUFFER = 8;               // die ersten 8 Walk-ins zählen nicht gegen die Online-Kapazität
+const WALKIN_BUFFER = 8;
 const MAX_ONLINE_GUESTS = 10;
 
 function hourFrom(v?: string, fb = 0) {
@@ -40,7 +40,7 @@ const CLOSE_HOUR = hourFrom(process.env.CLOSE_HOUR || "22", 22);
 const SUNDAY_CLOSED =
   String(process.env.SUNDAY_CLOSED || "true").toLowerCase() === "true";
 
-// Robustes Admin-Ziel: ADMIN_EMAIL → MAIL_TO_ADMIN → SMTP_USER → MAIL_FROM_ADDRESS
+// Admin-Ziel robust
 const ADMIN_TO =
   String(process.env.ADMIN_EMAIL || "") ||
   String(process.env.MAIL_TO_ADMIN || "") ||
@@ -119,7 +119,7 @@ async function sendEmailSMTP(to: string, subject: string, html: string) {
 }
 async function notifyAdmin(subject: string, html: string) {
   if (!ADMIN_TO) return;
-  try { await sendEmailSMTP(ADMIN_TO, subject, html); } catch { /* ignore */ }
+  try { await sendEmailSMTP(ADMIN_TO, subject, html); } catch {}
 }
 
 // ---------------- Pages ----------------
@@ -214,10 +214,8 @@ app.post("/api/reservations", async (req, res) => {
     created.guests, cancelUrl, visitCount, discount
   );
 
-  // Gast
   try { await sendEmailSMTP(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error(e); }
 
-  // Admin – stilvolle HTML wie bei Cancel
   const adminHtml = reservationAdminHtml({
     logo: process.env.MAIL_LOGO_URL || "/logo.png",
     brand: BRAND_NAME,
@@ -517,16 +515,38 @@ app.get("/api/export", async (req, res) => {
   }
 });
 
-// ---------------- Email helpers ----------------
+// ---------------- Email helper: weicher Header ----------------
+function emailHeader(logoUrl: string) {
+  const banner = process.env.MAIL_HEADER_URL || "";
+  if (banner) {
+    // Volle Bannerbreite – bestes Rendering über alle Clients
+    return `
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding:0;">
+            <img src="${banner}" alt="Logo" style="display:block;width:100%;max-width:640px;height:auto;border:0;outline:none;text-decoration:none;">
+          </td>
+        </tr>
+      </table>`;
+  }
+  // Fallback: radialer Verlauf hinter dem Logo (sanft in den Hintergrund)
+  return `
+    <div style="max-width:640px;margin:0 auto 10px auto;padding:28px 0;background:
+      radial-gradient(ellipse at center, rgba(179,130,47,0.18) 0%, rgba(179,130,47,0.08) 40%, rgba(255,255,255,0) 72%);
+      text-align:center;">
+      <img src="${logoUrl}" alt="Logo" style="width:150px;height:auto;border:0;outline:none;" />
+    </div>`;
+}
+
 function ordinalSuffix(n: number) {
   const v = n % 100;
   if (v >= 11 && v <= 13) return "th";
   switch (n % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
 }
 function discountForVisit(visitCount: number): number {
-  if (visitCount >= 15) return 15;   // 15+
-  if (visitCount >= 10) return 10;   // 10..14
-  if (visitCount >= 5)  return 5;    // 5..9
+  if (visitCount >= 15) return 15;
+  if (visitCount >= 10) return 10;
+  if (visitCount >= 5)  return 5;
   return 0;
 }
 function teaserBox(title: string, line: string) {
@@ -543,13 +563,14 @@ function nextMilestoneTeaser(visitCount: number): string {
   return "";
 }
 
-// -------- Confirmation E-Mail --------
+// -------- Confirmation E-Mail (mit weichem Header) --------
 function confirmationHtml(
   firstName: string, name: string, date: string, time: string, guests: number,
   cancelUrl: string, visitCount: number, currentDiscount: number
 ) {
   const logo = process.env.MAIL_LOGO_URL || "/logo.png";
   const site = BRAND_NAME;
+  const header = emailHeader(logo);
   const suffix = ordinalSuffix(visitCount);
 
   const visitLine =
@@ -569,9 +590,7 @@ function confirmationHtml(
 
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
-    <div style="text-align:center;margin-bottom:10px;">
-      <img src="${logo}" alt="Logo" style="width:150px;height:auto;"/>
-    </div>
+    ${header}
     <h2 style="text-align:center;margin:6px 0 14px 0;letter-spacing:.5px;">Your Reservation at ${site}</h2>
     <p style="font-size:16px;margin:0 0 10px 0;">Hi ${firstName} ${name},</p>
     <p style="font-size:16px;margin:0 0 12px 0;">Thank you for choosing <b>${site}</b>. We value loyalty deeply — regular guests are the heart of our little community.</p>
@@ -595,18 +614,17 @@ function confirmationHtml(
   </div>`;
 }
 
-// ----- Admin HTML: NEW reservation (gleicher Stil wie Cancel) -----
+// ----- Admin NEW reservation (mit weichem Header) -----
 function reservationAdminHtml(opts: {
   logo: string; brand: string;
   firstName: string; lastName: string; email: string; phone: string;
   guests: number; date: string; time: string; notes: string; visitCount: number; discount: number;
 }) {
+  const header = emailHeader(opts.logo);
   const discountText = opts.discount ? `${opts.discount}%` : "—";
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
-    <div style="text-align:center;margin-bottom:10px;">
-      <img src="${opts.logo}" alt="Logo" style="width:150px;height:auto;"/>
-    </div>
+    ${header}
     <h2 style="text-align:center;margin:6px 0 8px 0;">New reservation ✅</h2>
     <div style="text-align:center;opacity:.9;margin-bottom:12px;">A guest just booked a table.</div>
     <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
@@ -621,17 +639,16 @@ function reservationAdminHtml(opts: {
   </div>`;
 }
 
-// ----- Admin HTML: canceled reservation (bestehend) -----
+// ----- Admin CANCELED (mit weichem Header) -----
 function canceledAdminHtml(opts: {
   logo: string; brand: string;
   firstName: string; lastName: string; email: string; phone: string;
   guests: number; date: string; time: string; notes: string; visitCount: number;
 }) {
+  const header = emailHeader(opts.logo);
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
-    <div style="text-align:center;margin-bottom:10px;">
-      <img src="${opts.logo}" alt="Logo" style="width:150px;height:auto;"/>
-    </div>
+    ${header}
     <h2 style="text-align:center;margin:6px 0 8px 0;">Reservation canceled 😢</h2>
     <div style="text-align:center;opacity:.9;margin-bottom:12px;">The guest has canceled their reservation.</div>
     <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
@@ -646,17 +663,16 @@ function canceledAdminHtml(opts: {
   </div>`;
 }
 
-// ----- Guest canceled mail (bestehend) -----
+// ----- Guest CANCELED (mit weichem Header) -----
 function canceledGuestHtml(
   firstName: string, name: string, date: string, time: string, guests: number, rebookUrl: string
 ) {
   const logo = process.env.MAIL_LOGO_URL || "/logo.png";
   const site = BRAND_NAME;
+  const header = emailHeader(logo);
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
-    <div style="text-align:center;margin-bottom:10px;">
-      <img src="${logo}" alt="Logo" style="width:150px;height:auto;"/>
-    </div>
+    ${header}
     <h2 style="text-align:center;margin:6px 0 14px 0;">We’ll miss you this round 😢</h2>
     <p>Hi ${firstName} ${name},</p>
     <p>Your reservation for <b>${guests}</b> on <b>${date}</b> at <b>${time}</b> has been canceled.</p>
