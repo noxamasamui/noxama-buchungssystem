@@ -2,33 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Admin — ROSTILAND Reservations</title>
+  <title>Admin — NOXAMA Reservations</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
 </head>
 <body>
-  <div class="hero">
-    <img class="logo" src="/logo.png" alt="Logo"/>
-    <div class="container" style="padding-top:0">
-      <h1 style="margin:0">Admin</h1>
-    </div>
-  </div>
+<div class="container">
+  <img class="logo" src="/logo.png" alt="Logo"/>
+  <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
+  <h1>Admin</h1>
 
-  <div class="container">
-
-    <div class="card">
-      <h2>All reservations</h2>
+  <div class="card">
+    <h2>All reservations</h2>
+    <div class="toolbar">
       <div class="row">
-        <div>
-          <label>Date filter</label>
-          <input id="fltDate" type="date"/>
-        </div>
-        <div>
-          <label>View</label>
-          <select id="view">
-            <option value="day">day</option>
-            <option value="week" selected>week</option>
-          </select>
+        <div><label>Date filter</label><input id="fltDate" type="date"/></div>
+        <div><label>View</label>
+          <select id="view"><option value="day">day</option><option value="week" selected>week</option></select>
         </div>
         <button class="btn" id="btnLoad" type="button">Load</button>
         <div class="spacer"></div>
@@ -43,59 +33,59 @@
           <button class="btn" id="btnExport" type="button">Excel</button>
         </div>
       </div>
-
-      <div class="table-wrap" style="margin-top:10px">
-        <table id="tbl">
-          <thead>
-            <tr>
-              <th class="col-date">Date</th>
-              <th class="col-time">Time</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th class="col-phone">Phone</th>
-              <th class="col-guests">Guests</th>
-              <th>Status</th>
-              <th>Notes</th>
-              <th class="col-walkin">Walk in</th>
-              <th class="col-actions">Action</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div id="sum" class="badge" style="margin-top:10px;"></div>
     </div>
 
-    <div class="card">
-      <h2>Add walk in</h2>
-      <div class="row">
-        <div><label>Date</label><input id="wDate" type="date"/></div>
-        <div><label>Time</label><select id="wTime"></select></div>
-        <div><label>Guests</label><input id="wGuests" type="number" min="1" max="48" value="2"/></div>
-      </div>
-      <label>Notes</label><input id="wNotes"/>
-      <div class="row">
-        <button id="btnWalk" class="btn" type="button">Save walk in</button>
-        <span id="wMsg" class="badge"></span>
-      </div>
+    <div class="table-wrap">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th class="col-date">Date</th>
+            <th class="col-time">Time</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th class="col-phone">Phone</th>
+            <th class="col-guests">Guests</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th class="col-walkin">Walk in</th>
+            <th class="col-actions">Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
-
-    <div class="card">
-      <h2>Block restaurant</h2>
-      <div class="row">
-        <div><label>Start</label><input id="cStart" type="datetime-local"/></div>
-        <div><label>End</label><input id="cEnd" type="datetime-local"/></div>
-        <div><label>Reason</label><input id="cReason"/></div>
-      </div>
-      <div class="row">
-        <button id="btnBlock" class="btn" type="button">Create block</button>
-        <button id="btnBlockDayPicker" class="btn-plain" type="button">Block day (from Start)</button>
-        <span id="cMsg" class="badge"></span>
-      </div>
-      <div id="closureList" style="margin-top:10px"></div>
-    </div>
-
+    <div id="sum" class="badge" style="margin-top:10px;"></div>
   </div>
+
+  <div class="card">
+    <h2>Add walk in</h2>
+    <div class="row">
+      <div><label>Date</label><input id="wDate" type="date"/></div>
+      <div><label>Time</label><select id="wTime"></select></div>
+      <div><label>Guests</label><input id="wGuests" type="number" min="1" max="48" value="2"/></div>
+    </div>
+    <label>Notes</label><input id="wNotes"/>
+    <div class="row">
+      <button id="btnWalk" class="btn" type="button">Save walk in</button>
+      <span id="wMsg" class="badge"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Block restaurant</h2>
+    <div class="row">
+      <div><label>Start</label><input id="cStart" type="datetime-local"/></div>
+      <div><label>End</label><input id="cEnd" type="datetime-local"/></div>
+      <div><label>Reason</label><input id="cReason"/></div>
+    </div>
+    <div class="row">
+      <button id="btnBlock" class="btn" type="button">Create block</button>
+      <button id="btnBlockDayPicker" class="btn-plain" type="button">Block day (from Start)</button>
+      <span id="cMsg" class="badge"></span>
+    </div>
+    <div id="closureList" style="margin-top:10px"></div>
+  </div>
+</div>
 
 <script>
 const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
@@ -107,7 +97,7 @@ function fillWalkInTimes(){
   const sel = document.getElementById("wTime");
   sel.innerHTML = "";
   const from = 10*60, to = 22*60;
-  for(let m=from; m<=to; m+=15){
+  for(let m=from;m<=to;m+=15){
     const hh=String(Math.floor(m/60)).padStart(2,"0");
     const mm=String(m%60).padStart(2,"0");
     const opt=document.createElement("option");
@@ -122,7 +112,7 @@ async function loadList(){
     const d = document.getElementById("fltDate").value || today();
     const v = document.getElementById("view").value || "week";
     const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${v}`);
-    if(!r.ok){ throw new Error(`${r.status}`); }
+    if(!r.ok) throw new Error(String(r.status));
     const data = await r.json();
     const tb = document.querySelector("#tbl tbody");
     tb.innerHTML = "";
@@ -141,9 +131,11 @@ async function loadList(){
         <td>${row.status}</td>
         <td>${row.notes || ""}</td>
         <td class="col-walkin">${row.isWalkIn ? "yes" : ""}</td>
-        <td class="col-actions">
-          <button class="btn-danger btn-sm" data-del="${row.id}" type="button">Delete</button>
-          <button class="btn btn-sm" data-ns="${row.id}" type="button">No show</button>
+        <td class="col-actions actions-cell">
+          <span class="btn-group">
+            <button class="btn-danger btn-sm" data-del="${row.id}" type="button">Delete</button>
+            <button class="btn btn-sm" data-ns="${row.id}" type="button">No show</button>
+          </span>
         </td>`;
       tb.appendChild(tr);
     });
@@ -151,15 +143,13 @@ async function loadList(){
     document.getElementById("sum").textContent = `Total bookings: ${data.length}   Total guests: ${totalGuests}`;
 
     tb.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", async ()=>{
-      await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"});
-      loadList();
+      await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"}); loadList();
     }));
     tb.querySelectorAll("[data-ns]").forEach(b=>b.addEventListener("click", async ()=>{
-      await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"});
-      loadList();
+      await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"}); loadList();
     }));
   }catch(e){
-    alert("List failed (" + (e.message || "error") + ").");
+    alert(`List failed (${e.message||"error"}).`);
   }
 }
 document.getElementById("btnLoad").addEventListener("click", loadList);
