@@ -3,198 +3,215 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Contact and Table Booking</title>
+<title>Admin — Reservations</title>
 <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
   <div class="wrapper">
-    <header class="header">
-      <img class="logo" id="heroLogo" alt="RÖSTILAND"/>
-      <h1 class="h1">Contact and Table Booking</h1>
+    <header class="header" style="margin-bottom:0">
+      <img id="heroLogo" class="logo" alt="Logo"/>
+      <h1 class="h1" style="font-size:36px;margin:10px 0">Admin</h1>
     </header>
 
-    <section class="card contact" id="contactCard">
-      <div>
-        <h3>Address</h3>
-        <div id="addrText">—</div>
-        <small>Thailand</small>
-      </div>
-      <a class="pill" id="telPill" href="#"><span>Phone</span></a>
-      <a class="pill" id="mailPill" href="#"><span>Email</span></a>
-    </section>
-
-    <section class="section card">
+    <section class="card">
       <div class="row">
         <div>
-          <div class="label">Date</div>
-          <div class="inline">
-            <input class="input" id="date" type="date"/>
-          </div>
+          <div class="label">Date filter</div>
+          <input class="input" id="fltDate" type="date"/>
         </div>
         <div>
-          <div class="label">Guests (max 10 online)</div>
+          <div class="label">View</div>
+          <select class="select" id="fltView">
+            <option value="day">day</option>
+            <option value="week" selected>week</option>
+          </select>
+        </div>
+        <div>
+          <div class="label">Export</div>
           <div class="inline">
-            <select class="select" id="guests"></select>
-            <a class="btn secondary" id="groupBtn" target="_blank" rel="noopener">Group 11+?</a>
+            <select class="select" id="expPeriod">
+              <option value="weekly" selected>weekly</option>
+              <option value="daily">daily</option>
+              <option value="monthly">monthly</option>
+              <option value="yearly">yearly</option>
+            </select>
+            <a class="btn" id="expBtn">Excel</a>
           </div>
         </div>
+        <div class="inline" style="align-items:flex-end">
+          <button class="btn" id="loadBtn">Load</button>
+        </div>
       </div>
+
+      <div id="loadInfo" class="notice" style="display:none">List failed (404)</div>
 
       <div class="section">
-        <div class="label">Choose a time slot</div>
-        <div class="slots">
-          <div id="slotMsg" class="helper">Select date & guests to see available slots.</div>
-          <div id="slotGrid" class="slotgrid"></div>
-        </div>
+        <table class="table" id="tbl"></table>
       </div>
+    </section>
 
-      <div class="section row">
-        <div>
-          <div class="label">First name*</div>
-          <input class="input" id="firstName" placeholder="First name"/>
-        </div>
-        <div>
-          <div class="label">Name*</div>
-          <input class="input" id="name" placeholder="Last name"/>
-        </div>
-        <div>
-          <div class="label">Email*</div>
-          <input class="input" id="email" placeholder="mail@example.com"/>
-        </div>
-        <div>
-          <div class="label">Phone (optional)</div>
-          <input class="input" id="phone" placeholder=""/>
-        </div>
+    <section class="card section">
+      <h3 style="margin-top:0">Add walk in</h3>
+      <div class="row">
+        <div><div class="label">Date</div><input class="input" id="wDate" type="date"/></div>
+        <div><div class="label">Time</div><input class="input" id="wTime" type="time" value="10:00"/></div>
+        <div><div class="label">Guests</div><input class="input" id="wGuests" type="number" min="1" value="2"/></div>
       </div>
-
       <div class="section">
         <div class="label">Notes</div>
-        <textarea class="input" id="notes" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
+        <input class="input" id="wNotes" placeholder="Table, source, anything..."/>
+      </div>
+      <div class="section inline">
+        <button class="btn" id="wSave">Save walk in</button>
+        <div id="wInfo" class="helper"></div>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h3 style="margin-top:0">Block restaurant</h3>
+      <div class="row">
+        <div><div class="label">Start</div><input class="input" id="bStart" type="datetime-local"/></div>
+        <div><div class="label">End</div><input class="input" id="bEnd" type="datetime-local"/></div>
+        <div><div class="label">Reason</div><input class="input" id="bReason" placeholder="Private event, maintenance, ..."/></div>
+      </div>
+      <div class="section inline">
+        <button class="btn" id="bCreate">Create block</button>
+        <button class="btn secondary" id="bDay">Block day (from Start)</button>
+        <div id="bInfo" class="helper"></div>
       </div>
 
-      <div class="inline section">
-        <button class="btn" id="bookBtn" disabled>Book now</button>
-        <div id="formHint" class="helper"></div>
-      </div>
-
-      <div id="info" class="notice" style="display:none"></div>
+      <div class="blocklist" id="blockList"></div>
     </section>
   </div>
 
 <script>
-const $ = sel => document.querySelector(sel);
-const cfg = {brand:"", phone:"", email:"", logoUrl:"", group:{label:"Group 11+?",tel:"",mail:""}};
-let pickedTime = "";
+const $ = s => document.querySelector(s);
+const cfg = {logoUrl:""};
 
-function setGuests() {
-  const sel = $("#guests");
-  sel.innerHTML = "";
-  for (let i=1;i<=10;i++){
-    const o = document.createElement("option");
-    o.value = i; o.textContent = i;
-    sel.appendChild(o);
-  }
-}
-function setContact() {
-  $("#addrText").textContent = cfg.address || "—";
-  const telHref = cfg.phone ? "tel:"+cfg.phone.replace(/\s/g,"") : "#";
-  const mailHref = cfg.email ? "mailto:"+cfg.email : "#";
-  $("#telPill").href = telHref;
-  $("#telPill").title = cfg.phone;
-  $("#telPill").innerHTML = "<span>Phone</span>";
-  $("#mailPill").href = mailHref;
-  $("#mailPill").title = cfg.email;
-  $("#mailPill").innerHTML = "<span>"+(cfg.email||"Email")+"</span>";
+function ymd(d){const p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 
-  const group = cfg.group||{};
-  $("#groupBtn").textContent = group.label || "Group 11+?";
-  const gTel = group.tel ? "tel:"+group.tel.replace(/\s/g,"") : "";
-  const gMail = group.mail ? "mailto:"+group.mail : "";
-  $("#groupBtn").href = gTel || gMail || "#";
-}
-function setLogo(){
-  const img = $("#heroLogo");
-  img.src = cfg.logoUrl || "/logo-hero.png";
-}
-function ymd(d){
-  const pad = n => String(n).padStart(2,"0");
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-}
-
-async function loadConfig(){
+async function loadCfg(){
   const r = await fetch("/api/config"); Object.assign(cfg, await r.json());
-  setLogo(); setContact(); setGuests();
-  const today = new Date(); $("#date").value = ymd(today);
-  refreshSlots();
+  $("#heroLogo").src = cfg.logoUrl || "/logo-hero.png";
 }
 
-async function refreshSlots(){
-  $("#slotGrid").innerHTML = "";
-  pickedTime = "";
-  $("#bookBtn").disabled = true;
-  const date = $("#date").value;
-  const guests = $("#guests").value;
+function drawRows(list){
+  const tbl = $("#tbl");
+  tbl.innerHTML = "";
+  const header = document.createElement("tr");
+  header.className="tr";
+  header.innerHTML = `
+    <td><b>Date</b></td><td><b>Time</b></td><td><b>Name</b></td>
+    <td><b>Email</b></td><td><b>Phone</b></td><td><b>Guests</b></td>
+    <td><b>Status</b></td><td><b>Notes</b></td><td><b>Walk in</b></td><td><b>Action</b></td>`;
+  tbl.appendChild(header);
 
-  if(!date){ $("#slotMsg").textContent = "Select a date."; return; }
+  for(const r of list){
+    const tr = document.createElement("tr");
+    tr.className="tr";
+    tr.innerHTML = `
+      <td>${r.date}</td>
+      <td>${r.time}</td>
+      <td>${r.firstName} ${r.name}</td>
+      <td>${r.email||""}</td>
+      <td>${r.phone||""}</td>
+      <td>${r.guests}</td>
+      <td><span class="badge">${r.status}</span></td>
+      <td>${r.notes||""}</td>
+      <td>${r.isWalkIn?"yes":""}</td>
+      <td class="actions">
+        <button class="btn secondary" data-no="${r.id}">No show</button>
+        <button class="btn" data-del="${r.id}">Delete</button>
+      </td>`;
+    tbl.appendChild(tr);
+  }
 
-  const r = await fetch(`/api/slots?date=${encodeURIComponent(date)}`);
-  const slots = await r.json();
-
-  let added = 0;
-  for(const s of slots){
-    const btn = document.createElement("button");
-    btn.type="button";
-    btn.className="slot";
-    btn.textContent = s.time;
-    if(!s.canReserve){ btn.disabled = true; }
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".slot.selected").forEach(n=>n.classList.remove("selected"));
-      btn.classList.add("selected");
-      pickedTime = s.time;
-      $("#bookBtn").disabled = false;
-      $("#formHint").textContent = "";
+  tbl.querySelectorAll("[data-del]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      await fetch("/api/admin/reservations/"+b.dataset.del, {method:"DELETE"});
+      loadList();
     });
-    $("#slotGrid").appendChild(btn);
-    added++;
-  }
-  $("#slotMsg").textContent = added ? "Pick a time." : "We are fully booked or closed on this date. Please choose another day.";
-}
-
-async function book(){
-  const payload = {
-    date: $("#date").value,
-    time: pickedTime,
-    firstName: $("#firstName").value.trim(),
-    name: $("#name").value.trim(),
-    email: $("#email").value.trim(),
-    phone: $("#phone").value.trim(),
-    guests: Number($("#guests").value),
-    notes: $("#notes").value.trim()
-  };
-  if(!payload.firstName || !payload.name || !payload.email || !pickedTime){
-    $("#formHint").textContent = "Please fill all required fields and pick a time."; return;
-  }
-  $("#bookBtn").disabled = true;
-  const res = await fetch("/api/reservations",{
-    method:"POST", headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify(payload)
   });
-  const out = await res.json();
-  const info = $("#info");
-  info.style.display = "block";
-  if(res.ok){
-    info.textContent = "Your reservation has been received. You will get a confirmation email shortly.";
-  }else{
-    info.textContent = out.error || "Booking failed";
-    $("#bookBtn").disabled = false;
-  }
+  tbl.querySelectorAll("[data-no]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      await fetch("/api/admin/reservations/"+b.dataset.no+"/noshow", {method:"POST"});
+      loadList();
+    });
+  });
 }
 
-$("#date").addEventListener("change", refreshSlots);
-$("#guests").addEventListener("change", refreshSlots);
-$("#bookBtn").addEventListener("click", book);
+async function loadList(){
+  $("#loadInfo").style.display="none";
+  const date = $("#fltDate").value;
+  const view = $("#fltView").value;
+  const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(date)}&view=${encodeURIComponent(view)}`);
+  if(!r.ok){ $("#loadInfo").style.display="block"; return; }
+  drawRows(await r.json());
+}
 
-loadConfig();
+async function exportXlsx(){
+  const period = $("#expPeriod").value;
+  const date = $("#fltDate").value;
+  const url = `/api/export?period=${encodeURIComponent(period)}&date=${encodeURIComponent(date)}`;
+  window.location.href = url;
+}
+
+async function saveWalk(){
+  const body = {
+    date: $("#wDate").value,
+    time: $("#wTime").value,
+    guests: Number($("#wGuests").value),
+    notes: $("#wNotes").value
+  };
+  const r = await fetch("/api/walkin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  $("#wInfo").textContent = r.ok ? "Walk-in saved." : "Walk-in failed";
+  loadList();
+}
+
+async function createBlock(){
+  const body = { startTs: $("#bStart").value.replace("T"," "), endTs: $("#bEnd").value.replace("T"," "), reason: $("#bReason").value };
+  const r = await fetch("/api/admin/closure",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  $("#bInfo").textContent = r.ok ? "Block saved." : "Block failed";
+  loadBlocks();
+}
+async function blockDay(){
+  const d = $("#bStart").value.split("T")[0];
+  const body = { date: d, reason: $("#bReason").value };
+  const r = await fetch("/api/admin/closure/day",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  $("#bInfo").textContent = r.ok ? "Day blocked." : "Block failed";
+  loadBlocks();
+}
+async function loadBlocks(){
+  const r = await fetch("/api/admin/closure"); const list = await r.json();
+  const el = $("#blockList"); el.innerHTML="";
+  list.forEach(b=>{
+    const div = document.createElement("div");
+    div.className="blockitem";
+    div.innerHTML = `<div><b>${b.startTs}</b> → <b>${b.endTs}</b> &nbsp; ${b.reason||""}</div>
+                     <button class="btn secondary" data-id="${b.id}">Delete</button>`;
+    el.appendChild(div);
+  });
+  el.querySelectorAll("[data-id]").forEach(btn=>{
+    btn.addEventListener("click", async()=>{
+      await fetch("/api/admin/closure/"+btn.dataset.id,{method:"DELETE"}); loadBlocks();
+    });
+  });
+}
+
+(function init(){
+  loadCfg();
+  const now = new Date();
+  $("#fltDate").value = ymd(now);
+  $("#wDate").value = ymd(now);
+  $("#bStart").value = ymd(now)+"T10:00";
+  $("#bEnd").value = ymd(now)+"T22:00";
+  $("#loadBtn").addEventListener("click", loadList);
+  $("#expBtn").addEventListener("click", exportXlsx);
+  $("#wSave").addEventListener("click", saveWalk);
+  $("#bCreate").addEventListener("click", createBlock);
+  $("#bDay").addEventListener("click", blockDay);
+  loadList(); loadBlocks();
+})();
 </script>
 </body>
 </html>
