@@ -16,12 +16,17 @@ body {
   margin: 14px 0;
 }
 
-/* Logo auf Buchungsseite kleiner halten */
-.logo {
-  width: 140px;               /* vorher war zu groß */
+/* belasse alle deine bisherigen Farben – nur zwei Fixes: */
+.logo{
+  width: 140px;          /* kleiner, auch mobil gut */
   height: auto;
-  display: block;
-  margin: 8px auto 12px auto;
+  display:block;
+  margin: 20px auto 10px auto;
+}
+
+/* Sicherheitsnetz, damit die ganze Seite NICHT beige wird */
+body{
+  background: #e8d8c7;   /* dein vorheriger neutraler Ton; bei Bedarf ersetzen */
 }
 
 /* Admin-Hero/Topbanner unverändert lassen – oder falls du ein Bild oben hattest, begrenzen */
