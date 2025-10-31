@@ -2,179 +2,237 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Admin — Reservations</title>
   <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-<div class="wrap">
-  <div class="center">
-    <img src="/logo-hero.png" class="logo" style="width:160px" alt="RÖSTILAND">
-  </div>
-  <h1>Admin</h1>
+  <div class="container">
+    <a href="/" class="small">Reservation</a>
+    <h1>Admin</h1>
+    <img src="/logo-hero.png" alt="Logo" class="logo-hero" style="width:220px;margin-top:-6px"/>
 
-  <div class="card">
-    <div class="row">
-      <div>
-        <label for="fltDate">Date filter</label>
-        <input id="fltDate" type="date">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>Date filter</label>
+          <input id="fltDate" type="date"/>
+        </div>
+        <div>
+          <label>View</label>
+          <select id="fltView">
+            <option value="day">day</option>
+            <option value="week" selected>week</option>
+          </select>
+        </div>
+        <div>
+          <label style="opacity:0">.</label>
+          <button id="btnLoad" class="btn">Load</button>
+        </div>
+
+        <div>
+          <label>Export</label>
+          <select id="expPeriod">
+            <option value="weekly" selected>weekly</option>
+            <option value="daily">daily</option>
+            <option value="monthly">monthly</option>
+            <option value="yearly">yearly</option>
+          </select>
+          <button id="btnExport" class="btn" style="margin-left:8px">Excel</button>
+        </div>
       </div>
-      <div>
-        <label for="view">View</label>
-        <select id="view">
-          <option value="day">day</option>
-          <option value="week" selected>week</option>
-        </select>
-      </div>
-    </div>
-    <div style="margin-top:10px">
-      <button id="btnLoad" class="btn">Load</button>
-      <span id="status" class="muted" style="margin-left:10px"></span>
-      <div style="float:right">
-        <label for="exportSel" style="display:inline">Export</label>
-        <select id="exportSel" style="width:auto;display:inline">
-          <option value="weekly" selected>weekly</option>
-          <option value="daily">daily</option>
-        </select>
-        <button id="btnExcel" class="btn secondary">Excel</button>
+
+      <div id="listWrap" class="card" style="margin-top:16px">
+        <div id="listError" class="small" style="color:#a00"></div>
+        <div style="overflow:auto">
+          <table id="tbl" style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px">Date</th>
+                <th style="text-align:left;padding:8px">Time</th>
+                <th style="text-align:left;padding:8px">Name</th>
+                <th style="text-align:left;padding:8px">Email</th>
+                <th style="text-align:left;padding:8px">Phone</th>
+                <th style="text-align:left;padding:8px">Guests</th>
+                <th style="text-align:left;padding:8px">Status</th>
+                <th style="text-align:left;padding:8px">Notes</th>
+                <th style="text-align:left;padding:8px">Walk in</th>
+                <th style="text-align:left;padding:8px">Action</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <div class="card" style="margin-top:12px">
-      <div style="overflow:auto">
-        <table id="tbl" style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr>
-              <th style="text-align:left">Date</th>
-              <th style="text-align:left">Time</th>
-              <th style="text-align:left">Name</th>
-              <th style="text-align:left">Email</th>
-              <th style="text-align:left">Phone</th>
-              <th style="text-align:left">Guests</th>
-              <th style="text-align:left">Status</th>
-              <th style="text-align:left">Notes</th>
-              <th style="text-align:left">Walk in</th>
-              <th style="text-align:left">Action</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
+    <div class="card">
+      <h2>Add walk in</h2>
+      <div class="row">
+        <div>
+          <label>Date</label>
+          <input id="wiDate" type="date"/>
+        </div>
+        <div>
+          <label>Time</label>
+          <input id="wiTime" type="time" value="10:00"/>
+        </div>
+        <div>
+          <label>Guests</label>
+          <select id="wiGuests"></select>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <label>Notes</label>
+        <input id="wiNotes" type="text" placeholder="Table, source, anything…"/>
+      </div>
+      <div style="margin-top:10px">
+        <button id="btnWalkin" class="btn">Save walk in</button>
+        <span id="wiMsg" class="small"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Block restaurant</h2>
+      <div class="row">
+        <div>
+          <label>Start</label>
+          <input id="blStart" type="datetime-local"/>
+        </div>
+        <div>
+          <label>End</label>
+          <input id="blEnd" type="datetime-local"/>
+        </div>
+        <div>
+          <label>Reason</label>
+          <input id="blReason" type="text" value="Private event, maintenance, …"/>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="btnBlock" class="btn">Create block</button>
+        <button id="btnBlockDay" class="btn" style="margin-left:8px">Block day (from Start)</button>
+        <span id="blMsg" class="small"></span>
       </div>
     </div>
   </div>
 
-  <div class="card">
-    <h3>Add walk in</h3>
-    <div class="row">
-      <div><label>Date</label><input id="wDate" type="date"></div>
-      <div><label>Time</label><input id="wTime" type="time" step="900" value="10:00"></div>
-      <div><label>Guests</label><input id="wGuests" type="number" min="1" max="40" value="2"></div>
-    </div>
-    <label>Notes</label><input id="wNotes" type="text" placeholder="Table, source, anything…">
-    <div style="margin-top:10px"><button id="btnWalkin" class="btn">Save walk in</button> <span id="wStatus" class="muted"></span></div>
-  </div>
+  <script>
+  const $ = s => document.querySelector(s);
 
-  <div class="card">
-    <h3>Block restaurant</h3>
-    <div class="row">
-      <div><label>Start</label><input id="bStart" type="datetime-local"></div>
-      <div><label>End</label><input id="bEnd" type="datetime-local"></div>
-      <div><label>Reason</label><input id="bReason" type="text" placeholder="Private event, maintenance, …"></div>
-    </div>
-    <div style="margin-top:10px"><button id="btnBlock" class="btn danger">Create block</button> <span id="bStatus" class="muted"></span></div>
-  </div>
+  // helpers
+  function ymd(d){const dt=new Date(d);return dt.toISOString().slice(0,10)}
+  function fmtBool(b){return b?"yes":""}
 
-</div>
+  // fill guests
+  for(let i=1;i<=10;i++){
+    const o=document.createElement("option"); o.value=String(i); o.textContent=String(i);
+    $("#wiGuests").appendChild(o);
+  }
 
-<script>
-const fltDate = document.getElementById('fltDate');
-const viewSel = document.getElementById('view');
-const tbody   = document.getElementById('tbody');
-const statusEl= document.getElementById('status');
+  // default dates
+  const today = new Date();
+  $("#fltDate").value = today.toISOString().slice(0,10);
+  $("#wiDate").value  = today.toISOString().slice(0,10);
+  const nowIso = new Date(Date.now()+10*60*1000).toISOString().slice(0,16);
+  $("#blStart").value = nowIso;
 
-function ymdToday(){
-  const t = new Date(); const y=t.getFullYear(), m=String(t.getMonth()+1).padStart(2,'0'), d=String(t.getDate()).padStart(2,'0'); return `${y}-${m}-${d}`;
-}
-fltDate.value = ymdToday();
-
-document.getElementById('btnLoad').addEventListener('click', load);
-document.getElementById('btnExcel').addEventListener('click', async ()=>{
-  const r = await fetch(`/api/admin/export?date=${fltDate.value}&view=${viewSel.value}`);
-  const blob = await r.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'reservations.xlsx';
-  a.click();
-  URL.revokeObjectURL(url);
-});
-
-async function load(){
-  tbody.innerHTML='';
-  statusEl.textContent='Loading…';
-  try{
-    const r = await fetch(`/api/admin/list?date=${fltDate.value}&view=${viewSel.value}`);
-    if(!r.ok) throw new Error('List failed');
-    const rows = await r.json();
-    for(const x of rows){
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${x.date}</td>
-        <td>${x.time}</td>
-        <td>${x.firstName ? (x.firstName+' ') : ''}${x.name || ''}</td>
-        <td>${x.email || ''}</td>
-        <td>${x.phone || ''}</td>
-        <td>${x.guests}</td>
-        <td>${x.status}</td>
-        <td>${x.notes || ''}</td>
-        <td>${x.walkIn ? 'yes' : ''}</td>
-        <td>
-          <button class="btn danger" data-del="${x.id}">Delete</button>
-          <button class="btn secondary" data-noshow="${x.id}">No show</button>
-        </td>`;
-      tbody.appendChild(tr);
+  async function loadList(){
+    $("#listError").textContent = "";
+    $("#rows").innerHTML = "";
+    try{
+      const q = new URLSearchParams({date: $("#fltDate").value, view: $("#fltView").value});
+      const res = await fetch("/api/admin/reservations?"+q);
+      if(!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      const tbody = $("#rows");
+      data.forEach(r=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${r.date}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${r.time}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${r.firstName||""} ${r.name||""}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${r.email||""}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${r.phone||""}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${r.guests}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${r.status}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${r.notes||""}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">${fmtBool(r.isWalkIn)}</td>
+          <td style="padding:8px;border-top:1px solid #e1d7c6">
+            <button class="btn" data-act="noshow" data-id="${r.id}" style="padding:6px 10px">No show</button>
+            <button class="btn" data-act="del" data-id="${r.id}" style="padding:6px 10px;margin-left:6px;background:#7d4f17">Delete</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }catch(e){
+      $("#listError").textContent = "List failed";
     }
-    statusEl.textContent='';
-  }catch(e){
-    statusEl.textContent='List failed (404)';
   }
-}
-tbody.addEventListener('click', async (e)=>{
-  const t = e.target;
-  if(t.dataset.del){
-    if(!confirm('Delete reservation?')) return;
-    await fetch(`/api/admin/reservation/${t.dataset.del}`, {method:'DELETE'});
-    load();
-  }
-  if(t.dataset.noshow){
-    await fetch(`/api/admin/noshow/${t.dataset.noshow}`, {method:'POST'});
-    load();
-  }
-});
 
-document.getElementById('btnWalkin').addEventListener('click', async ()=>{
-  const payload = {
-    date: document.getElementById('wDate').value || fltDate.value,
-    time: document.getElementById('wTime').value,
-    guests: Number(document.getElementById('wGuests').value || 1),
-    notes: document.getElementById('wNotes').value || null
-  };
-  const r = await fetch('/api/admin/walkin', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-  document.getElementById('wStatus').textContent = r.ok ? 'Saved' : 'Walk-in failed';
-  load();
-});
+  $("#btnLoad").addEventListener("click", loadList);
+  document.addEventListener("click", async (e)=>{
+    const b = e.target.closest("button[data-act]");
+    if(!b) return;
+    const id = b.getAttribute("data-id");
+    const act = b.getAttribute("data-act");
+    if(act==="del"){
+      await fetch("/api/admin/reservations/"+id,{method:"DELETE"});
+      loadList();
+    }else if(act==="noshow"){
+      await fetch("/api/admin/reservations/"+id+"/noshow",{method:"POST"});
+      loadList();
+    }
+  });
 
-document.getElementById('btnBlock').addEventListener('click', async ()=>{
-  const payload = {
-    start: document.getElementById('bStart').value,
-    end: document.getElementById('bEnd').value,
-    reason: document.getElementById('bReason').value || 'blocked'
-  };
-  const r = await fetch('/api/admin/block', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-  document.getElementById('bStatus').textContent = r.ok ? 'Block created' : 'Block failed';
-  load();
-});
+  $("#btnExport").addEventListener("click", ()=>{
+    const q=new URLSearchParams({period:$("#expPeriod").value, date: $("#fltDate").value});
+    window.location.href="/api/export?"+q;
+  });
 
-load();
-</script>
+  $("#btnWalkin").addEventListener("click", async ()=>{
+    $("#wiMsg").textContent="";
+    try{
+      const payload = {
+        date: $("#wiDate").value,
+        time: $("#wiTime").value,
+        guests: Number($("#wiGuests").value||0),
+        notes: $("#wiNotes").value.trim()
+      };
+      const res = await fetch("/api/walkin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const data = await res.json();
+      if(!res.ok){ $("#wiMsg").textContent = data.error || "Walk-in failed"; return; }
+      $("#wiMsg").textContent = "Walk-in saved";
+      loadList();
+    }catch(e){ $("#wiMsg").textContent="Walk-in failed"; }
+  });
+
+  $("#btnBlock").addEventListener("click", async ()=>{
+    $("#blMsg").textContent="";
+    try{
+      const res=await fetch("/api/admin/closure",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        startTs: $("#blStart").value.replace("T"," "),
+        endTs: $("#blEnd").value.replace("T"," "),
+        reason: $("#blReason").value
+      })});
+      const data=await res.json();
+      if(!res.ok){ $("#blMsg").textContent = data.error || "Block failed"; return; }
+      $("#blMsg").textContent="Block created";
+      loadList();
+    }catch(e){ $("#blMsg").textContent="Block failed"; }
+  });
+
+  $("#btnBlockDay").addEventListener("click", async ()=>{
+    $("#blMsg").textContent="";
+    try{
+      const d = $("#blStart").value.slice(0,10);
+      const res=await fetch("/api/admin/closure/day",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date:d,reason:$("#blReason").value})});
+      const data=await res.json();
+      if(!res.ok){ $("#blMsg").textContent = data.error || "Block failed"; return; }
+      $("#blMsg").textContent="Day blocked";
+      loadList();
+    }catch(e){ $("#blMsg").textContent="Block failed"; }
+  });
+
+  loadList();
+  </script>
 </body>
 </html>
