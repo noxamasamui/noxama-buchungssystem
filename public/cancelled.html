@@ -1,28 +1,21 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>Reservation canceled</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <link rel="icon" href="/logo.png">
-  <style>
-    :root{--bg:#efe6da;--ink:#3a2f28;--accent:#a6753a}
-    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif}
-    .wrap{max-width:960px;margin:0 auto;padding:30px 14px;text-align:center}
-    .card{display:inline-block;background:#fff7ef;border:1px solid #eedbcc;border-radius:18px;padding:24px 22px;box-shadow:0 10px 28px rgba(0,0,0,.05)}
-    img{width:150px;height:auto;border-radius:12px;display:block;margin:16px auto 10px}
-    h1{font-size:28px;margin:0 0 10px}
-    p{margin:8px 0 0}
-    .btn{display:inline-block;margin-top:14px;padding:10px 16px;background:var(--accent);color:#fff;text-decoration:none;border-radius:10px}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Reservation canceled</title>
+<link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
   <div class="wrap">
-    <img src="/logo.png" alt="Logo">
-    <div class="card">
-      <h1>Your reservation was canceled</h1>
+    <div class="center">
+      <img src="/logo-hero.png" class="logo" style="width:160px" alt="RÖSTILAND">
+    </div>
+
+    <div class="card center" style="padding:26px 20px">
+      <h2>Your reservation was canceled</h2>
       <p>We hope to welcome you another time.</p>
-      <a class="btn" href="/" aria-label="Back">Back</a>
+      <button class="btn" onclick="history.back()">Back</button>
     </div>
   </div>
 </body>
