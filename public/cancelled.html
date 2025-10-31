@@ -2,41 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Reservation canceled</title>
+  <title>Your reservation was canceled</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
   <style>
-    body{color:#3a2f28}
-    .wrap{min-height:70vh;display:flex;align-items:center;justify-content:center}
-    .card{max-width:760px;padding:24px;border-radius:12px;background:#fff8f0;border:1px solid #e0d7c5;box-shadow:0 8px 20px rgba(0,0,0,.08)}
-    .logo{display:block;margin:0 auto 10px auto;width:140px;height:auto}
-    h1{font-size:30px;margin:6px 0 8px 0;text-align:center}
-    p{font-size:16px;margin:8px 0;text-align:center}
-    .actions{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
-    .btn{background:#b3822f;color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;text-decoration:none}
-    .btn-plain{background:transparent;border:1px solid #b3822f;color:#b3822f}
+    body{background:#f2e8dc}
+    .wrap{max-width:720px;margin:36px auto;padding:0 14px;text-align:center}
+    .logo{display:block;margin:6px auto 10px auto;width:140px;height:auto;border-radius:10px}
+    .card{background:#fff;border:1px solid #e7dbc8;border-radius:14px;padding:18px}
+    .btn{background:#b08956;border:none;color:#fff;border-radius:10px;padding:10px 14px;cursor:pointer}
   </style>
 </head>
 <body>
   <div class="wrap">
+    <img class="logo" src="/logo.png" alt="Logo"/>
     <div class="card">
-      <img src="/logo.png" alt="Logo" class="logo"/>
-      <h1>We’ll miss you this round 😢</h1>
-      <p>We hope this goodbye is only for now.</p>
-      <div class="actions">
-        <a id="bookBtn" class="btn" href="/">Book your comeback</a>
-        <a id="backBtn" class="btn-plain" href="/">Back</a>
-      </div>
+      <h2>Your reservation was canceled</h2>
+      <p>We hope to welcome you another time.</p>
+      <button class="btn" onclick="window.history.length>1?history.back():window.location.href='/'">Back</button>
     </div>
   </div>
-  <script>
-    (function(){
-      const url = new URL(location.href);
-      const ret = url.searchParams.get("return");
-      const target = ret || document.referrer || "/";
-      document.getElementById("backBtn").setAttribute("href", target);
-      document.getElementById("bookBtn").setAttribute("href", target || "/");
-    })();
-  </script>
 </body>
 </html>
