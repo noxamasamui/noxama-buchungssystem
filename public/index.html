@@ -2,194 +2,204 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Contact and Table Booking</title>
   <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-  <div class="wrap">
-    <img class="logo" src="/logo-hero.png" alt="RÖSTILAND">
+  <div class="container">
+    <img src="/logo-hero.png" alt="RÖSTILAND" class="logo-hero"/>
+
     <h1>Contact and Table Booking</h1>
 
     <div class="card">
-      <p><strong>Address</strong><br>
-        Moo 4 Lamai Beach, 84310 Suratthani, Thailand</p>
-      <p><strong>Phone</strong> <a href="tel:+666077270675">+66 077 270 675</a><br>
-         <strong>Email</strong> <a href="mailto:info@noxamasamui.com">info@noxamasamui.com</a></p>
-    </div>
-
-    <div class="card">
-      <label for="date">Date</label>
-      <input id="date" type="date"/>
-
-      <label for="guests" style="margin-top:12px">Guests (max 10 online)</label>
-      <select id="guests">
-        <option value="">Select guests…</option>
-        <script>
-          for(let i=1;i<=10;i++){
-            document.write(`<option value="${i}">${i}</option>`);
-          }
-        </script>
-        <option value="group">Group 11+</option>
-      </select>
-      <div id="groupNote" class="notice" style="display:none;margin-top:10px">
-        For groups of 11 or more, please contact us via
-        <a href="mailto:info@noxamasamui.com">email</a> or
-        <a href="tel:+666077270675">phone</a>.
-      </div>
-
-      <div id="closedNote" class="notice error" style="display:none;margin-top:14px">
-        We are fully booked or closed on this date. Please choose another day.
-      </div>
-
-      <div id="slotsWrap" style="margin-top:14px;display:none">
-        <label>Choose a time slot (15 minutes grid)</label>
-        <div id="slots" class="grid"></div>
-      </div>
-    </div>
-
-    <form id="form" class="card" style="display:none">
+      <h2>Address</h2>
+      <div>Moo 4 Lamai Beach, 84310 Suratthani, Thailand</div>
       <div class="row">
+        <div><span class="badge">Phone</span> <a href="tel:+66077270675">+66 077 270 675</a></div>
+        <div><span class="badge">Email</span> <a href="mailto:info@noxamasamui.com">info@noxamasamui.com</a></div>
+      </div>
+    </div>
+
+    <form id="form" class="card" autocomplete="off">
+      <div class="row">
+        <div>
+          <label for="date">Date</label>
+          <input id="date" type="date" required/>
+        </div>
+        <div>
+          <label for="guests">Guests (max 10 online)</label>
+          <select id="guests" required>
+            <option value="">Select guests…</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="slotsWrap" class="card" style="display:none;margin-top:18px">
+        <h2 style="margin-top:0">Choose a time slot</h2>
+        <div id="slots" class="slot-grid"></div>
+        <div id="slotsMsg" class="small" style="margin-top:10px"></div>
+      </div>
+
+      <div class="row" style="margin-top:18px">
         <div>
           <label for="first">First name*</label>
-          <input id="first" type="text" required>
+          <input id="first" type="text" required/>
         </div>
         <div>
-          <label for="name">Name*</label>
-          <input id="name" type="text" required>
+          <label for="last">Name*</label>
+          <input id="last" type="text" required/>
         </div>
       </div>
+
       <div class="row">
         <div>
-          <label for="email">Email*</label>
-          <input id="email" type="email" required>
+          <label for="mail">Email*</label>
+          <input id="mail" type="text" inputmode="email" required/>
         </div>
         <div>
           <label for="phone">Phone (optional)</label>
-          <input id="phone" type="tel" placeholder="">
+          <input id="phone" type="text" />
         </div>
       </div>
+
       <div>
         <label for="notes">Notes</label>
         <textarea id="notes" placeholder="Allergies, seating request, occasion"></textarea>
       </div>
 
-      <div class="center" style="margin-top:14px">
-        <button class="btn" type="submit">Book now</button>
+      <div class="notice" style="margin:14px 0">
+        Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
       </div>
 
-      <div id="msg" class="notice success" style="display:none;margin-top:12px"></div>
-    </form>
+      <div class="center" style="margin-top:12px">
+        <button id="submit" type="submit" class="btn" disabled>Book now</button>
+        <div id="feedback" class="small" style="margin-top:8px"></div>
+      </div>
 
+      <input type="hidden" id="time"/>
+    </form>
   </div>
 
-<script>
-const logoUrl = '/logo-hero.png'; // zentral, falls du später umstellst
+  <script>
+  // helpers
+  const $ = sel => document.querySelector(sel);
+  const elSlots = $("#slots");
+  const elSlotsWrap = $("#slotsWrap");
+  const elSlotsMsg = $("#slotsMsg");
 
-const dateEl   = document.getElementById('date');
-const guestsEl = document.getElementById('guests');
-const groupNote= document.getElementById('groupNote');
-const slotsWrap= document.getElementById('slotsWrap');
-const slotsEl  = document.getElementById('slots');
-const closedNote= document.getElementById('closedNote');
-const formEl   = document.getElementById('form');
-const msgEl    = document.getElementById('msg');
-
-let pickedSlot = null;
-
-function ymdToday(){
-  const t = new Date();
-  const y=t.getFullYear(), m = String(t.getMonth()+1).padStart(2,'0'), d=String(t.getDate()).padStart(2,'0');
-  return `${y}-${m}-${d}`;
-}
-
-dateEl.value = ymdToday();
-
-guestsEl.addEventListener('change', ()=>{
-  if(guestsEl.value==='group'){
-    slotsWrap.style.display='none';
-    formEl.style.display='none';
-    groupNote.style.display='block';
-    return;
+  // fill guests 1..10
+  const gSel = $("#guests");
+  for(let i=1;i<=10;i++){
+    const o = document.createElement("option");
+    o.value=String(i); o.textContent=String(i);
+    gSel.appendChild(o);
   }
-  groupNote.style.display='none';
-  if(dateEl.value && guestsEl.value) loadSlots();
-});
-dateEl.addEventListener('change', ()=>{
-  if(guestsEl.value && guestsEl.value!=='group') loadSlots();
-});
 
-async function loadSlots(){
-  pickedSlot=null;
-  formEl.style.display='none';
-  slotsEl.innerHTML='';
-  closedNote.style.display='none';
-  slotsWrap.style.display='none';
-
-  const r = await fetch(`/api/slots?date=${encodeURIComponent(dateEl.value)}&guests=${encodeURIComponent(guestsEl.value)}`);
-  if(!r.ok){ closedNote.style.display='block'; return }
-  const data = await r.json(); // { open:true, slots:[{t:"10:00",free:true},...] }
-
-  if(!data.open || !data.slots?.length){
-    closedNote.style.display='block';
-    return;
+  function ymd(d){
+    if(!d) return "";
+    const dt = new Date(d);
+    if(Number.isNaN(dt.getTime())) return "";
+    return dt.toISOString().slice(0,10);
   }
-  slotsWrap.style.display='block';
-  for(const s of data.slots){
-    const b = document.createElement('button');
-    b.type='button';
-    b.className='slot';
-    b.textContent=s.t;
-    if(!s.free) b.setAttribute('disabled','');
-    b.addEventListener('click', ()=>{
-      document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
-      b.classList.add('active');
-      pickedSlot = s.t;
-      formEl.style.display='block';
-      msgEl.style.display='none';
-    });
-    slotsEl.appendChild(b);
+
+  async function loadSlots(){
+    const date = $("#date").value;
+    const guests = Number($("#guests").value || 0);
+    $("#submit").disabled = true;
+    $("#time").value = "";
+    elSlots.innerHTML = "";
+    elSlotsMsg.textContent = "";
+
+    if(!date || !guests){
+      elSlotsWrap.style.display = "none";
+      return;
+    }
+
+    elSlotsWrap.style.display = "block";
+    elSlotsMsg.textContent = "Loading slots…";
+
+    try{
+      const q = new URLSearchParams({date: ymd(date)});
+      const res = await fetch("/api/slots?"+q);
+      const data = await res.json();
+
+      const visible = data.filter(s => s.allowed && s.left >= guests);
+      elSlots.innerHTML = "";
+      if(visible.length === 0){
+        elSlotsMsg.textContent = "We are fully booked at this date. Please choose another day.";
+        return;
+      }
+      elSlotsMsg.textContent = "";
+
+      visible.forEach(s=>{
+        const b = document.createElement("button");
+        b.type="button"; b.className="slot";
+        b.textContent = s.time;
+        b.addEventListener("click", ()=>{
+          document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active"));
+          b.classList.add("active");
+          $("#time").value = s.time;
+          $("#submit").disabled = false;
+        });
+        elSlots.appendChild(b);
+      });
+
+    }catch(e){
+      elSlotsMsg.textContent = "Failed to load slots.";
+    }
   }
-}
 
-document.getElementById('form').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  if(!pickedSlot) return;
+  $("#date").addEventListener("change", loadSlots);
+  $("#guests").addEventListener("change", loadSlots);
 
-  const payload = {
-    date: dateEl.value,
-    time: pickedSlot,
-    guests: Number(guestsEl.value),
-    firstName: document.getElementById('first').value.trim(),
-    name: document.getElementById('name').value.trim(),
-    email: document.getElementById('email').value.trim(),
-    phone: document.getElementById('phone').value.trim() || null,
-    notes: document.getElementById('notes').value.trim() || null
-  };
+  // submit
+  $("#form").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    $("#submit").disabled = true;
+    $("#feedback").textContent = "";
 
-  const r = await fetch('/api/reservations', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(payload)
+    const payload = {
+      date: ymd($("#date").value),
+      time: $("#time").value,
+      firstName: $("#first").value.trim(),
+      name: $("#last").value.trim(),
+      email: $("#mail").value.trim(),
+      phone: $("#phone").value.trim(),
+      guests: Number($("#guests").value),
+      notes: $("#notes").value.trim()
+    };
+
+    if(!payload.time){
+      $("#feedback").textContent = "Please choose a time slot.";
+      $("#submit").disabled = false;
+      return;
+    }
+
+    try{
+      const res = await fetch("/api/reservations", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if(!res.ok){
+        $("#feedback").textContent = data.error || "Booking failed.";
+        $("#submit").disabled = false;
+        return;
+      }
+      $("#feedback").textContent = "Your reservation has been received. You will get a confirmation email shortly.";
+      // simple reset
+      $("#submit").disabled = true;
+    }catch(err){
+      $("#feedback").textContent = "Booking failed.";
+      $("#submit").disabled = false;
+    }
   });
-  const res = await r.json();
 
-  if(!r.ok){
-    msgEl.className='notice error';
-    msgEl.textContent = res?.error || 'Booking failed.';
-    msgEl.style.display='block';
-    return;
-  }
-
-  msgEl.className='notice success';
-  msgEl.innerHTML = 'Thank you! Your reservation has been received. A confirmation email will arrive shortly. Please also check your spam folder.';
-  msgEl.style.display='block';
-
-  // Button-UI zurücksetzen
-  document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
-  formEl.reset();
-  formEl.style.display='none';
-});
-</script>
+  // default date today
+  const today = new Date();
+  $("#date").value = today.toISOString().slice(0,10);
+  </script>
 </body>
 </html>
