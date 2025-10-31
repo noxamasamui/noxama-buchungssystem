@@ -2,148 +2,179 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Admin</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <link rel="icon" href="/logo.png">
-  <style>
-    :root{--bg:#efe6da;--card:#f7efe6;--ink:#3a2f28;--accent:#a6753a}
-    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif}
-    .wrap{max-width:1100px;margin:0 auto;padding:28px 14px}
-    header{display:flex;align-items:center;gap:14px}
-    header img{width:110px;height:auto;border-radius:10px}
-    h1{font-size:40px;margin:0 0 20px}
-    .card{background:var(--card);border:1px solid #e8d8c7;border-radius:14px;padding:16px;margin:14px 0}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:8px;border-bottom:1px solid #e8d8c7;text-align:left}
-    .row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
-    .btn{padding:8px 10px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer}
-    input,select{width:100%;padding:8px;border:1px solid #d7c6b4;border-radius:10px;background:#fff;font-family:inherit}
-  </style>
+  <title>Admin — Reservations</title>
+  <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <img src="/logo.png" alt="Logo">
+<div class="wrap">
+  <div class="center">
+    <img src="/logo-hero.png" class="logo" style="width:160px" alt="RÖSTILAND">
+  </div>
+  <h1>Admin</h1>
+
+  <div class="card">
+    <div class="row">
       <div>
-        <div><a href="/" style="color:inherit">Reservation</a> · <b>Admin</b></div>
-        <h1>Admin</h1>
+        <label for="fltDate">Date filter</label>
+        <input id="fltDate" type="date">
       </div>
-    </header>
-
-    <section class="card">
-      <div class="row" style="grid-template-columns:180px 120px 1fr;">
-        <div>
-          <label>Date filter</label>
-          <input type="date" id="fltDate">
-        </div>
-        <div>
-          <label>View</label>
-          <select id="fltView"><option value="week">week</option><option value="day">day</option></select>
-        </div>
-        <div style="align-self:end">
-          <button class="btn" id="btnLoad">Load</button>
-          <span id="listMsg" style="margin-left:10px;color:#6b513f"></span>
-        </div>
+      <div>
+        <label for="view">View</label>
+        <select id="view">
+          <option value="day">day</option>
+          <option value="week" selected>week</option>
+        </select>
       </div>
+    </div>
+    <div style="margin-top:10px">
+      <button id="btnLoad" class="btn">Load</button>
+      <span id="status" class="muted" style="margin-left:10px"></span>
+      <div style="float:right">
+        <label for="exportSel" style="display:inline">Export</label>
+        <select id="exportSel" style="width:auto;display:inline">
+          <option value="weekly" selected>weekly</option>
+          <option value="daily">daily</option>
+        </select>
+        <button id="btnExcel" class="btn secondary">Excel</button>
+      </div>
+    </div>
 
-      <div style="overflow:auto;margin-top:10px">
-        <table id="tbl">
+    <div class="card" style="margin-top:12px">
+      <div style="overflow:auto">
+        <table id="tbl" style="width:100%;border-collapse:collapse">
           <thead>
             <tr>
-              <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th><th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th>
+              <th style="text-align:left">Date</th>
+              <th style="text-align:left">Time</th>
+              <th style="text-align:left">Name</th>
+              <th style="text-align:left">Email</th>
+              <th style="text-align:left">Phone</th>
+              <th style="text-align:left">Guests</th>
+              <th style="text-align:left">Status</th>
+              <th style="text-align:left">Notes</th>
+              <th style="text-align:left">Walk in</th>
+              <th style="text-align:left">Action</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody id="tbody"></tbody>
         </table>
       </div>
-    </section>
-
-    <section class="card">
-      <h3>Add walk in</h3>
-      <div class="row" style="grid-template-columns:160px 120px 120px 1fr 120px;">
-        <div><label>Date</label><input type="date" id="wDate"></div>
-        <div><label>Time</label><input type="time" id="wTime" value="10:00" step="900"></div>
-        <div><label>Guests</label><input type="number" id="wGuests" min="1" max="48" value="2"></div>
-        <div><label>Notes</label><input id="wNotes" placeholder="Table, source, anything..."></div>
-        <div style="align-self:end"><button class="btn" id="btnWalk">Save walk in</button></div>
-      </div>
-      <div id="walkMsg" style="margin-top:8px;color:#6b513f"></div>
-    </section>
-
-    <section class="card">
-      <h3>Block restaurant</h3>
-      <div class="row" style="grid-template-columns:220px 220px 1fr 120px;">
-        <div><label>Start</label><input type="datetime-local" id="bStart"></div>
-        <div><label>End</label><input type="datetime-local" id="bEnd"></div>
-        <div><label>Reason</label><input id="bReason" value="Private event, maintenance, ..."></div>
-        <div style="align-self:end"><button class="btn" id="btnBlock">Create block</button></div>
-      </div>
-      <div id="blockMsg" style="margin-top:8px;color:#6b513f"></div>
-    </section>
+    </div>
   </div>
 
-  <script>
-    const $=sel=>document.querySelector(sel);
-    const adminKey = ""; // optional: set to process.env.ADMIN_KEY and send as header below if used
+  <div class="card">
+    <h3>Add walk in</h3>
+    <div class="row">
+      <div><label>Date</label><input id="wDate" type="date"></div>
+      <div><label>Time</label><input id="wTime" type="time" step="900" value="10:00"></div>
+      <div><label>Guests</label><input id="wGuests" type="number" min="1" max="40" value="2"></div>
+    </div>
+    <label>Notes</label><input id="wNotes" type="text" placeholder="Table, source, anything…">
+    <div style="margin-top:10px"><button id="btnWalkin" class="btn">Save walk in</button> <span id="wStatus" class="muted"></span></div>
+  </div>
 
-    const today = new Date();
-    $("#fltDate").valueAsNumber = Date.UTC(today.getFullYear(),today.getMonth(),today.getDate());
-    $("#wDate").valueAsNumber = $("#fltDate").valueAsNumber;
+  <div class="card">
+    <h3>Block restaurant</h3>
+    <div class="row">
+      <div><label>Start</label><input id="bStart" type="datetime-local"></div>
+      <div><label>End</label><input id="bEnd" type="datetime-local"></div>
+      <div><label>Reason</label><input id="bReason" type="text" placeholder="Private event, maintenance, …"></div>
+    </div>
+    <div style="margin-top:10px"><button id="btnBlock" class="btn danger">Create block</button> <span id="bStatus" class="muted"></span></div>
+  </div>
 
-    async function load(){
-      $("#listMsg").textContent = "";
-      const date = $("#fltDate").value;
-      const view = $("#fltView").value;
-      const r = await fetch(`/api/admin/reservations?date=${date}&view=${view}`,{
-        headers: adminKey ? {"x-admin-key":adminKey} : {}
-      });
-      if(!r.ok){ $("#listMsg").textContent = "List failed (404)."; return; }
-      const rows = await r.json();
-      const tb = $("#tbl tbody");
-      tb.innerHTML = "";
-      rows.forEach(x=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${x.date}</td><td>${x.time}</td><td>${x.firstName||""} ${x.name||""}</td>
-                        <td>${x.email||""}</td><td>${x.phone||""}</td><td>${x.guests}</td>
-                        <td>${x.status}</td><td>${x.notes||""}</td><td>${x.isWalkIn?"yes":"no"}</td>`;
-        tb.appendChild(tr);
-      });
+</div>
+
+<script>
+const fltDate = document.getElementById('fltDate');
+const viewSel = document.getElementById('view');
+const tbody   = document.getElementById('tbody');
+const statusEl= document.getElementById('status');
+
+function ymdToday(){
+  const t = new Date(); const y=t.getFullYear(), m=String(t.getMonth()+1).padStart(2,'0'), d=String(t.getDate()).padStart(2,'0'); return `${y}-${m}-${d}`;
+}
+fltDate.value = ymdToday();
+
+document.getElementById('btnLoad').addEventListener('click', load);
+document.getElementById('btnExcel').addEventListener('click', async ()=>{
+  const r = await fetch(`/api/admin/export?date=${fltDate.value}&view=${viewSel.value}`);
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'reservations.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+async function load(){
+  tbody.innerHTML='';
+  statusEl.textContent='Loading…';
+  try{
+    const r = await fetch(`/api/admin/list?date=${fltDate.value}&view=${viewSel.value}`);
+    if(!r.ok) throw new Error('List failed');
+    const rows = await r.json();
+    for(const x of rows){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${x.date}</td>
+        <td>${x.time}</td>
+        <td>${x.firstName ? (x.firstName+' ') : ''}${x.name || ''}</td>
+        <td>${x.email || ''}</td>
+        <td>${x.phone || ''}</td>
+        <td>${x.guests}</td>
+        <td>${x.status}</td>
+        <td>${x.notes || ''}</td>
+        <td>${x.walkIn ? 'yes' : ''}</td>
+        <td>
+          <button class="btn danger" data-del="${x.id}">Delete</button>
+          <button class="btn secondary" data-noshow="${x.id}">No show</button>
+        </td>`;
+      tbody.appendChild(tr);
     }
-    $("#btnLoad").onclick = load; load();
+    statusEl.textContent='';
+  }catch(e){
+    statusEl.textContent='List failed (404)';
+  }
+}
+tbody.addEventListener('click', async (e)=>{
+  const t = e.target;
+  if(t.dataset.del){
+    if(!confirm('Delete reservation?')) return;
+    await fetch(`/api/admin/reservation/${t.dataset.del}`, {method:'DELETE'});
+    load();
+  }
+  if(t.dataset.noshow){
+    await fetch(`/api/admin/noshow/${t.dataset.noshow}`, {method:'POST'});
+    load();
+  }
+});
 
-    $("#btnWalk").onclick = async ()=>{
-      $("#walkMsg").textContent = "";
-      const body = {
-        date: $("#wDate").value,
-        time: $("#wTime").value,
-        guests: Number($("#wGuests").value||1),
-        notes: $("#wNotes").value.trim()
-      };
-      const r = await fetch("/api/admin/walkin",{method:"POST",headers:{
-        "Content-Type":"application/json",
-        ...(adminKey?{"x-admin-key":adminKey}:{})
-      },body:JSON.stringify(body)});
-      const d = await r.json();
-      if(!r.ok){ $("#walkMsg").textContent = d?.error || "Walk-in failed"; return; }
-      $("#walkMsg").textContent = "Walk-in saved.";
-      load();
-    };
+document.getElementById('btnWalkin').addEventListener('click', async ()=>{
+  const payload = {
+    date: document.getElementById('wDate').value || fltDate.value,
+    time: document.getElementById('wTime').value,
+    guests: Number(document.getElementById('wGuests').value || 1),
+    notes: document.getElementById('wNotes').value || null
+  };
+  const r = await fetch('/api/admin/walkin', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  document.getElementById('wStatus').textContent = r.ok ? 'Saved' : 'Walk-in failed';
+  load();
+});
 
-    $("#btnBlock").onclick = async ()=>{
-      $("#blockMsg").textContent = "";
-      const body = {
-        start: $("#bStart").value ? new Date($("#bStart").value).toISOString(): "",
-        end: $("#bEnd").value ? new Date($("#bEnd").value).toISOString(): "",
-        reason: $("#bReason").value.trim()
-      };
-      const r = await fetch("/api/admin/block",{method:"POST",headers:{
-        "Content-Type":"application/json",
-        ...(adminKey?{"x-admin-key":adminKey}:{})
-      },body:JSON.stringify(body)});
-      const d = await r.json();
-      if(!r.ok){ $("#blockMsg").textContent = d?.error || "Block failed"; return; }
-      $("#blockMsg").textContent = "Block created.";
-    };
-  </script>
+document.getElementById('btnBlock').addEventListener('click', async ()=>{
+  const payload = {
+    start: document.getElementById('bStart').value,
+    end: document.getElementById('bEnd').value,
+    reason: document.getElementById('bReason').value || 'blocked'
+  };
+  const r = await fetch('/api/admin/block', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  document.getElementById('bStatus').textContent = r.ok ? 'Block created' : 'Block failed';
+  load();
+});
+
+load();
+</script>
 </body>
 </html>
