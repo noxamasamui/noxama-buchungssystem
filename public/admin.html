@@ -8,12 +8,12 @@
 </head>
 <body>
 <div class="container">
-  <img class="logo" src="/logo.png" alt="Logo"/>
+  <img class="hero" src="https://i.imgur.com/LQ4nzwd.png" alt="RÖSTILAND">
   <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
-  <h1>Admin Dashboard</h1>
+  <h1>Admin</h1>
 
   <div class="card">
-    <h2>All Reservations</h2>
+    <h2>All reservations</h2>
     <div class="toolbar">
       <div class="row">
         <div><label>Date filter</label><input id="fltDate" type="date"/></div>
@@ -46,8 +46,6 @@
             <th class="col-phone">Phone</th>
             <th class="col-guests">Guests</th>
             <th>Status</th>
-            <th>Visits</th>
-            <th>Discount %</th>
             <th>Notes</th>
             <th class="col-walkin">Walk in</th>
             <th class="col-actions">Action</th>
@@ -60,7 +58,7 @@
   </div>
 
   <div class="card">
-    <h2>Add Walk-In</h2>
+    <h2>Add walk in</h2>
     <div class="row">
       <div><label>Date</label><input id="wDate" type="date"/></div>
       <div><label>Time</label><select id="wTime"></select></div>
@@ -68,21 +66,21 @@
     </div>
     <label>Notes</label><input id="wNotes"/>
     <div class="row">
-      <button id="btnWalk" class="btn" type="button">Save Walk-In</button>
+      <button id="btnWalk" class="btn" type="button">Save walk in</button>
       <span id="wMsg" class="badge"></span>
     </div>
   </div>
 
   <div class="card">
-    <h2>Block Restaurant</h2>
+    <h2>Block restaurant</h2>
     <div class="row">
       <div><label>Start</label><input id="cStart" type="datetime-local"/></div>
       <div><label>End</label><input id="cEnd" type="datetime-local"/></div>
       <div><label>Reason</label><input id="cReason"/></div>
     </div>
     <div class="row">
-      <button id="btnBlock" class="btn" type="button">Create Block</button>
-      <button id="btnBlockDayPicker" class="btn-plain" type="button">Block Day (from Start)</button>
+      <button id="btnBlock" class="btn" type="button">Create block</button>
+      <button id="btnBlockDayPicker" class="btn-plain" type="button">Block day (from Start)</button>
       <span id="cMsg" class="badge"></span>
     </div>
     <div id="closureList" style="margin-top:10px"></div>
@@ -95,7 +93,7 @@ const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.ge
 document.getElementById("fltDate").value = today();
 document.getElementById("wDate").value = today();
 
-// Walk-in times in 15-minute steps
+// Walk-in Zeiten in 15-Minuten-Schritten
 function fillWalkInTimes(){
   const sel = document.getElementById("wTime");
   sel.innerHTML = "";
@@ -114,6 +112,7 @@ async function loadList(){
   const d = document.getElementById("fltDate").value || today();
   const v = document.getElementById("view").value || "week";
   const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${v}`);
+  if(!r.ok){ alert(`List failed (${r.status}).`); return; }
   const data = await r.json();
   const tb = document.querySelector("#tbl tbody");
   tb.innerHTML = "";
@@ -121,8 +120,6 @@ async function loadList(){
 
   data.forEach(row=>{
     totalGuests += row.guests;
-    const visits = row.visitCount ?? 1;
-    const discount = row.discount ?? 0;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td class="col-date">${row.date}</td>
@@ -132,8 +129,6 @@ async function loadList(){
       <td class="col-phone">${row.phone || ""}</td>
       <td class="col-guests">${row.guests}</td>
       <td>${row.status}</td>
-      <td style="text-align:center;">${visits}</td>
-      <td style="text-align:center;">${discount > 0 ? discount + "%" : "-"}</td>
       <td>${row.notes || ""}</td>
       <td class="col-walkin">${row.isWalkIn ? "yes" : ""}</td>
       <td class="col-actions actions-cell">
@@ -165,7 +160,7 @@ document.getElementById("btnExport").addEventListener("click", ()=>{
   window.location.href = `/api/export?period=${p}&date=${encodeURIComponent(d)}`;
 });
 
-// Walk-in save
+// Walk-in speichern
 document.getElementById("btnWalk").addEventListener("click", async ()=>{
   const d = document.getElementById("wDate").value || today();
   const t = document.getElementById("wTime").value;
