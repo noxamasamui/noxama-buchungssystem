@@ -1,16 +1,67 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
   <title>Your reservation was canceled</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="/style.css"/>
   <style>
-    body{background:#f2e8dc}
-    .wrap{max-width:720px;margin:36px auto;padding:0 14px;text-align:center}
-    .logo{display:block;margin:6px auto 10px auto;width:140px;height:auto;border-radius:10px}
-    .card{background:#fff;border:1px solid #e7dbc8;border-radius:14px;padding:18px}
-    .btn{background:#b08956;border:none;color:#fff;border-radius:10px;padding:10px 14px;cursor:pointer}
+    /* Base */
+    :root{
+      --bg:#f2e8dc;      /* page background */
+      --card:#ffffff;    /* card background */
+      --border:#e7dbc8;  /* subtle border */
+      --text:#3a2f28;    /* body text */
+      --brand:#b08956;   /* brand accent */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    /* Layout */
+    .wrap{
+      max-width:720px;
+      margin:36px auto;
+      padding:0 14px;
+      text-align:center;
+    }
+    .logo{
+      display:block;
+      margin:6px auto 14px auto;
+      width:140px;
+      height:auto;
+      border-radius:10px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:20px 18px;
+      box-shadow:0 0 0 1px rgba(0,0,0,0.02);
+    }
+    h1,h2{margin:8px 0 10px 0}
+    p{margin:10px 0}
+
+    /* Button */
+    .btn{
+      display:inline-block;
+      margin-top:10px;
+      padding:10px 16px;
+      border:none;
+      border-radius:10px;
+      background:var(--brand);
+      color:#fff;
+      cursor:pointer;
+      text-decoration:none;
+      font-size:16px;
+      line-height:1;
+    }
+    .btn:active{transform:translateY(1px)}
   </style>
 </head>
 <body>
@@ -19,7 +70,7 @@
     <div class="card">
       <h2>Your reservation was canceled</h2>
       <p>We hope to welcome you another time.</p>
-      <button class="btn" onclick="window.history.length>1?history.back():window.location.href='/'">Back</button>
+      <button class="btn" onclick="(history.length>1)?history.back():location.assign('/')">Back</button>
     </div>
   </div>
 </body>
