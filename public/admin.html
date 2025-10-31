@@ -2,346 +2,148 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Admin — Reservations</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-
-  <!-- Optional: dein globales CSS, falls vorhanden -->
-  <link rel="stylesheet" href="/style.css"/>
-
+  <title>Admin</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="icon" href="/logo.png">
   <style>
-    :root{
-      --bg:#d6c7b2;        /* gewünschter Hintergrund */
-      --card:#f7efe6;      /* Karten */
-      --ink:#3a2f28;       /* Text */
-      --muted:#8b7767;     /* Sekundärtext */
-      --accent:#a87a39;    /* Akzent/Buttons */
-      --accent-ink:#fff;
-      --ring:rgba(0,0,0,.08);
-      --radius:14px;
-    }
-    html,body{background:var(--bg); color:var(--ink); font-family: Georgia, "Times New Roman", serif;}
-    a{color:inherit}
-    .container{max-width:1100px;margin:24px auto 80px;padding:0 16px}
-    h1{font-size:40px;line-height:1.15;margin:14px 0 12px}
-    .crumbs{margin:6px 0 8px}
-    .crumbs a{text-decoration:none;border-bottom:1px dotted rgba(0,0,0,.25)}
-    .logo-wrap{display:flex;justify-content:center;margin:6px 0 10px}
-    .logo-hero{width:280px;max-width:60vw;border-radius:12px;box-shadow:0 2px 20px rgba(0,0,0,.1)}
-    .card{
-      background:var(--card);
-      border-radius:var(--radius);
-      box-shadow:0 1px 0 var(--ring), 0 12px 28px rgba(0,0,0,.06);
-      padding:16px 16px 18px;
-      margin:16px 0;
-    }
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    label{font-weight:700;margin-right:8px}
-    input,select,textarea,button{
-      font:inherit;color:inherit;
-    }
-    input,select,textarea{
-      padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,.12);
-      background:#fff;box-sizing:border-box;
-    }
-    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,122,57,.25)}
-    .btn{
-      background:var(--accent);color:var(--accent-ink);border:none;cursor:pointer;
-      padding:10px 14px;border-radius:10px;font-weight:700;box-shadow:0 6px 16px rgba(168,122,57,.25);
-      transition:.15s;
-    }
-    .btn:hover{filter:brightness(.97);transform:translateY(-1px)}
-    .btn-ghost{background:transparent;border:1px solid rgba(0,0,0,.2);color:var(--ink)}
-    .badge{display:inline-block;background:#fff3d6;color:#7a5b2a;border:1px solid rgba(0,0,0,.06);padding:6px 10px;border-radius:999px}
-
-    table{width:100%;border-collapse:separate;border-spacing:0 10px}
-    thead th{font-size:14px;color:var(--muted);font-weight:700;text-align:left;padding:0 10px}
-    tbody tr{background:#fff;border-radius:12px;box-shadow:0 1px 0 var(--ring)}
-    tbody td{padding:10px}
-    tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
-    tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
-    .actions-row{display:flex;gap:8px;align-items:center}
-    .small{font-size:14px}
-    .muted{color:var(--muted)}
-    .right{margin-left:auto}
-    .hint{background:#fff8ec;border-left:6px solid var(--accent);padding:10px 12px;border-radius:10px;margin:6px 0}
-    .msg{margin-left:8px}
-    .nowrap{white-space:nowrap}
+    :root{--bg:#efe6da;--card:#f7efe6;--ink:#3a2f28;--accent:#a6753a}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px 14px}
+    header{display:flex;align-items:center;gap:14px}
+    header img{width:110px;height:auto;border-radius:10px}
+    h1{font-size:40px;margin:0 0 20px}
+    .card{background:var(--card);border:1px solid #e8d8c7;border-radius:14px;padding:16px;margin:14px 0}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #e8d8c7;text-align:left}
+    .row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+    .btn{padding:8px 10px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer}
+    input,select{width:100%;padding:8px;border:1px solid #d7c6b4;border-radius:10px;background:#fff;font-family:inherit}
   </style>
 </head>
 <body>
-<div class="container">
+  <div class="wrap">
+    <header>
+      <img src="/logo.png" alt="Logo">
+      <div>
+        <div><a href="/" style="color:inherit">Reservation</a> · <b>Admin</b></div>
+        <h1>Admin</h1>
+      </div>
+    </header>
 
-  <!-- großes, neues Logo -->
-  <div class="logo-wrap">
-    <picture>
-      <source srcset="/logo-hero.png" type="image/png"/>
-      <img class="logo-hero" src="/logo.png" alt="Logo"/>
-    </picture>
+    <section class="card">
+      <div class="row" style="grid-template-columns:180px 120px 1fr;">
+        <div>
+          <label>Date filter</label>
+          <input type="date" id="fltDate">
+        </div>
+        <div>
+          <label>View</label>
+          <select id="fltView"><option value="week">week</option><option value="day">day</option></select>
+        </div>
+        <div style="align-self:end">
+          <button class="btn" id="btnLoad">Load</button>
+          <span id="listMsg" style="margin-left:10px;color:#6b513f"></span>
+        </div>
+      </div>
+
+      <div style="overflow:auto;margin-top:10px">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th><th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Add walk in</h3>
+      <div class="row" style="grid-template-columns:160px 120px 120px 1fr 120px;">
+        <div><label>Date</label><input type="date" id="wDate"></div>
+        <div><label>Time</label><input type="time" id="wTime" value="10:00" step="900"></div>
+        <div><label>Guests</label><input type="number" id="wGuests" min="1" max="48" value="2"></div>
+        <div><label>Notes</label><input id="wNotes" placeholder="Table, source, anything..."></div>
+        <div style="align-self:end"><button class="btn" id="btnWalk">Save walk in</button></div>
+      </div>
+      <div id="walkMsg" style="margin-top:8px;color:#6b513f"></div>
+    </section>
+
+    <section class="card">
+      <h3>Block restaurant</h3>
+      <div class="row" style="grid-template-columns:220px 220px 1fr 120px;">
+        <div><label>Start</label><input type="datetime-local" id="bStart"></div>
+        <div><label>End</label><input type="datetime-local" id="bEnd"></div>
+        <div><label>Reason</label><input id="bReason" value="Private event, maintenance, ..."></div>
+        <div style="align-self:end"><button class="btn" id="btnBlock">Create block</button></div>
+      </div>
+      <div id="blockMsg" style="margin-top:8px;color:#6b513f"></div>
+    </section>
   </div>
 
-  <div class="crumbs small"><a href="/public/">Reservation</a> &nbsp; <b>Admin</b></div>
-  <h1>Admin</h1>
+  <script>
+    const $=sel=>document.querySelector(sel);
+    const adminKey = ""; // optional: set to process.env.ADMIN_KEY and send as header below if used
 
-  <!-- All reservations -->
-  <div class="card">
-    <div class="row">
-      <label for="dateFilter">Date filter</label>
-      <input id="dateFilter" type="date"/>
-      <label for="viewSel">View</label>
-      <select id="viewSel">
-        <option value="day">day</option>
-        <option value="week" selected>week</option>
-      </select>
-      <button id="loadBtn" class="btn">Load</button>
+    const today = new Date();
+    $("#fltDate").valueAsNumber = Date.UTC(today.getFullYear(),today.getMonth(),today.getDate());
+    $("#wDate").valueAsNumber = $("#fltDate").valueAsNumber;
 
-      <span class="right"></span>
-
-      <label for="exportSel">Export</label>
-      <select id="exportSel">
-        <option value="weekly" selected>weekly</option>
-        <option value="daily">daily</option>
-      </select>
-      <button id="exportBtn" class="btn">Excel</button>
-    </div>
-
-    <div id="listMsg" class="hint muted" style="display:none;margin-top:10px"></div>
-
-    <div style="overflow:auto;margin-top:10px">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th class="nowrap">Guests</th>
-            <th>Status</th>
-            <th>Notes</th>
-            <th>Walk in</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-
-  </div>
-
-  <!-- Add walk in -->
-  <div class="card">
-    <h3 style="margin:0 0 8px">Add walk in</h3>
-    <div class="row">
-      <label>Date</label>
-      <input id="walkDate" type="date"/>
-      <label>Time</label>
-      <input id="walkTime" type="time" step="900" value="10:00" class="nowrap"/>
-      <label>Guests</label>
-      <input id="walkGuests" type="number" min="1" value="2" style="width:90px"/>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <label>Notes</label>
-      <input id="walkNotes" style="flex:1" placeholder="Table, source, anything…"/>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <button id="walkBtn" class="btn">Save walk in</button>
-      <span id="walkMsg" class="msg muted small"></span>
-    </div>
-  </div>
-
-  <!-- Block restaurant -->
-  <div class="card">
-    <h3 style="margin:0 0 8px">Block restaurant</h3>
-    <div class="row">
-      <label>Start</label>
-      <input id="blockStart" type="datetime-local"/>
-      <label>End</label>
-      <input id="blockEnd" type="datetime-local"/>
-      <label>Reason</label>
-      <input id="blockReason" style="flex:1" placeholder="Private event, maintenance, …"/>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <button id="blockBtn" class="btn">Create block</button>
-      <button id="blockDayBtn" class="btn btn-ghost">Block day (from Start)</button>
-      <span id="blockMsg" class="msg muted small"></span>
-    </div>
-  </div>
-
-</div>
-
-<script>
-  // ------- helpers -------
-  const $ = sel => document.querySelector(sel);
-  const todayISO = ()=>{
-    const d=new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  };
-  const fmt = s => String(s ?? "").trim();
-  const show = (el, on=true)=>{ el.style.display = on ? "" : "none"; };
-
-  // ------- init form defaults -------
-  $("#dateFilter").value = todayISO();
-  $("#walkDate").value   = todayISO();
-
-  // ------- list handling -------
-  async function loadList(){
-    const date = $("#dateFilter").value || todayISO();
-    const view = $("#viewSel").value || "week";
-    const msg  = $("#listMsg");
-    show(msg,false);
-    $("#tbody").innerHTML = "";
-
-    try{
-      const res = await fetch(`/api/admin/reservations?date=${encodeURIComponent(date)}&view=${encodeURIComponent(view)}`);
-      if(!res.ok) throw new Error(`List failed (${res.status})`);
-      const data = await res.json();
-
-      if(!Array.isArray(data) || data.length===0){
-        msg.textContent = "No reservations for the selected period.";
-        show(msg,true);
-        return;
-      }
-
-      const tbody = $("#tbody");
-      data.forEach(r=>{
+    async function load(){
+      $("#listMsg").textContent = "";
+      const date = $("#fltDate").value;
+      const view = $("#fltView").value;
+      const r = await fetch(`/api/admin/reservations?date=${date}&view=${view}`,{
+        headers: adminKey ? {"x-admin-key":adminKey} : {}
+      });
+      if(!r.ok){ $("#listMsg").textContent = "List failed (404)."; return; }
+      const rows = await r.json();
+      const tb = $("#tbl tbody");
+      tb.innerHTML = "";
+      rows.forEach(x=>{
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.date||""}</td>
-          <td>${r.time||""}</td>
-          <td>${(r.firstName||"")+" "+(r.name||"")}</td>
-          <td>${r.email||""}</td>
-          <td>${r.phone||""}</td>
-          <td class="nowrap">${r.guests||""}</td>
-          <td>${r.status||""}</td>
-          <td>${r.notes||""}</td>
-          <td>${r.isWalkIn ? "yes" : "no"}</td>
-          <td>
-            <div class="actions-row">
-              <button class="btn-ghost small" data-del="${r.id}">Delete</button>
-              <button class="btn-ghost small" data-ns="${r.id}">${r.status==="noshow"?"Undo no show":"No show"}</button>
-            </div>
-          </td>
-        `;
-        tbody.appendChild(tr);
+        tr.innerHTML = `<td>${x.date}</td><td>${x.time}</td><td>${x.firstName||""} ${x.name||""}</td>
+                        <td>${x.email||""}</td><td>${x.phone||""}</td><td>${x.guests}</td>
+                        <td>${x.status}</td><td>${x.notes||""}</td><td>${x.isWalkIn?"yes":"no"}</td>`;
+        tb.appendChild(tr);
       });
-
-      // wire actions
-      $("#tbody").querySelectorAll("[data-del]").forEach(b=>{
-        b.addEventListener("click", async ()=>{
-          const id=b.getAttribute("data-del");
-          if(!id) return;
-          if(!confirm("Delete this reservation?")) return;
-          try{
-            const r = await fetch(`/api/admin/reservations/${encodeURIComponent(id)}`,{method:"DELETE"});
-            if(!r.ok) throw new Error("Delete failed");
-            loadList();
-          }catch(e){
-            alert("Delete failed.");
-          }
-        });
-      });
-      $("#tbody").querySelectorAll("[data-ns]").forEach(b=>{
-        b.addEventListener("click", async ()=>{
-          const id=b.getAttribute("data-ns");
-          if(!id) return;
-          try{
-            const r = await fetch(`/api/admin/noshow/${encodeURIComponent(id)}`,{method:"POST"});
-            if(!r.ok) throw new Error("No show failed");
-            loadList();
-          }catch(e){
-            alert("No show toggle failed.");
-          }
-        });
-      });
-
-    }catch(e){
-      const msg = $("#listMsg");
-      msg.textContent = e.message || "Could not load reservations.";
-      show(msg,true);
     }
-  }
+    $("#btnLoad").onclick = load; load();
 
-  $("#loadBtn").addEventListener("click", loadList);
-  // load on open
-  loadList();
+    $("#btnWalk").onclick = async ()=>{
+      $("#walkMsg").textContent = "";
+      const body = {
+        date: $("#wDate").value,
+        time: $("#wTime").value,
+        guests: Number($("#wGuests").value||1),
+        notes: $("#wNotes").value.trim()
+      };
+      const r = await fetch("/api/admin/walkin",{method:"POST",headers:{
+        "Content-Type":"application/json",
+        ...(adminKey?{"x-admin-key":adminKey}:{})
+      },body:JSON.stringify(body)});
+      const d = await r.json();
+      if(!r.ok){ $("#walkMsg").textContent = d?.error || "Walk-in failed"; return; }
+      $("#walkMsg").textContent = "Walk-in saved.";
+      load();
+    };
 
-  // ------- export -------
-  $("#exportBtn").addEventListener("click", ()=>{
-    const date = $("#dateFilter").value || todayISO();
-    const mode = $("#exportSel").value || "weekly";
-    // einfacher redirect zum Download
-    window.location.href = `/api/admin/export?date=${encodeURIComponent(date)}&mode=${encodeURIComponent(mode)}`;
-  });
-
-  // ------- walk in -------
-  $("#walkBtn").addEventListener("click", async ()=>{
-    const date   = $("#walkDate").value || todayISO();
-    const time   = $("#walkTime").value || "10:00";
-    const guests = Number($("#walkGuests").value||0);
-    const notes  = fmt($("#walkNotes").value);
-    const msg    = $("#walkMsg");
-    msg.textContent = "";
-
-    if(!guests || guests<1){ msg.textContent="Guests must be at least 1."; return; }
-
-    try{
-      const r = await fetch("/api/admin/walkin",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ date, time, guests, notes })
-      });
-      if(!r.ok){
-        const e = await r.json().catch(()=>({error:"Walk-in failed"}));
-        throw new Error(e.error||"Walk-in failed");
-      }
-      msg.textContent = "Walk-in saved.";
-      loadList();
-      setTimeout(()=>msg.textContent="",2500);
-    }catch(e){
-      msg.textContent = e.message || "Walk-in failed.";
-    }
-  });
-
-  // ------- block -------
-  async function createBlock(startISO, endISO, reason){
-    const msg = $("#blockMsg");
-    msg.textContent = "";
-    try{
-      const r = await fetch("/api/admin/block",{
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ start:startISO, end:endISO, reason:fmt(reason) })
-      });
-      if(!r.ok){
-        const e = await r.json().catch(()=>({error:"Block failed"}));
-        throw new Error(e.error||"Block failed");
-      }
-      msg.textContent = "Block created.";
-      loadList();
-      setTimeout(()=>msg.textContent="",2500);
-    }catch(e){
-      msg.textContent = e.message || "Block failed.";
-    }
-  }
-
-  $("#blockBtn").addEventListener("click", ()=>{
-    const start = $("#blockStart").value; // yyyy-MM-ddTHH:mm
-    const end   = $("#blockEnd").value;
-    const reason= $("#blockReason").value;
-    if(!start || !end){ $("#blockMsg").textContent="Please set start and end."; return; }
-    createBlock(start, end, reason);
-  });
-
-  $("#blockDayBtn").addEventListener("click", ()=>{
-    const start = $("#blockStart").value;
-    const reason= $("#blockReason").value;
-    if(!start){ $("#blockMsg").textContent="Please set a start date/time."; return; }
-    const d = new Date(start);
-    const end = new Date(d);
-    end.setHours(23,59,59,0);
-    const isoEnd = `${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,"0")}-${String(end.getDate()).padStart(2,"0")}T23:59`;
-    createBlock(start, isoEnd, reason);
-  });
-</script>
+    $("#btnBlock").onclick = async ()=>{
+      $("#blockMsg").textContent = "";
+      const body = {
+        start: $("#bStart").value ? new Date($("#bStart").value).toISOString(): "",
+        end: $("#bEnd").value ? new Date($("#bEnd").value).toISOString(): "",
+        reason: $("#bReason").value.trim()
+      };
+      const r = await fetch("/api/admin/block",{method:"POST",headers:{
+        "Content-Type":"application/json",
+        ...(adminKey?{"x-admin-key":adminKey}:{})
+      },body:JSON.stringify(body)});
+      const d = await r.json();
+      if(!r.ok){ $("#blockMsg").textContent = d?.error || "Block failed"; return; }
+      $("#blockMsg").textContent = "Block created.";
+    };
+  </script>
 </body>
 </html>
