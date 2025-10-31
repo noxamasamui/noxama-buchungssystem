@@ -1,478 +1,730 @@
+// src/server.ts
 import express from "express";
+import cors from "cors";
 import path from "path";
-import { addDays, addMinutes, isBefore } from "date-fns";
 import { PrismaClient } from "@prisma/client";
-import nodemailer from "nodemailer";
+import { addMinutes, addHours, format, differenceInMinutes } from "date-fns";
+import { nanoid } from "nanoid";
+import XLSX from "xlsx";
 
-// ----------------------------------------------------
-// App / Prisma
-// ----------------------------------------------------
+import { generateSlots, slotDuration } from "./slots";
+import { localDate, localDateFrom, splitYmd } from "./datetime";
+import { verifyMailer, mailer, fromAddress } from "./mailer";
+
 const app = express();
 const prisma = new PrismaClient();
+const publicDir = path.resolve(__dirname, "../public");
+
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
-app.use(express.static(path.join(process.cwd(), "public")));
+app.use(express.static(publicDir));
 
-const PORT = Number(process.env.PORT || 3000);
+// ---------------- Config ----------------
+const PORT = Number(process.env.PORT || 4020);
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
-// ----------------------------------------------------
-// Konfiguration
-// ----------------------------------------------------
-const MAX_SEATS_TOTAL = Number(process.env.MAX_SEATS_TOTAL || 40);
-const SLOT_MINUTES = Number(process.env.SLOT_MINUTES || 15);
-const OPEN_FROM = String(process.env.OPEN_FROM || "10:00");
-const OPEN_TO = String(process.env.OPEN_TO || "21:45");
-const OPEN_DAYS = (process.env.OPEN_DAYS || "1,2,3,4,5,6")
-  .split(",")
-  .map((n) => Number(n.trim())); // 0=So .. 6=Sa
+const BRAND_NAME = process.env.BRAND_NAME || "ROESTILAND BY NOXAMA SAMUI";
 
-const ADMIN_NOTIFY = String(process.env.ADMIN_NOTIFY || "info@noxamasamui.com");
-const PUBLIC_BASE = String(process.env.PUBLIC_BASE_URL || "");
-const LOGO_URL = String(process.env.MAIL_LOGO_URL || "/logo-hero.png");
+const MAX_SEATS_TOTAL = Number(process.env.MAX_SEATS_TOTAL || 48);
+const MAX_SEATS_RESERVABLE = Number(process.env.MAX_SEATS_RESERVABLE || 40);
+const WALKIN_BUFFER = 8;
+const MAX_ONLINE_GUESTS = 10;
 
-// Enum deines Schemas (keine blocked/walkin Strings!)
-type ResStatus = "confirmed" | "canceled" | "noshow";
+function hourFrom(v?: string, fb = 0) {
+  if (!v) return fb;
+  const h = Number(v.split(":")[0]);
+  return Number.isFinite(h) ? h : fb;
+}
+const OPEN_HOUR = hourFrom(process.env.OPEN_HOUR || "10", 10);
+const CLOSE_HOUR = hourFrom(process.env.CLOSE_HOUR || "22", 22);
+const SUNDAY_CLOSED =
+  String(process.env.SUNDAY_CLOSED || "true").toLowerCase() === "true";
 
-// ----------------------------------------------------
-// Mailer
-// ----------------------------------------------------
-const transporter = nodemailer.createTransport({
-  pool: true,
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: false,
-  auth: process.env.SMTP_USER
-    ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    : undefined,
+// Admin-Ziel robust
+const ADMIN_TO =
+  String(process.env.ADMIN_EMAIL || "") ||
+  String(process.env.MAIL_TO_ADMIN || "") ||
+  String(process.env.SMTP_USER || "") ||
+  String(process.env.MAIL_FROM_ADDRESS || "");
+
+// ---------------- Helpers ----------------
+function normalizeYmd(input: string): string {
+  const s = String(input || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(s)) {
+    const [dd, mm, yy] = s.split(".").map(Number);
+    return `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  }
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+    const [mm, dd, yy] = s.split("/").map(Number);
+    return `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime()))
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return "";
+}
+function isSundayYmd(ymd: string) {
+  const { y, m, d } = splitYmd(ymd);
+  return localDate(y, m, d).getDay() === 0;
+}
+
+async function overlapping(dateYmd: string, start: Date, end: Date) {
+  return prisma.reservation.findMany({
+    where: {
+      date: dateYmd,
+      status: { in: ["confirmed", "noshow"] },
+      AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }],
+    },
+  });
+}
+async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
+  const list = await overlapping(dateYmd, start, end);
+  const reserved = list.filter(r => !r.isWalkIn).reduce((s, r) => s + r.guests, 0);
+  const walkins  = list.filter(r => r.isWalkIn).reduce((s, r) => s + r.guests, 0);
+  return { reserved, walkins, total: reserved + walkins };
+}
+function capacityOnlineLeft(reserved: number, walkins: number) {
+  const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER);
+  return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
+}
+
+async function slotAllowed(dateYmd: string, timeHHmm: string) {
+  const norm = normalizeYmd(dateYmd);
+  if (!norm || !timeHHmm) return { ok: false, reason: "Closed/invalid" };
+  if (SUNDAY_CLOSED && isSundayYmd(norm)) return { ok: false, reason: "Closed on Sunday" };
+
+  const start = localDateFrom(norm, timeHHmm);
+  if (isNaN(start.getTime())) return { ok: false, reason: "Invalid time" };
+
+  const minutes = slotDuration(norm, timeHHmm);
+  const end = addMinutes(start, minutes);
+
+  const { y, m, d } = splitYmd(norm);
+  const open  = localDate(y, m, d, OPEN_HOUR, 0, 0);
+  const close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
+  if (start < open) return { ok: false, reason: "Before opening" };
+  if (end > close)  return { ok: false, reason: "After closing" };
+
+  const blocked = await prisma.closure.findFirst({
+    where: { AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }] },
+  });
+  if (blocked) return { ok: false, reason: "Blocked" };
+
+  return { ok: true, start, end, minutes, norm, open, close };
+}
+
+async function sendEmailSMTP(to: string, subject: string, html: string) {
+  await mailer().sendMail({ from: fromAddress(), to, subject, html });
+}
+async function notifyAdmin(subject: string, html: string) {
+  if (!ADMIN_TO) return;
+  try { await sendEmailSMTP(ADMIN_TO, subject, html); } catch {}
+}
+
+// ---------------- Pages ----------------
+app.get("/", (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
+app.get("/admin", (_req, res) => res.sendFile(path.join(publicDir, "admin.html")));
+
+// ---------------- Public Config ----------------
+app.get("/api/config", (_req, res) => {
+  res.json({
+    brand: BRAND_NAME,
+    address: process.env.VENUE_ADDRESS || "",
+    phone: process.env.VENUE_PHONE || "",
+    email: process.env.VENUE_EMAIL || "",
+  });
 });
 
-async function sendMail(to: string, subject: string, html: string) {
-  if (!to) return;
-  await transporter.sendMail({
-    from: `"${process.env.MAIL_FROM_NAME || "RÖSTILAND"}" <${
-      process.env.MAIL_FROM_ADDRESS || "no-reply@noxama.com"
-    }>`,
-    to,
-    subject,
-    html,
-  });
-}
-
-// ----------------------------------------------------
-// Helpers
-// ----------------------------------------------------
-function ymdToDate(ymd: string) {
-  const [y, mo, d] = ymd.split("-").map(Number);
-  return new Date(y, mo - 1, d);
-}
-function timeToHM(t: string) {
-  const [h, m] = t.split(":").map(Number);
-  return { h, m };
-}
-function dtCombine(ymd: string, time: string) {
-  const [y, mo, d] = ymd.split("-").map(Number);
-  const { h, m } = timeToHM(time);
-  return new Date(y, mo - 1, d, h, m, 0, 0);
-}
-function toYMD(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-function toHM(d: Date) {
-  return d.toTimeString().slice(0, 5);
-}
-function isOpenDay(ymd: string) {
-  const wd = ymdToDate(ymd).getDay();
-  return OPEN_DAYS.includes(wd);
-}
-function generateSlots(ymd: string) {
-  const start = dtCombine(ymd, OPEN_FROM);
-  const end = dtCombine(ymd, OPEN_TO);
-  const out: string[] = [];
-  let t = start;
-  while (isBefore(t, addMinutes(end, 1))) {
-    out.push(toHM(t));
-    t = addMinutes(t, SLOT_MINUTES);
-  }
-  return out;
-}
-function cancelUrl(token: string) {
-  return `${PUBLIC_BASE}/cancel/${token}`;
-}
-function normStr(s?: string | null) {
-  return (s || "").trim();
-}
-function normEmail(s?: string | null) {
-  return (s || "").trim().toLowerCase();
-}
-function normOpt(s?: string | null) {
-  const v = (s || "").trim();
-  return v ? v : null;
-}
-function newToken() {
-  return (
-    Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
-  );
-}
-
-// ----------------------------------------------------
-// Kapazitaet je Slot
-//  - zaehlt nur status=confirmed
-//  - "blocked" wird durch notes === "blocked" erkannt
-// ----------------------------------------------------
-async function seatsTaken(ymd: string, hm: string) {
-  const start = dtCombine(ymd, hm);
-  const end = addMinutes(start, SLOT_MINUTES);
-
-  const rows = await prisma.reservation.findMany({
-    where: { startTs: { gte: start, lt: end }, status: "confirmed" },
-    select: { guests: true, notes: true },
-  });
-
-  for (const r of rows) {
-    if ((r.notes || "").toLowerCase() === "blocked") {
-      return MAX_SEATS_TOTAL; // ganzer Slot geblockt
-    }
-  }
-
-  let taken = 0;
-  for (const r of rows) taken += r.guests || 0;
-  return taken;
-}
-
-// ----------------------------------------------------
-// API: Slots fuers Frontend
-// ----------------------------------------------------
+// ---------------- Slots API ----------------
 app.get("/api/slots", async (req, res) => {
-  try {
-    const ymd = String(req.query.date || "");
-    const guests = Number(req.query.guests || 0);
-    if (!ymd || guests <= 0) return res.status(400).json({ error: "bad params" });
-
-    if (!isOpenDay(ymd)) return res.json({ open: false, slots: [] });
-
-    const all = generateSlots(ymd);
-    const slots = [];
-    for (const t of all) {
-      const taken = await seatsTaken(ymd, t);
-      slots.push({ t, free: taken + guests <= MAX_SEATS_TOTAL });
+  const date = normalizeYmd(String(req.query.date || ""));
+  if (!date) return res.json([]);
+  const times = generateSlots(date, OPEN_HOUR, CLOSE_HOUR);
+  const out: any[] = [];
+  for (const t of times) {
+    const allow = await slotAllowed(date, t);
+    if (!allow.ok) {
+      out.push({ time: t, allowed: false, reason: allow.reason, canReserve: false, left: 0 });
+      continue;
     }
-    res.json({ open: true, slots });
-  } catch (e: any) {
-    res.status(500).json({ error: String(e.message || e) });
+    const sums = await sumsForInterval(date, allow.start!, allow.end!);
+    const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
+    const canReserve = leftOnline > 0 && sums.total < MAX_SEATS_TOTAL;
+    out.push({
+      time: t,
+      allowed: canReserve,
+      reason: canReserve ? null : "Fully booked",
+      canReserve,
+      reserved: sums.reserved,
+      walkins: sums.walkins,
+      total: sums.total,
+      left: leftOnline,
+    });
   }
+  res.json(out);
 });
 
-// ----------------------------------------------------
-// Buchung (Gast) -> status: confirmed
-// ----------------------------------------------------
+// ---------------- Reservation API (online) ----------------
 app.post("/api/reservations", async (req, res) => {
+  const { date, time, firstName, name, email, phone, guests, notes } = req.body;
+  const g = Number(guests);
+
+  if (g > MAX_ONLINE_GUESTS) {
+    return res.status(400).json({
+      error: "Online bookings are limited to 10 guests. Please contact us directly.",
+    });
+  }
+
+  const allow = await slotAllowed(String(date), String(time));
+  if (!allow.ok) return res.status(400).json({ error: allow.reason || "Not available" });
+
+  const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
+  const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
+  if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
+  if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
+
+  const token = nanoid();
+  const created = await prisma.reservation.create({
+    data: {
+      date: allow.norm!,
+      time,
+      startTs: allow.start!,
+      endTs: allow.end!,
+      firstName,
+      name,
+      email,
+      phone,
+      guests: g,
+      notes,
+      status: "confirmed",
+      cancelToken: token,
+      isWalkIn: false,
+    },
+  });
+
+  const visitCount = await prisma.reservation.count({
+    where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
+  });
+
+  const discount = discountForVisit(visitCount);
+  const cancelUrl = `${BASE_URL}/cancel/${token}`;
+  const html = confirmationHtml(
+    created.firstName, created.name, created.date, created.time,
+    created.guests, cancelUrl, visitCount, discount
+  );
+
+  try { await sendEmailSMTP(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error(e); }
+
+  const adminHtml = reservationAdminHtml({
+    logo: process.env.MAIL_LOGO_URL || "/logo.png",
+    brand: BRAND_NAME,
+    firstName: created.firstName,
+    lastName: created.name,
+    email: created.email || "",
+    phone: created.phone || "",
+    guests: created.guests,
+    date: created.date,
+    time: created.time,
+    notes: created.notes || "",
+    visitCount,
+    discount,
+  });
+  notifyAdmin(
+    `New reservation — ${created.date} ${created.time} — ${created.guests}p`,
+    adminHtml
+  );
+
+  res.json({ ok: true, reservation: created, visitCount, discount });
+});
+
+// ---------------- Walk-in API ----------------
+app.post("/api/walkin", async (req, res) => {
   try {
-    const { date, time, guests } = req.body || {};
-    if (!date || !time || !guests) return res.status(400).json({ error: "missing" });
+    const { date, time, guests, notes } = req.body;
+    const g = Number(guests || 0);
+    if (!date || !time || !g || g < 1) return res.status(400).json({ error: "Invalid input" });
 
-    if (!isOpenDay(String(date))) return res.status(400).json({ error: "closed" });
+    const norm = normalizeYmd(String(date));
+    const allow = await slotAllowed(norm, String(time));
 
-    const taken = await seatsTaken(String(date), String(time));
-    if (taken + Number(guests) > MAX_SEATS_TOTAL) {
-      return res.status(409).json({ error: "slot full" });
+    let startTs: Date, endTs: Date, open: Date, close: Date;
+    if (allow.ok) {
+      startTs = allow.start!;
+      endTs = allow.end!;
+      open = allow.open!;
+      close = allow.close!;
+    } else {
+      const start = localDateFrom(norm, String(time));
+      const { y, m, d } = splitYmd(norm);
+      open = localDate(y, m, d, OPEN_HOUR, 0, 0);
+      close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
+      if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
+      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
+      startTs = start;
+      endTs = addMinutes(start, minutes);
+      if (endTs > close) endTs = close;
     }
 
-    const cancelToken = newToken();
-    const startTs = dtCombine(String(date), String(time));
-    const endTs = addMinutes(startTs, SLOT_MINUTES);
+    const sums = await sumsForInterval(norm, startTs, endTs);
+    if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached" });
 
-    const saved = await prisma.reservation.create({
+    const r = await prisma.reservation.create({
       data: {
-        date: String(date),
+        date: norm,
         time: String(time),
-        guests: Number(guests),
-        firstName: normStr(req.body.firstName),
-        name: normStr(req.body.name),
-        email: normEmail(req.body.email),
-        phone: normOpt(req.body.phone),
-        notes: normOpt(req.body.notes),
-        cancelToken,
         startTs,
         endTs,
-        status: "confirmed" as ResStatus,
-        isWalkIn: false,
-        reminderSent: false,
+        firstName: "Walk",
+        name: "In",
+        email: "walkin@noxama.local",
+        phone: "",
+        guests: g,
+        notes: String(notes || ""),
+        status: "confirmed",
+        cancelToken: nanoid(),
+        isWalkIn: true,
       },
     });
 
-    const subject = "RÖSTILAND BY NOXAMA SAMUI — Reservation";
-    const html = `
-      <div style="font:16px/1.5 Georgia,serif;color:#3e2e1f;background:#fff8f0;padding:0;margin:0">
-        <div style="max-width:680px;margin:0 auto;padding:24px">
-          <div style="text-align:center;margin-bottom:14px">
-            <img src="${LOGO_URL}" alt="Logo" style="max-width:600px;width:100%;height:auto;border-radius:8px"/>
-          </div>
-          <div style="background:#fff;border-radius:12px;border:1px solid #eadcca;padding:18px 20px">
-            <h2 style="margin:6px 0 12px">Your Reservation at RÖSTILAND BY NOXAMA SAMUI</h2>
-            <p>Hi ${saved.firstName || saved.name || "there"},</p>
-            <div style="margin:12px 0;border:1px solid #f0e6d8;border-radius:10px;background:#fff">
-              <div style="padding:10px 14px;border-bottom:1px solid #f0e6d8"><strong>Date</strong><br>${saved.date}</div>
-              <div style="padding:10px 14px;border-bottom:1px solid #f0e6d8"><strong>Time</strong><br>${saved.time}</div>
-              <div style="padding:10px 14px"><strong>Guests</strong><br>${saved.guests}</div>
-            </div>
-            <div style="text-align:center;margin-top:16px">
-              <a href="${cancelUrl(cancelToken)}" style="display:inline-block;padding:10px 14px;border-radius:10px;background:#b23a3a;color:#fff;text-decoration:none">Cancel reservation</a>
-            </div>
-            <p style="margin-top:18px">We can’t wait to welcome you!<br><strong>Warm greetings from RÖSTILAND BY NOXAMA SAMUI</strong></p>
-          </div>
-        </div>
-      </div>`;
-    await sendMail(saved.email || "", subject, html);
-
-    await sendMail(
-      ADMIN_NOTIFY,
-      `New reservation — ${saved.date} ${saved.time} — ${saved.guests}p`,
-      `
-      <div style="font:15px/1.45 Georgia,serif">
-        <p>A guest just booked a table.</p>
-        <ul>
-          <li>Date: ${saved.date}</li>
-          <li>Time: ${saved.time}</li>
-          <li>Guests: ${saved.guests}</li>
-          <li>Name: ${(saved.firstName ? saved.firstName + " " : "") + (saved.name || "")}</li>
-          <li>Email: ${saved.email || ""}</li>
-          <li>Phone: ${saved.phone || ""}</li>
-          <li>Notes: ${saved.notes || ""}</li>
-        </ul>
-      </div>`
+    notifyAdmin(
+      `[WALK-IN] ${r.date} ${r.time} — ${r.guests}p`,
+      `<p>New walk-in recorded:</p>
+       <p>${r.date} ${r.time} — ${r.guests} guests</p>
+       <p>Notes: ${r.notes || "-"}</p>`
     );
 
-    res.json({ ok: true, id: saved.id });
-  } catch (e: any) {
-    res.status(500).json({ error: String(e.message || e) });
+    res.json(r);
+  } catch (err) {
+    console.error("walkin error:", err);
+    res.status(500).json({ error: "Failed to save walk-in" });
   }
 });
 
-// ----------------------------------------------------
-// Cancel (setzt status=canceled)
-// ----------------------------------------------------
+// ---------------- Cancel (IDEMPOTENT) ----------------
 app.get("/cancel/:token", async (req, res) => {
-  try {
-    const token = String(req.params.token || "");
-    const r = await prisma.reservation.findFirst({ where: { cancelToken: token } });
-    if (r && r.status !== "canceled") {
-      await prisma.reservation.update({
-        where: { id: r.id },
-        data: { status: "canceled" as ResStatus },
-      });
+  const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
+  if (!r) return res.status(404).send("Not found");
 
-      await sendMail(
-        ADMIN_NOTIFY,
-        "Reservation canceled — FYI",
-        `
-        <div style="font:15px/1.45 Georgia,serif">
-          <p>The guest has canceled their reservation.</p>
-          <ul>
-            <li>Date: ${r.date}</li><li>Time: ${r.time}</li><li>Guests: ${r.guests}</li>
-            <li>Name: ${(r.firstName ? r.firstName + " " : "") + (r.name || "")}</li>
-            <li>Email: ${r.email || ""}</li><li>Phone: ${r.phone || ""}</li>
-            <li>Notes: ${r.notes || ""}</li>
-          </ul>
-        </div>`
-      );
+  const wasCanceled = r.status === "canceled";
 
-      await sendMail(
-        r.email || "",
-        "We hope this goodbye is only for now 😢",
-        `
-        <div style="font:16px/1.5 Georgia,serif;color:#3e2e1f;background:#fff8f0">
-          <div style="max-width:680px;margin:0 auto;padding:24px">
-            <div style="text-align:center;margin-bottom:14px">
-              <img src="${LOGO_URL}" style="max-width:600px;width:100%;height:auto;border-radius:8px" alt="Logo">
-            </div>
-            <div style="background:#fff;border:1px solid #eadcca;border-radius:12px;padding:18px 20px">
-              <h2>We’ll miss you this round 😢</h2>
-              <p>Hi ${r.firstName || r.name || "there"},</p>
-              <p>Your reservation for <strong>${r.guests}</strong> on <strong>${r.date}</strong> at <strong>${r.time}</strong> has been canceled.</p>
-              <p>We completely understand — plans change. Just know that your favorite table will be waiting when you’re ready to come back.</p>
-              <div style="text-align:center;margin-top:12px">
-                <a href="${PUBLIC_BASE}" style="padding:10px 14px;background:#b48a3a;color:#fff;border-radius:10px;text-decoration:none">Book your comeback</a>
-              </div>
-              <p style="margin-top:16px">With warm regards,<br><strong>RÖSTILAND BY NOXAMA SAMUI</strong></p>
-            </div>
-          </div>
-        </div>`
-      );
+  if (!wasCanceled) {
+    await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
+
+    const visitCount = r.email
+      ? await prisma.reservation.count({
+          where: { email: r.email, status: { in: ["confirmed", "noshow"] } },
+        })
+      : 0;
+
+    const rebookUrl = `${BASE_URL}/`;
+    if (r.email && r.email !== "walkin@noxama.local") {
+      const guestHtml = canceledGuestHtml(r.firstName, r.name, r.date, r.time, r.guests, rebookUrl);
+      try { await sendEmailSMTP(r.email, "We hope this goodbye is only for now 😢", guestHtml); } catch {}
     }
-    res.sendFile(path.join(process.cwd(), "public", "cancelled.html"));
-  } catch {
-    res.sendFile(path.join(process.cwd(), "public", "cancelled.html"));
-  }
-});
 
-// ----------------------------------------------------
-// Admin: Liste / Export
-// ----------------------------------------------------
-app.get("/api/admin/list", async (req, res) => {
-  try {
-    const date = String(req.query.date || "");
-    const view = String(req.query.view || "week");
-    if (!date) return res.status(400).json({ error: "bad date" });
-
-    const start = dtCombine(date, "00:00");
-    const end = addDays(start, view === "day" ? 1 : 7);
-
-    const rows = await prisma.reservation.findMany({
-      where: { startTs: { gte: start, lt: end } },
-      orderBy: [{ startTs: "asc" }],
-    });
-
-    res.json(
-      rows.map((r) => ({
-        id: r.id,
+    if (ADMIN_TO) {
+      const adminHtml = canceledAdminHtml({
+        logo: process.env.MAIL_LOGO_URL || "/logo.png",
+        brand: BRAND_NAME,
+        firstName: r.firstName,
+        lastName: r.name,
+        email: r.email || "",
+        phone: r.phone || "",
+        guests: r.guests,
         date: r.date,
         time: r.time,
-        firstName: r.firstName,
-        name: r.name,
-        email: r.email,
-        phone: r.phone,
-        guests: r.guests,
-        notes: r.notes,
-        status: r.status as ResStatus,
-        isWalkIn: r.isWalkIn,
-      }))
-    );
-  } catch (e: any) {
-    res.status(500).json({ error: String(e.message || e) });
+        notes: r.notes || "",
+        visitCount,
+      });
+      notifyAdmin("Guest canceled reservation — FYI", adminHtml);
+    }
   }
+
+  res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
-app.get("/api/admin/export", async (req, res) => {
-  const date = String(req.query.date || "");
-  const view = String(req.query.view || "week");
-  const start = dtCombine(date, "00:00");
-  const end = addDays(start, view === "day" ? 1 : 7);
+// ---------------- Admin List (with loyalty) ----------------
+app.get("/api/admin/reservations", async (req, res) => {
+  const date = normalizeYmd(String(req.query.date || ""));
+  const view = String(req.query.view || "day");
 
-  const rows = await prisma.reservation.findMany({
-    where: { startTs: { gte: start, lt: end } },
-    orderBy: [{ startTs: "asc" }],
+  let list: any[] = [];
+  if (view === "week" && date) {
+    const base = new Date(`${date}T00:00:00`);
+    const from = new Date(base);
+    const to = new Date(base);
+    to.setDate(to.getDate() + 7);
+    list = await prisma.reservation.findMany({
+      where: { startTs: { gte: from }, endTs: { lt: to } },
+      orderBy: [{ date: "asc" }, { time: "asc" }],
+    });
+  } else {
+    const where: any = date ? { date } : {};
+    list = await prisma.reservation.findMany({
+      where,
+      orderBy: [{ date: "asc" }, { time: "asc" }],
+    });
+  }
+
+  const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
+  const counts = new Map<string, number>();
+  await Promise.all(
+    emails.map(async em => {
+      const c = await prisma.reservation.count({
+        where: { email: em, status: { in: ["confirmed", "noshow"] } },
+      });
+      counts.set(em, c);
+    })
+  );
+
+  const withLoyalty = list.map(r => {
+    const vc = counts.get(r.email || "") || 0;
+    const d = discountForVisit(vc);
+    return { ...r, visitCount: vc, discount: d };
   });
 
-  const header = "Date,Time,Guests,Name,Email,Phone,Status,Notes\n";
-  const lines = rows
-    .map((r) =>
-      [
-        r.date,
-        r.time,
-        r.guests,
-        (r.firstName ? r.firstName + " " : "") + (r.name || ""),
-        r.email || "",
-        r.phone || "",
-        r.status,
-        r.notes || "",
-      ]
-        .map((x) => `"${String(x).replace(/"/g, '""')}"`)
-        .join(",")
-    )
-    .join("\n");
-
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", "attachment; filename=reservations.csv");
-  res.send(header + lines + "\n");
+  res.json(withLoyalty);
 });
 
-// ----------------------------------------------------
-// Admin: Walk-in (status: confirmed, Pflichtfelder gefuellt)
-// ----------------------------------------------------
-app.post("/api/admin/walkin", async (req, res) => {
+app.delete("/api/admin/reservations/:id", async (req, res) => {
+  await prisma.reservation.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+app.post("/api/admin/reservations/:id/noshow", async (req, res) => {
+  const r = await prisma.reservation.update({
+    where: { id: req.params.id },
+    data: { status: "noshow" },
+  });
+  res.json(r);
+});
+
+// ---------------- Closures ----------------
+app.post("/api/admin/closure", async (req, res) => {
   try {
-    const { date, time, guests, notes } = req.body || {};
-    if (!date || !time || !guests) return res.status(400).json({ error: "missing" });
-
-    const startTs = dtCombine(String(date), String(time));
-    const endTs = addMinutes(startTs, SLOT_MINUTES);
-
-    await prisma.reservation.create({
-      data: {
-        date: String(date),
-        time: String(time),
-        guests: Number(guests),
-        firstName: "",
-        name: "Walk-in",
-        email: "",
-        phone: null,
-        notes: normOpt(notes),
-        cancelToken: newToken(),
-        startTs,
-        endTs,
-        status: "confirmed" as ResStatus,
-        isWalkIn: true,
-        reminderSent: false,
-      },
+    const { startTs, endTs, reason } = req.body;
+    const s = new Date(String(startTs).replace(" ", "T"));
+    const e = new Date(String(endTs).replace(" ", "T"));
+    if (isNaN(s.getTime()) || isNaN(e.getTime()))
+      return res.status(400).json({ error: "Invalid time range" });
+    if (e <= s) return res.status(400).json({ error: "End must be after start" });
+    const c = await prisma.closure.create({
+      data: { startTs: s, endTs: e, reason: String(reason || "Closed") },
     });
-
-    res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: String(e.message || e) });
+    res.json(c);
+  } catch (err) {
+    console.error("Create closure error:", err);
+    res.status(500).json({ error: "Failed to create block" });
   }
 });
 
-// ----------------------------------------------------
-// Admin: Block (status: confirmed, notes='blocked')
-// ----------------------------------------------------
-app.post("/api/admin/block", async (req, res) => {
+app.post("/api/admin/closure/day", async (req, res) => {
   try {
-    const { start, end, reason } = req.body || {};
-    if (!start || !end) return res.status(400).json({ error: "missing" });
+    const date = normalizeYmd(String(req.body.date || ""));
+    if (!date) return res.status(400).json({ error: "Invalid date" });
+    const { y, m, d } = splitYmd(date);
+    const s = localDate(y, m, d, OPEN_HOUR, 0, 0);
+    const e = localDate(y, m, d, CLOSE_HOUR, 0, 0);
+    const reason = String(req.body.reason || "Closed");
+    const c = await prisma.closure.create({
+      data: { startTs: s, endTs: e, reason },
+    });
+    res.json(c);
+  } catch (err) {
+    console.error("Block day error:", err);
+    res.status(500).json({ error: "Failed to block day" });
+  }
+});
 
-    let t = new Date(start);
-    const endDt = new Date(end);
+app.get("/api/admin/closure", async (_req, res) => {
+  try {
+    const list = await prisma.closure.findMany({ orderBy: { startTs: "desc" } });
+    res.json(list);
+  } catch (err) {
+    console.error("List closure error:", err);
+    res.status(500).json({ error: "Failed to load blocks" });
+  }
+});
+app.delete("/api/admin/closure/:id", async (req, res) => {
+  try {
+    await prisma.closure.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete closure error:", err);
+    res.status(500).json({ error: "Failed to delete block" });
+  }
+});
 
-    while (isBefore(t, addMinutes(endDt, 1))) {
-      await prisma.reservation.create({
-        data: {
-          date: toYMD(t),
-          time: toHM(t),
-          startTs: t,
-          endTs: addMinutes(t, SLOT_MINUTES),
-          guests: MAX_SEATS_TOTAL,
-          firstName: "",
-          name: "BLOCK",
-          email: "",
-          phone: null,
-          notes: normOpt(reason) || "blocked",
-          cancelToken: newToken(),
-          status: "confirmed" as ResStatus,
-          isWalkIn: false,
-          reminderSent: false,
-        },
-      });
-      t = addMinutes(t, SLOT_MINUTES);
+// ---------------- Export ----------------
+app.get("/api/export", async (req, res) => {
+  try {
+    const period = String(req.query.period || "weekly");
+    const date = normalizeYmd(String(req.query.date || ""));
+    const base = date ? new Date(date + "T00:00:00") : new Date();
+    const from = new Date(base);
+    const to = new Date(base);
+
+    switch (period) {
+      case "daily":   to.setDate(to.getDate() + 1); break;
+      case "weekly":  to.setDate(to.getDate() + 7); break;
+      case "monthly": to.setMonth(to.getMonth() + 1); break;
+      case "yearly":  to.setFullYear(to.getFullYear() + 1); break;
     }
 
-    res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: String(e.message || e) });
-  }
-});
-
-// ----------------------------------------------------
-// Admin: Delete / No-show
-// ----------------------------------------------------
-app.delete("/api/admin/reservation/:id", async (req, res) => {
-  try {
-    await prisma.reservation.delete({ where: { id: Number(req.params.id) } });
-    res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: String(e.message || e) });
-  }
-});
-
-app.post("/api/admin/noshow/:id", async (req, res) => {
-  try {
-    await prisma.reservation.update({
-      where: { id: Number(req.params.id) },
-      data: { status: "noshow" as ResStatus },
+    const list = await prisma.reservation.findMany({
+      where: { startTs: { gte: from, lt: to } },
+      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
     });
-    res.json({ ok: true });
-  } catch (e: any) {
-    res.status(500).json({ error: String(e.message || e) });
+
+    const prog = new Map<string, number>();
+    const rows = list.map(r => {
+      const key = (r.email || "").toLowerCase();
+      const prev = prog.get(key) || 0;
+      const isCountable = r.status === "confirmed" || r.status === "noshow";
+      const nowCount = isCountable ? prev + 1 : prev;
+      prog.set(key, nowCount);
+
+      const disc = discountForVisit(nowCount);
+      return {
+        Date: r.date,
+        Time: r.time,
+        Name: `${r.firstName} ${r.name}`,
+        Email: r.email,
+        Phone: r.phone || "",
+        Guests: r.guests,
+        Status: r.status,
+        Notes: r.notes || "",
+        WalkIn: r.isWalkIn ? "yes" : "",
+        VisitCount: nowCount,
+        "Discount%": disc,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reservations");
+
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const fname = `reservations_${format(from, "yyyyMMdd")}_${period}.xlsx`;
+    res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
+    res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(buf);
+  } catch (err) {
+    console.error("Export error:", err);
+    res.status(500).json({ error: "Export failed" });
   }
 });
 
-// ----------------------------------------------------
-app.listen(PORT, () => console.log(`Server running on :${PORT}`));
+// ---------------- Email helper: weicher Header ----------------
+function emailHeader(logoUrl: string) {
+  const banner = process.env.MAIL_HEADER_URL || "";
+  if (banner) {
+    // Volle Bannerbreite – bestes Rendering über alle Clients
+    return `
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding:0;">
+            <img src="${banner}" alt="Logo" style="display:block;width:100%;max-width:640px;height:auto;border:0;outline:none;text-decoration:none;">
+          </td>
+        </tr>
+      </table>`;
+  }
+  // Fallback: radialer Verlauf hinter dem Logo (sanft in den Hintergrund)
+  return `
+    <div style="max-width:640px;margin:0 auto 10px auto;padding:28px 0;background:
+      radial-gradient(ellipse at center, rgba(179,130,47,0.18) 0%, rgba(179,130,47,0.08) 40%, rgba(255,255,255,0) 72%);
+      text-align:center;">
+      <img src="${logoUrl}" alt="Logo" style="width:150px;height:auto;border:0;outline:none;" />
+    </div>`;
+}
+
+function ordinalSuffix(n: number) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return "th";
+  switch (n % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
+}
+function discountForVisit(visitCount: number): number {
+  if (visitCount >= 15) return 15;
+  if (visitCount >= 10) return 10;
+  if (visitCount >= 5)  return 5;
+  return 0;
+}
+function teaserBox(title: string, line: string) {
+  return `
+  <div style="margin:16px 0;padding:12px 14px;background:#eef7ff;border:1px solid #cfe3ff;border-radius:10px;text-align:center;">
+    <div style="font-size:18px;margin-bottom:6px;">${title} ✨</div>
+    <div style="font-size:15px;">${line}</div>
+  </div>`;
+}
+function nextMilestoneTeaser(visitCount: number): string {
+  if (visitCount === 4)  return teaserBox("Heads-up","On your next visit you’ll receive a <b>5% loyalty thank-you</b>.");
+  if (visitCount === 9)  return teaserBox("Almost there","On your next visit you’ll receive a <b>10% loyalty thank-you</b>.");
+  if (visitCount === 14) return teaserBox("Big milestone ahead","From your next visit you’ll receive a <b>15% loyalty thank-you</b>.");
+  return "";
+}
+
+// -------- Confirmation E-Mail (mit weichem Header) --------
+function confirmationHtml(
+  firstName: string, name: string, date: string, time: string, guests: number,
+  cancelUrl: string, visitCount: number, currentDiscount: number
+) {
+  const logo = process.env.MAIL_LOGO_URL || "/logo.png";
+  const site = BRAND_NAME;
+  const header = emailHeader(logo);
+  const suffix = ordinalSuffix(visitCount);
+
+  const visitLine =
+    visitCount < 5
+      ? `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">This is your <b>${visitCount}${suffix}</b> visit. Thank you for coming back to us.</div>`
+      : `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">This is your <b>${visitCount}${suffix}</b> visit.</div>`;
+
+  let reward = "";
+  if (currentDiscount === 15) {
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 A heartfelt thank-you! 🎉</div><div style="font-size:16px;">As a token of appreciation for your continued support, you enjoy a <b style="color:#b3822f;">15% loyalty thank-you</b>.</div></div>`;
+  } else if (currentDiscount === 10) {
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 Thank you for coming back! 🎉</div><div style="font-size:16px;">Your loyalty means the world to us — please enjoy a <b style="color:#b3822f;">10% loyalty thank-you</b>.</div></div>`;
+  } else if (currentDiscount === 5) {
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 You make our day! 🎉</div><div style="font-size:16px;">We love welcoming you back — please enjoy a <b style="color:#b3822f;">5% loyalty thank-you</b>.</div></div>`;
+  }
+  const teaser = nextMilestoneTeaser(visitCount);
+
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 14px 0;letter-spacing:.5px;">Your Reservation at ${site}</h2>
+    <p style="font-size:16px;margin:0 0 10px 0;">Hi ${firstName} ${name},</p>
+    <p style="font-size:16px;margin:0 0 12px 0;">Thank you for choosing <b>${site}</b>. We value loyalty deeply — regular guests are the heart of our little community.</p>
+
+    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
+      <p style="margin:0;"><b>Date</b> ${date}</p>
+      <p style="margin:0;"><b>Time</b> ${time}</p>
+      <p style="margin:0;"><b>Guests</b> ${guests}</p>
+    </div>
+
+    ${visitLine}
+    ${reward}
+    ${teaser}
+
+    <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
+      <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
+    </div>
+
+    <p style="margin-top:18px;text-align:center;"><a href="${cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a></p>
+    <p style="margin-top:16px;font-size:14px;text-align:center;">We can’t wait to welcome you!<br/><b>Warm greetings from ${site}</b></p>
+  </div>`;
+}
+
+// ----- Admin NEW reservation (mit weichem Header) -----
+function reservationAdminHtml(opts: {
+  logo: string; brand: string;
+  firstName: string; lastName: string; email: string; phone: string;
+  guests: number; date: string; time: string; notes: string; visitCount: number; discount: number;
+}) {
+  const header = emailHeader(opts.logo);
+  const discountText = opts.discount ? `${opts.discount}%` : "—";
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 8px 0;">New reservation ✅</h2>
+    <div style="text-align:center;opacity:.9;margin-bottom:12px;">A guest just booked a table.</div>
+    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
+      <p style="margin:0;"><b>Guest</b> ${opts.firstName} ${opts.lastName} (${opts.email})</p>
+      <p style="margin:0;"><b>Phone</b> ${opts.phone || "-"}</p>
+      <p style="margin:0;"><b>Date</b> ${opts.date} &nbsp; <b>Time</b> ${opts.time}</p>
+      <p style="margin:0;"><b>Guests</b> ${opts.guests}</p>
+      <p style="margin:0;"><b>Notes</b> ${opts.notes || "-"}</p>
+      <p style="margin:0;"><b>Total past visits</b> ${opts.visitCount} &nbsp; <b>Discount</b> ${discountText}</p>
+    </div>
+    <p style="text-align:center;margin-top:10px;"><b>${opts.brand}</b></p>
+  </div>`;
+}
+
+// ----- Admin CANCELED (mit weichem Header) -----
+function canceledAdminHtml(opts: {
+  logo: string; brand: string;
+  firstName: string; lastName: string; email: string; phone: string;
+  guests: number; date: string; time: string; notes: string; visitCount: number;
+}) {
+  const header = emailHeader(opts.logo);
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 8px 0;">Reservation canceled 😢</h2>
+    <div style="text-align:center;opacity:.9;margin-bottom:12px;">The guest has canceled their reservation.</div>
+    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
+      <p style="margin:0;"><b>Guest</b> ${opts.firstName} ${opts.lastName} (${opts.email})</p>
+      <p style="margin:0;"><b>Phone</b> ${opts.phone || "-"}</p>
+      <p style="margin:0;"><b>Date</b> ${opts.date} &nbsp; <b>Time</b> ${opts.time}</p>
+      <p style="margin:0;"><b>Guests</b> ${opts.guests}</p>
+      <p style="margin:0;"><b>Notes</b> ${opts.notes || "-"}</p>
+      <p style="margin:0;"><b>Total past visits</b> ${opts.visitCount}</p>
+    </div>
+    <p style="text-align:center;margin-top:10px;"><b>${opts.brand}</b></p>
+  </div>`;
+}
+
+// ----- Guest CANCELED (mit weichem Header) -----
+function canceledGuestHtml(
+  firstName: string, name: string, date: string, time: string, guests: number, rebookUrl: string
+) {
+  const logo = process.env.MAIL_LOGO_URL || "/logo.png";
+  const site = BRAND_NAME;
+  const header = emailHeader(logo);
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 14px 0;">We’ll miss you this round 😢</h2>
+    <p>Hi ${firstName} ${name},</p>
+    <p>Your reservation for <b>${guests}</b> on <b>${date}</b> at <b>${time}</b> has been canceled.</p>
+    <p>We completely understand — plans change. Just know that your favorite table will be waiting when you’re ready to come back.</p>
+    <p style="text-align:center;margin:16px 0;">
+      <a href="${rebookUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">
+        Book your comeback
+      </a>
+    </p>
+    <p>With warm regards,<br/><b>${site}</b></p>
+  </div>`;
+}
+
+// ---------------- Reminders ----------------
+setInterval(async () => {
+  const now = new Date();
+  const from = addHours(now, 24);
+  const to = addHours(now, 25);
+  const list = await prisma.reservation.findMany({
+    where: {
+      status: "confirmed",
+      isWalkIn: false,
+      reminderSent: false,
+      startTs: { gte: from, lt: to },
+    },
+  });
+  for (const r of list) {
+    const cancelUrl = `${BASE_URL}/cancel/${r.cancelToken}`;
+    const html = `
+      <div style="font-family:Georgia,'Times New Roman',serif;color:#3a2f28;">
+        <p>Friendly reminder for your reservation tomorrow:</p>
+        <p><b>Date</b> ${r.date} — <b>Time</b> ${r.time} — <b>Guests</b> ${r.guests}</p>
+        <p>Please arrive on time — tables may be released after 15 minutes of delay.</p>
+        <p>If your plans change, please cancel here:<br/><a href="${cancelUrl}">${cancelUrl}</a></p>
+        <p>See you soon,<br/>${BRAND_NAME}</p>
+      </div>`;
+    try {
+      await sendEmailSMTP(r.email, "Reservation reminder", html);
+      await prisma.reservation.update({ where: { id: r.id }, data: { reminderSent: true } });
+    } catch (e) {
+      console.error("Reminder mail error:", e);
+    }
+  }
+}, 30 * 60 * 1000);
+
+// ---------------- Start ----------------
+async function start() {
+  await prisma.$connect();
+  await verifyMailer();
+  app.listen(PORT, "0.0.0.0", () => console.log(`Server running on ${PORT}`));
+}
+start().catch(err => {
+  console.error("Fatal start error", err);
+  process.exit(1);
+});
