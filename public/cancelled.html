@@ -1,76 +1,74 @@
-
+<!-- public/cancelled.html -->
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>Your reservation was canceled</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <title>Reservation canceled</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* Base */
     :root{
-      --bg:#f2e8dc;      /* page background */
-      --card:#ffffff;    /* card background */
-      --border:#e7dbc8;  /* subtle border */
-      --text:#3a2f28;    /* body text */
-      --brand:#b08956;   /* brand accent */
+      --bg:#e9dccb;           /* page background */
+      --card:#fff5ea;         /* card background */
+      --text:#3a2f28;
+      --btn:#a0713a;
+      --btn-text:#ffffff;
+      --shadow:0 8px 24px rgba(0,0,0,.08);
+      --radius:16px;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
+    html,body{margin:0;padding:0;height:100%}
     body{
-      margin:0;
       background:var(--bg);
       color:var(--text);
       font-family: Georgia, "Times New Roman", serif;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      min-height:100%;
     }
-
-    /* Layout */
-    .wrap{
-      max-width:720px;
-      margin:36px auto;
-      padding:0 14px;
-      text-align:center;
-    }
+    .container{width:100%; max-width:980px; padding:32px 16px 64px}
     .logo{
       display:block;
-      margin:6px auto 14px auto;
-      width:140px;
+      width:160px;
       height:auto;
-      border-radius:10px;
+      margin:0 auto 24px auto;
     }
     .card{
       background:var(--card);
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:20px 18px;
-      box-shadow:0 0 0 1px rgba(0,0,0,0.02);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:28px 24px;
+      margin:0 auto;
+      text-align:center;
+      max-width:740px;
     }
-    h1,h2{margin:8px 0 10px 0}
-    p{margin:10px 0}
-
-    /* Button */
+    h2{
+      margin:0 0 10px 0;
+      font-size:28px;
+      line-height:1.2;
+    }
+    p{ margin:8px 0 18px 0; }
     .btn{
-      display:inline-block;
-      margin-top:10px;
-      padding:10px 16px;
-      border:none;
+      appearance:none;
+      border:0;
+      background:var(--btn);
+      color:var(--btn-text);
+      padding:10px 18px;
       border-radius:10px;
-      background:var(--brand);
-      color:#fff;
-      cursor:pointer;
-      text-decoration:none;
       font-size:16px;
-      line-height:1;
+      cursor:pointer;
     }
-    .btn:active{transform:translateY(1px)}
+    .btn:active{ transform:translateY(1px); }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <img class="logo" src="/logo.png" alt="Logo"/>
+  <div class="container">
+    <!-- IMPORTANT: correct site logo -->
+    <img class="logo" src="/logo.png" alt="Logo" />
+
     <div class="card">
       <h2>Your reservation was canceled</h2>
       <p>We hope to welcome you another time.</p>
-      <button class="btn" onclick="(history.length>1)?history.back():location.assign('/')">Back</button>
+      <button class="btn" onclick="history.back()">Back</button>
     </div>
   </div>
 </body>
