@@ -19,16 +19,15 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.static(publicDir));
 
-// ---------------- Config ----------------
+/* ---------------- Config ---------------- */
 const PORT = Number(process.env.PORT || 4020);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
-
 const BRAND_NAME = process.env.BRAND_NAME || "ROESTILAND BY NOXAMA SAMUI";
 
 const MAX_SEATS_TOTAL = Number(process.env.MAX_SEATS_TOTAL || 48);
 const MAX_SEATS_RESERVABLE = Number(process.env.MAX_SEATS_RESERVABLE || 40);
-const WALKIN_BUFFER = 8;
 const MAX_ONLINE_GUESTS = 10;
+const WALKIN_BUFFER = 8;
 
 function hourFrom(v?: string, fb = 0) {
   if (!v) return fb;
@@ -40,14 +39,14 @@ const CLOSE_HOUR = hourFrom(process.env.CLOSE_HOUR || "22", 22);
 const SUNDAY_CLOSED =
   String(process.env.SUNDAY_CLOSED || "true").toLowerCase() === "true";
 
-// Admin-Ziel robust
+// Fallback-Kette für Admin-Benachrichtigungen
 const ADMIN_TO =
   String(process.env.ADMIN_EMAIL || "") ||
   String(process.env.MAIL_TO_ADMIN || "") ||
   String(process.env.SMTP_USER || "") ||
   String(process.env.MAIL_FROM_ADDRESS || "");
 
-// ---------------- Helpers ----------------
+/* ---------------- Helpers ---------------- */
 function normalizeYmd(input: string): string {
   const s = String(input || "").trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -122,21 +121,17 @@ async function notifyAdmin(subject: string, html: string) {
   try { await sendEmailSMTP(ADMIN_TO, subject, html); } catch {}
 }
 
-// ---------------- Pages ----------------
+/* ---------------- Pages ---------------- */
 app.get("/", (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
 app.get("/admin", (_req, res) => res.sendFile(path.join(publicDir, "admin.html")));
 
-
-// ... oben unverändert
-
-// ---------------- Public Config ----------------
+/* ---------------- Public Config ---------------- */
 app.get("/api/config", (_req, res) => {
   res.json({
     brand: BRAND_NAME,
     address: process.env.VENUE_ADDRESS || "",
     phone: process.env.VENUE_PHONE || "",
     email: process.env.VENUE_EMAIL || "",
-    // Logo/Banner: Frontend nimmt PUBLIC_LOGO_URL, sonst MAIL_HEADER_URL, sonst MAIL_LOGO_URL, sonst /logo-hero.png
     logoUrl:
       process.env.PUBLIC_LOGO_URL ||
       process.env.MAIL_HEADER_URL ||
@@ -150,14 +145,12 @@ app.get("/api/config", (_req, res) => {
   });
 });
 
-// ---------------- Slots API ----------------
+/* ---------------- Slots API ---------------- */
 app.get("/api/slots", async (req, res) => {
   const date = normalizeYmd(String(req.query.date || ""));
   if (!date) return res.json([]);
-
   const times = generateSlots(date, OPEN_HOUR, CLOSE_HOUR);
   const out: any[] = [];
-
   for (const t of times) {
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
@@ -175,21 +168,20 @@ app.get("/api/slots", async (req, res) => {
       reserved: sums.reserved,
       walkins: sums.walkins,
       total: sums.total,
-      left: leftOnline
+      left: leftOnline,
     });
   }
-
   res.json(out);
 });
 
-// ---------------- Reservation API (online) ----------------
+/* ---------------- Reservation API (online) ---------------- */
 app.post("/api/reservations", async (req, res) => {
   const { date, time, firstName, name, email, phone, guests, notes } = req.body;
   const g = Number(guests);
 
   if (g > MAX_ONLINE_GUESTS) {
     return res.status(400).json({
-      error: "Online bookings are limited to 10 guests. Please contact us directly."
+      error: "Online bookings are limited to 10 guests. Please contact us directly.",
     });
   }
 
@@ -216,12 +208,12 @@ app.post("/api/reservations", async (req, res) => {
       notes,
       status: "confirmed",
       cancelToken: token,
-      isWalkIn: false
-    }
+      isWalkIn: false,
+    },
   });
 
   const visitCount = await prisma.reservation.count({
-    where: { email: created.email, status: { in: ["confirmed", "noshow"] } }
+    where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
   });
 
   const discount = discountForVisit(visitCount);
@@ -231,11 +223,7 @@ app.post("/api/reservations", async (req, res) => {
     created.guests, cancelUrl, visitCount, discount
   );
 
-  try {
-    await sendEmailSMTP(created.email, `${BRAND_NAME} — Reservation`, html);
-  } catch (e) {
-    console.error(e);
-  }
+  try { await sendEmailSMTP(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error(e); }
 
   const adminHtml = reservationAdminHtml({
     logo: process.env.MAIL_LOGO_URL || "/logo.png",
@@ -249,7 +237,7 @@ app.post("/api/reservations", async (req, res) => {
     time: created.time,
     notes: created.notes || "",
     visitCount,
-    discount
+    discount,
   });
   notifyAdmin(
     `New reservation — ${created.date} ${created.time} — ${created.guests}p`,
@@ -259,7 +247,7 @@ app.post("/api/reservations", async (req, res) => {
   res.json({ ok: true, reservation: created, visitCount, discount });
 });
 
-// ---------------- Walk-in API ----------------
+/* ---------------- Walk-in API ---------------- */
 app.post("/api/walkin", async (req, res) => {
   try {
     const { date, time, guests, notes } = req.body;
@@ -304,8 +292,8 @@ app.post("/api/walkin", async (req, res) => {
         notes: String(notes || ""),
         status: "confirmed",
         cancelToken: nanoid(),
-        isWalkIn: true
-      }
+        isWalkIn: true,
+      },
     });
 
     notifyAdmin(
@@ -322,7 +310,7 @@ app.post("/api/walkin", async (req, res) => {
   }
 });
 
-// ---------------- Cancel (IDEMPOTENT) ----------------
+/* ---------------- Cancel (idempotent) ---------------- */
 app.get("/cancel/:token", async (req, res) => {
   const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
   if (!r) return res.status(404).send("Not found");
@@ -334,7 +322,7 @@ app.get("/cancel/:token", async (req, res) => {
 
     const visitCount = r.email
       ? await prisma.reservation.count({
-          where: { email: r.email, status: { in: ["confirmed", "noshow"] } }
+          where: { email: r.email, status: { in: ["confirmed", "noshow"] } },
         })
       : 0;
 
@@ -356,7 +344,7 @@ app.get("/cancel/:token", async (req, res) => {
         date: r.date,
         time: r.time,
         notes: r.notes || "",
-        visitCount
+        visitCount,
       });
       notifyAdmin("Guest canceled reservation — FYI", adminHtml);
     }
@@ -365,7 +353,7 @@ app.get("/cancel/:token", async (req, res) => {
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
-// ---------------- Admin List (with loyalty) ----------------
+/* ---------------- Admin List + Loyalty ---------------- */
 app.get("/api/admin/reservations", async (req, res) => {
   const date = normalizeYmd(String(req.query.date || ""));
   const view = String(req.query.view || "day");
@@ -378,13 +366,13 @@ app.get("/api/admin/reservations", async (req, res) => {
     to.setDate(to.getDate() + 7);
     list = await prisma.reservation.findMany({
       where: { startTs: { gte: from }, endTs: { lt: to } },
-      orderBy: [{ date: "asc" }, { time: "asc" }]
+      orderBy: [{ date: "asc" }, { time: "asc" }],
     });
   } else {
     const where: any = date ? { date } : {};
     list = await prisma.reservation.findMany({
       where,
-      orderBy: [{ date: "asc" }, { time: "asc" }]
+      orderBy: [{ date: "asc" }, { time: "asc" }],
     });
   }
 
@@ -393,7 +381,7 @@ app.get("/api/admin/reservations", async (req, res) => {
   await Promise.all(
     emails.map(async em => {
       const c = await prisma.reservation.count({
-        where: { email: em, status: { in: ["confirmed", "noshow"] } }
+        where: { email: em, status: { in: ["confirmed", "noshow"] } },
       });
       counts.set(em, c);
     })
@@ -412,16 +400,15 @@ app.delete("/api/admin/reservations/:id", async (req, res) => {
   await prisma.reservation.delete({ where: { id: req.params.id } });
   res.json({ ok: true });
 });
-
 app.post("/api/admin/reservations/:id/noshow", async (req, res) => {
   const r = await prisma.reservation.update({
     where: { id: req.params.id },
-    data: { status: "noshow" }
+    data: { status: "noshow" },
   });
   res.json(r);
 });
 
-// ---------------- Closures ----------------
+/* ---------------- Closures ---------------- */
 app.post("/api/admin/closure", async (req, res) => {
   try {
     const { startTs, endTs, reason } = req.body;
@@ -431,7 +418,7 @@ app.post("/api/admin/closure", async (req, res) => {
       return res.status(400).json({ error: "Invalid time range" });
     if (e <= s) return res.status(400).json({ error: "End must be after start" });
     const c = await prisma.closure.create({
-      data: { startTs: s, endTs: e, reason: String(reason || "Closed") }
+      data: { startTs: s, endTs: e, reason: String(reason || "Closed") },
     });
     res.json(c);
   } catch (err) {
@@ -449,7 +436,7 @@ app.post("/api/admin/closure/day", async (req, res) => {
     const e = localDate(y, m, d, CLOSE_HOUR, 0, 0);
     const reason = String(req.body.reason || "Closed");
     const c = await prisma.closure.create({
-      data: { startTs: s, endTs: e, reason }
+      data: { startTs: s, endTs: e, reason },
     });
     res.json(c);
   } catch (err) {
@@ -467,7 +454,6 @@ app.get("/api/admin/closure", async (_req, res) => {
     res.status(500).json({ error: "Failed to load blocks" });
   }
 });
-
 app.delete("/api/admin/closure/:id", async (req, res) => {
   try {
     await prisma.closure.delete({ where: { id: req.params.id } });
@@ -478,7 +464,7 @@ app.delete("/api/admin/closure/:id", async (req, res) => {
   }
 });
 
-// ---------------- Export ----------------
+/* ---------------- Export ---------------- */
 app.get("/api/export", async (req, res) => {
   try {
     const period = String(req.query.period || "weekly");
@@ -496,7 +482,7 @@ app.get("/api/export", async (req, res) => {
 
     const list = await prisma.reservation.findMany({
       where: { startTs: { gte: from, lt: to } },
-      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }]
+      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
     });
 
     const prog = new Map<string, number>();
@@ -519,7 +505,7 @@ app.get("/api/export", async (req, res) => {
         Notes: r.notes || "",
         WalkIn: r.isWalkIn ? "yes" : "",
         VisitCount: nowCount,
-        "Discount%": disc
+        "Discount%": disc,
       };
     });
 
@@ -538,7 +524,173 @@ app.get("/api/export", async (req, res) => {
   }
 });
 
-// ---------------- Reminders ----------------
+/* ---------------- Email helpers + Templates ---------------- */
+function emailHeader(logoUrl: string) {
+  const banner = process.env.MAIL_HEADER_URL || "";
+  if (banner) {
+    return `
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding:0;">
+            <img src="${banner}" alt="Logo" style="display:block;width:100%;max-width:640px;height:auto;border:0;outline:none;text-decoration:none;">
+          </td>
+        </tr>
+      </table>`;
+  }
+  // Fallback: dezente Vignette um das Logo
+  return `
+    <div style="max-width:640px;margin:0 auto 10px auto;padding:28px 0;background:
+      radial-gradient(ellipse at center, rgba(179,130,47,0.18) 0%, rgba(179,130,47,0.08) 40%, rgba(255,255,255,0) 72%);
+      text-align:center;">
+      <img src="${logoUrl}" alt="Logo" style="width:150px;height:auto;border:0;outline:none;" />
+    </div>`;
+}
+
+function ordinalSuffix(n: number) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return "th";
+  switch (n % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
+}
+function discountForVisit(visitCount: number): number {
+  if (visitCount >= 15) return 15;
+  if (visitCount >= 10) return 10;
+  if (visitCount >= 5)  return 5;
+  return 0;
+}
+function teaserBox(title: string, line: string) {
+  return `
+  <div style="margin:16px 0;padding:12px 14px;background:#eef7ff;border:1px solid #cfe3ff;border-radius:10px;text-align:center;">
+    <div style="font-size:18px;margin-bottom:6px;">${title} ✨</div>
+    <div style="font-size:15px;">${line}</div>
+  </div>`;
+}
+function nextMilestoneTeaser(visitCount: number): string {
+  if (visitCount === 4)  return teaserBox("Heads-up","On your next visit you’ll receive a <b>5% loyalty thank-you</b>.");
+  if (visitCount === 9)  return teaserBox("Almost there","On your next visit you’ll receive a <b>10% loyalty thank-you</b>.");
+  if (visitCount === 14) return teaserBox("Big milestone ahead","From your next visit you’ll receive a <b>15% loyalty thank-you</b>.");
+  return "";
+}
+
+function confirmationHtml(
+  firstName: string, name: string, date: string, time: string, guests: number,
+  cancelUrl: string, visitCount: number, currentDiscount: number
+) {
+  const logo = process.env.MAIL_LOGO_URL || "/logo.png";
+  const site = BRAND_NAME;
+  const header = emailHeader(logo);
+  const suffix = ordinalSuffix(visitCount);
+
+  const visitLine =
+    visitCount < 5
+      ? `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">This is your <b>${visitCount}${suffix}</b> visit. Thank you for coming back to us.</div>`
+      : `<div style="margin-top:8px;font-size:14px;text-align:center;opacity:.9;">This is your <b>${visitCount}${suffix}</b> visit.</div>`;
+
+  let reward = "";
+  if (currentDiscount === 15) {
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 A heartfelt thank-you! 🎉</div><div style="font-size:16px;">As a token of appreciation for your continued support, you enjoy a <b style="color:#b3822f;">15% loyalty thank-you</b>.</div></div>`;
+  } else if (currentDiscount === 10) {
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 Thank you for coming back! 🎉</div><div style="font-size:16px;">Your loyalty means the world to us — please enjoy a <b style="color:#b3822f;">10% loyalty thank-you</b>.</div></div>`;
+  } else if (currentDiscount === 5) {
+    reward = `<div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;"><div style="font-size:22px;margin-bottom:6px;">🎉 You make our day! 🎉</div><div style="font-size:16px;">We love welcoming you back — please enjoy a <b style="color:#b3822f;">5% loyalty thank-you</b>.</div></div>`;
+  }
+  const teaser = nextMilestoneTeaser(visitCount);
+
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 14px 0;letter-spacing:.5px;">Your Reservation at ${site}</h2>
+    <p style="font-size:16px;margin:0 0 10px 0;">Hi ${firstName} ${name},</p>
+    <p style="font-size:16px;margin:0 0 12px 0;">Thank you for choosing <b>${site}</b>. We value loyalty deeply — regular guests are the heart of our little community.</p>
+
+    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
+      <p style="margin:0;"><b>Date</b> ${date}</p>
+      <p style="margin:0;"><b>Time</b> ${time}</p>
+      <p style="margin:0;"><b>Guests</b> ${guests}</p>
+    </div>
+
+    ${visitLine}
+    ${reward}
+    ${teaser}
+
+    <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
+      <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
+    </div>
+
+    <p style="margin-top:18px;text-align:center;"><a href="${cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a></p>
+    <p style="margin-top:16px;font-size:14px;text-align:center;">We can’t wait to welcome you!<br/><b>Warm greetings from ${site}</b></p>
+  </div>`;
+}
+
+function reservationAdminHtml(opts: {
+  logo: string; brand: string;
+  firstName: string; lastName: string; email: string; phone: string;
+  guests: number; date: string; time: string; notes: string; visitCount: number; discount: number;
+}) {
+  const header = emailHeader(opts.logo);
+  const discountText = opts.discount ? `${opts.discount}%` : "—";
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 8px 0;">New reservation ✅</h2>
+    <div style="text-align:center;opacity:.9;margin-bottom:12px;">A guest just booked a table.</div>
+    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
+      <p style="margin:0;"><b>Guest</b> ${opts.firstName} ${opts.lastName} (${opts.email})</p>
+      <p style="margin:0;"><b>Phone</b> ${opts.phone || "-"}</p>
+      <p style="margin:0;"><b>Date</b> ${opts.date} &nbsp; <b>Time</b> ${opts.time}</p>
+      <p style="margin:0;"><b>Guests</b> ${opts.guests}</p>
+      <p style="margin:0;"><b>Notes</b> ${opts.notes || "-"}</p>
+      <p style="margin:0;"><b>Total past visits</b> ${opts.visitCount} &nbsp; <b>Discount</b> ${discountText}</p>
+    </div>
+    <p style="text-align:center;margin-top:10px;"><b>${opts.brand}</b></p>
+  </div>`;
+}
+
+function canceledAdminHtml(opts: {
+  logo: string; brand: string;
+  firstName: string; lastName: string; email: string; phone: string;
+  guests: number; date: string; time: string; notes: string; visitCount: number;
+}) {
+  const header = emailHeader(opts.logo);
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 8px 0;">Reservation canceled 😢</h2>
+    <div style="text-align:center;opacity:.9;margin-bottom:12px;">The guest has canceled their reservation.</div>
+    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
+      <p style="margin:0;"><b>Guest</b> ${opts.firstName} ${opts.lastName} (${opts.email})</p>
+      <p style="margin:0;"><b>Phone</b> ${opts.phone || "-"}</p>
+      <p style="margin:0;"><b>Date</b> ${opts.date} &nbsp; <b>Time</b> ${opts.time}</p>
+      <p style="margin:0;"><b>Guests</b> ${opts.guests}</p>
+      <p style="margin:0;"><b>Notes</b> ${opts.notes || "-"}</p>
+      <p style="margin:0;"><b>Total past visits</b> ${opts.visitCount}</p>
+    </div>
+    <p style="text-align:center;margin-top:10px;"><b>${opts.brand}</b></p>
+  </div>`;
+}
+
+function canceledGuestHtml(
+  firstName: string, name: string, date: string, time: string, guests: number, rebookUrl: string
+) {
+  const logo = process.env.MAIL_LOGO_URL || "/logo.png";
+  const site = BRAND_NAME;
+  const header = emailHeader(logo);
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 14px 0;">We’ll miss you this round 😢</h2>
+    <p>Hi ${firstName} ${name},</p>
+    <p>Your reservation for <b>${guests}</b> on <b>${date}</b> at <b>${time}</b> has been canceled.</p>
+    <p>We completely understand — plans change. Just know that your favorite table will be waiting when you’re ready to come back.</p>
+    <p style="text-align:center;margin:16px 0;">
+      <a href="${rebookUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">
+        Book your comeback
+      </a>
+    </p>
+    <p>With warm regards,<br/><b>${site}</b></p>
+  </div>`;
+}
+
+/* ---------------- Reminders ---------------- */
 setInterval(async () => {
   const now = new Date();
   const from = addHours(now, 24);
@@ -548,10 +700,9 @@ setInterval(async () => {
       status: "confirmed",
       isWalkIn: false,
       reminderSent: false,
-      startTs: { gte: from, lt: to }
-    }
+      startTs: { gte: from, lt: to },
+    },
   });
-
   for (const r of list) {
     const cancelUrl = `${BASE_URL}/cancel/${r.cancelToken}`;
     const html = `
@@ -571,13 +722,12 @@ setInterval(async () => {
   }
 }, 30 * 60 * 1000);
 
-// ---------------- Start ----------------
+/* ---------------- Start ---------------- */
 async function start() {
   await prisma.$connect();
   await verifyMailer();
   app.listen(PORT, "0.0.0.0", () => console.log(`Server running on ${PORT}`));
 }
-
 start().catch(err => {
   console.error("Fatal start error", err);
   process.exit(1);
