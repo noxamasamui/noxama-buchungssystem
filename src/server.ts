@@ -125,6 +125,7 @@ async function notifyAdmin(subject: string, html: string) {
 // ---------------- Pages ----------------
 app.get("/", (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
 app.get("/admin", (_req, res) => res.sendFile(path.join(publicDir, "admin.html")));
+}
 
 // ... oben unverändert
 
