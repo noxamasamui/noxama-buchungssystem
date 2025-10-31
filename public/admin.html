@@ -3,8 +3,34 @@
 <head>
   <meta charset="utf-8"/>
   <title>Admin — NOXAMA Reservations</title>
-  <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    body{background:#f2e8dc}
+    .container{max-width:980px;margin:24px auto;padding:0 12px;}
+    .logo{display:block;margin:8px auto;width:140px;height:auto;border-radius:8px}
+    nav{margin:8px 0 10px 0}
+    nav a{margin-right:10px;color:#6d5a49}
+    h1{margin:6px 0 12px 0}
+    .card{background:#fbf6ee;border-radius:14px;padding:14px 16px;margin:16px 0;border:1px solid #e7dbc8;}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .table-wrap{overflow:auto;border-radius:10px;border:1px solid #e7dbc8;background:#fff}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px 10px;border-bottom:1px solid #eee;white-space:nowrap}
+    .btn{background:#b08956;border:none;color:#fff;border-radius:8px;padding:8px 12px;cursor:pointer}
+    .btn-plain{background:transparent;border:none;color:#6d5a49;cursor:pointer}
+    .btn-sm{padding:6px 8px;font-size:.92em}
+    .btn-danger{background:#c84a3a}
+    input,select{border:1px solid #cdbba3;border-radius:8px;padding:8px;background:#fff}
+    #sum{display:inline-block;margin-top:10px;background:#f8e7cf;border:1px solid #e7d6bd;border-radius:10px;padding:6px 10px}
+    .actions-cell .btn-group{display:flex;gap:6px}
+    .col-date{min-width:105px}
+    .col-time{min-width:70px}
+    .col-phone{min-width:110px}
+    .col-guests{min-width:70px}
+    .col-walkin{min-width:70px;text-align:center}
+    .col-actions{min-width:160px}
+  </style>
 </head>
 <body>
 <div class="container">
@@ -14,47 +40,45 @@
 
   <div class="card">
     <h2>All reservations</h2>
-    <div class="toolbar">
-      <div class="row">
-        <div><label>Date filter</label><input id="fltDate" type="date"/></div>
-        <div><label>View</label>
-          <select id="view"><option value="day">day</option><option value="week" selected>week</option></select>
-        </div>
-        <button class="btn" id="btnLoad" type="button">Load</button>
-        <div class="spacer"></div>
-        <div>
-          <label>Export</label>
-          <select id="period">
-            <option value="daily">daily</option>
-            <option value="weekly" selected>weekly</option>
-            <option value="monthly">monthly</option>
-            <option value="yearly">yearly</option>
-          </select>
-          <button class="btn" id="btnExport" type="button">Excel</button>
-        </div>
+    <div class="row">
+      <div><label>Date filter</label><input id="fltDate" type="date"/></div>
+      <div><label>View</label>
+        <select id="view"><option value="day">day</option><option value="week" selected>week</option></select>
+      </div>
+      <button class="btn" id="btnLoad" type="button">Load</button>
+      <div style="flex:1"></div>
+      <div>
+        <label>Export</label>
+        <select id="period">
+          <option value="daily">daily</option>
+          <option value="weekly" selected>weekly</option>
+          <option value="monthly">monthly</option>
+          <option value="yearly">yearly</option>
+        </select>
+        <button class="btn" id="btnExport" type="button">Excel</button>
       </div>
     </div>
 
-    <div class="table-wrap">
+    <div class="table-wrap" style="margin-top:10px;">
       <table id="tbl">
         <thead>
-          <tr>
-            <th class="col-date">Date</th>
-            <th class="col-time">Time</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th class="col-phone">Phone</th>
-            <th class="col-guests">Guests</th>
-            <th>Status</th>
-            <th>Notes</th>
-            <th class="col-walkin">Walk in</th>
-            <th class="col-actions">Action</th>
-          </tr>
+        <tr>
+          <th class="col-date">Date</th>
+          <th class="col-time">Time</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th class="col-phone">Phone</th>
+          <th class="col-guests">Guests</th>
+          <th>Status</th>
+          <th>Notes</th>
+          <th class="col-walkin">Walk in</th>
+          <th class="col-actions">Action</th>
+        </tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
-    <div id="sum" class="badge" style="margin-top:10px;"></div>
+    <div id="sum" class="badge"></div>
   </div>
 
   <div class="card">
@@ -94,8 +118,7 @@ document.getElementById("fltDate").value = today();
 document.getElementById("wDate").value = today();
 
 function fillWalkInTimes(){
-  const sel = document.getElementById("wTime");
-  sel.innerHTML = "";
+  const sel = document.getElementById("wTime"); sel.innerHTML = "";
   const from = 10*60, to = 22*60;
   for(let m=from;m<=to;m+=15){
     const hh=String(Math.floor(m/60)).padStart(2,"0");
@@ -108,49 +131,45 @@ function fillWalkInTimes(){
 fillWalkInTimes();
 
 async function loadList(){
-  try{
-    const d = document.getElementById("fltDate").value || today();
-    const v = document.getElementById("view").value || "week";
-    const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${v}`);
-    if(!r.ok) throw new Error(String(r.status));
-    const data = await r.json();
-    const tb = document.querySelector("#tbl tbody");
-    tb.innerHTML = "";
-    let totalGuests = 0;
+  const d = document.getElementById("fltDate").value || today();
+  const v = document.getElementById("view").value || "week";
+  const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${v}`);
+  if(!r.ok){ alert("List failed ("+r.status+")."); return; }
+  const data = await r.json();
+  const tb = document.querySelector("#tbl tbody");
+  tb.innerHTML = "";
+  let totalGuests = 0;
 
-    data.forEach(row=>{
-      totalGuests += row.guests;
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="col-date">${row.date}</td>
-        <td class="col-time">${row.time}</td>
-        <td>${row.firstName} ${row.name}</td>
-        <td>${row.email || ""}</td>
-        <td class="col-phone">${row.phone || ""}</td>
-        <td class="col-guests">${row.guests}</td>
-        <td>${row.status}</td>
-        <td>${row.notes || ""}</td>
-        <td class="col-walkin">${row.isWalkIn ? "yes" : ""}</td>
-        <td class="col-actions actions-cell">
-          <span class="btn-group">
-            <button class="btn-danger btn-sm" data-del="${row.id}" type="button">Delete</button>
-            <button class="btn btn-sm" data-ns="${row.id}" type="button">No show</button>
-          </span>
-        </td>`;
-      tb.appendChild(tr);
-    });
+  data.forEach(row=>{
+    totalGuests += row.guests;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="col-date">${row.date}</td>
+      <td class="col-time">${row.time}</td>
+      <td>${row.firstName} ${row.name}</td>
+      <td>${row.email || ""}</td>
+      <td class="col-phone">${row.phone || ""}</td>
+      <td class="col-guests">${row.guests}</td>
+      <td>${row.status}</td>
+      <td>${row.notes || ""}</td>
+      <td class="col-walkin">${row.isWalkIn ? "yes" : ""}</td>
+      <td class="col-actions actions-cell">
+        <span class="btn-group">
+          <button class="btn-danger btn-sm" data-del="${row.id}" type="button">Delete</button>
+          <button class="btn btn-sm" data-ns="${row.id}" type="button">No show</button>
+        </span>
+      </td>`;
+    tb.appendChild(tr);
+  });
 
-    document.getElementById("sum").textContent = `Total bookings: ${data.length}   Total guests: ${totalGuests}`;
+  document.getElementById("sum").textContent = `Total bookings: ${data.length}   Total guests: ${totalGuests}`;
 
-    tb.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", async ()=>{
-      await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"}); loadList();
-    }));
-    tb.querySelectorAll("[data-ns]").forEach(b=>b.addEventListener("click", async ()=>{
-      await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"}); loadList();
-    }));
-  }catch(e){
-    alert(`List failed (${e.message||"error"}).`);
-  }
+  tb.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", async ()=>{
+    await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"}); loadList();
+  }));
+  tb.querySelectorAll("[data-ns]").forEach(b=>b.addEventListener("click", async ()=>{
+    await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"}); loadList();
+  }));
 }
 document.getElementById("btnLoad").addEventListener("click", loadList);
 document.getElementById("view").addEventListener("change", loadList);
@@ -192,11 +211,7 @@ async function loadClosures(){
 loadClosures();
 
 document.getElementById("btnBlock").addEventListener("click", async ()=>{
-  const payload = {
-    startTs: document.getElementById("cStart").value,
-    endTs: document.getElementById("cEnd").value,
-    reason: document.getElementById("cReason").value
-  };
+  const payload = { startTs: document.getElementById("cStart").value, endTs: document.getElementById("cEnd").value, reason: document.getElementById("cReason").value };
   const r = await fetch("/api/admin/closure", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   const m = document.getElementById("cMsg");
   if(r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
