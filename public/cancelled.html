@@ -1,21 +1,30 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Reservation canceled</title>
-  <link rel="stylesheet" href="/style.css"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Reservation canceled</title>
+<link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-  <div class="container center">
-    <img src="/logo-hero.png" class="logo-hero" alt="RÖSTILAND" style="width:260px"/>
-    <div class="card" style="display:inline-block; text-align:center">
-      <h2 style="margin-top:4px">Your reservation was canceled</h2>
+  <div class="wrapper" style="text-align:center">
+    <img id="heroLogo" class="logo" alt="Logo" style="margin-bottom:10px"/>
+    <div class="card" style="display:inline-block;min-width:min(90vw,760px)">
+      <h2 style="margin:6px 0 10px 0">Your reservation was canceled</h2>
       <p>We hope to welcome you another time.</p>
-      <p style="margin-top:12px">
+      <p style="margin:16px 0">
         <a class="btn" href="/">Back</a>
       </p>
     </div>
   </div>
+<script>
+(async()=>{
+  try{
+    const r = await fetch("/api/config");
+    const cfg = await r.json();
+    document.getElementById("heroLogo").src = cfg.logoUrl || "/logo-hero.png";
+  }catch{}
+})();
+</script>
 </body>
 </html>
