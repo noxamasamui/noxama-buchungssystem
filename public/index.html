@@ -1,205 +1,200 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Contact and Table Booking</title>
-  <link rel="stylesheet" href="/style.css"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Contact and Table Booking</title>
+<link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-  <div class="container">
-    <img src="/logo-hero.png" alt="RÖSTILAND" class="logo-hero"/>
+  <div class="wrapper">
+    <header class="header">
+      <img class="logo" id="heroLogo" alt="RÖSTILAND"/>
+      <h1 class="h1">Contact and Table Booking</h1>
+    </header>
 
-    <h1>Contact and Table Booking</h1>
-
-    <div class="card">
-      <h2>Address</h2>
-      <div>Moo 4 Lamai Beach, 84310 Suratthani, Thailand</div>
-      <div class="row">
-        <div><span class="badge">Phone</span> <a href="tel:+66077270675">+66 077 270 675</a></div>
-        <div><span class="badge">Email</span> <a href="mailto:info@noxamasamui.com">info@noxamasamui.com</a></div>
-      </div>
-    </div>
-
-    <form id="form" class="card" autocomplete="off">
-      <div class="row">
-        <div>
-          <label for="date">Date</label>
-          <input id="date" type="date" required/>
-        </div>
-        <div>
-          <label for="guests">Guests (max 10 online)</label>
-          <select id="guests" required>
-            <option value="">Select guests…</option>
-          </select>
-        </div>
-      </div>
-
-      <div id="slotsWrap" class="card" style="display:none;margin-top:18px">
-        <h2 style="margin-top:0">Choose a time slot</h2>
-        <div id="slots" class="slot-grid"></div>
-        <div id="slotsMsg" class="small" style="margin-top:10px"></div>
-      </div>
-
-      <div class="row" style="margin-top:18px">
-        <div>
-          <label for="first">First name*</label>
-          <input id="first" type="text" required/>
-        </div>
-        <div>
-          <label for="last">Name*</label>
-          <input id="last" type="text" required/>
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label for="mail">Email*</label>
-          <input id="mail" type="text" inputmode="email" required/>
-        </div>
-        <div>
-          <label for="phone">Phone (optional)</label>
-          <input id="phone" type="text" />
-        </div>
-      </div>
-
+    <section class="card contact" id="contactCard">
       <div>
-        <label for="notes">Notes</label>
-        <textarea id="notes" placeholder="Allergies, seating request, occasion"></textarea>
+        <h3>Address</h3>
+        <div id="addrText">—</div>
+        <small>Thailand</small>
+      </div>
+      <a class="pill" id="telPill" href="#"><span>Phone</span></a>
+      <a class="pill" id="mailPill" href="#"><span>Email</span></a>
+    </section>
+
+    <section class="section card">
+      <div class="row">
+        <div>
+          <div class="label">Date</div>
+          <div class="inline">
+            <input class="input" id="date" type="date"/>
+          </div>
+        </div>
+        <div>
+          <div class="label">Guests (max 10 online)</div>
+          <div class="inline">
+            <select class="select" id="guests"></select>
+            <a class="btn secondary" id="groupBtn" target="_blank" rel="noopener">Group 11+?</a>
+          </div>
+        </div>
       </div>
 
-      <div class="notice" style="margin:14px 0">
-        Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
+      <div class="section">
+        <div class="label">Choose a time slot</div>
+        <div class="slots">
+          <div id="slotMsg" class="helper">Select date & guests to see available slots.</div>
+          <div id="slotGrid" class="slotgrid"></div>
+        </div>
       </div>
 
-      <div class="center" style="margin-top:12px">
-        <button id="submit" type="submit" class="btn" disabled>Book now</button>
-        <div id="feedback" class="small" style="margin-top:8px"></div>
+      <div class="section row">
+        <div>
+          <div class="label">First name*</div>
+          <input class="input" id="firstName" placeholder="First name"/>
+        </div>
+        <div>
+          <div class="label">Name*</div>
+          <input class="input" id="name" placeholder="Last name"/>
+        </div>
+        <div>
+          <div class="label">Email*</div>
+          <input class="input" id="email" placeholder="mail@example.com"/>
+        </div>
+        <div>
+          <div class="label">Phone (optional)</div>
+          <input class="input" id="phone" placeholder=""/>
+        </div>
       </div>
 
-      <input type="hidden" id="time"/>
-    </form>
+      <div class="section">
+        <div class="label">Notes</div>
+        <textarea class="input" id="notes" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
+      </div>
+
+      <div class="inline section">
+        <button class="btn" id="bookBtn" disabled>Book now</button>
+        <div id="formHint" class="helper"></div>
+      </div>
+
+      <div id="info" class="notice" style="display:none"></div>
+    </section>
   </div>
 
-  <script>
-  // helpers
-  const $ = sel => document.querySelector(sel);
-  const elSlots = $("#slots");
-  const elSlotsWrap = $("#slotsWrap");
-  const elSlotsMsg = $("#slotsMsg");
+<script>
+const $ = sel => document.querySelector(sel);
+const cfg = {brand:"", phone:"", email:"", logoUrl:"", group:{label:"Group 11+?",tel:"",mail:""}};
+let pickedTime = "";
 
-  // fill guests 1..10
-  const gSel = $("#guests");
-  for(let i=1;i<=10;i++){
+function setGuests() {
+  const sel = $("#guests");
+  sel.innerHTML = "";
+  for (let i=1;i<=10;i++){
     const o = document.createElement("option");
-    o.value=String(i); o.textContent=String(i);
-    gSel.appendChild(o);
+    o.value = i; o.textContent = i;
+    sel.appendChild(o);
   }
+}
+function setContact() {
+  $("#addrText").textContent = cfg.address || "—";
+  const telHref = cfg.phone ? "tel:"+cfg.phone.replace(/\s/g,"") : "#";
+  const mailHref = cfg.email ? "mailto:"+cfg.email : "#";
+  $("#telPill").href = telHref;
+  $("#telPill").title = cfg.phone;
+  $("#telPill").innerHTML = "<span>Phone</span>";
+  $("#mailPill").href = mailHref;
+  $("#mailPill").title = cfg.email;
+  $("#mailPill").innerHTML = "<span>"+(cfg.email||"Email")+"</span>";
 
-  function ymd(d){
-    if(!d) return "";
-    const dt = new Date(d);
-    if(Number.isNaN(dt.getTime())) return "";
-    return dt.toISOString().slice(0,10);
+  const group = cfg.group||{};
+  $("#groupBtn").textContent = group.label || "Group 11+?";
+  const gTel = group.tel ? "tel:"+group.tel.replace(/\s/g,"") : "";
+  const gMail = group.mail ? "mailto:"+group.mail : "";
+  $("#groupBtn").href = gTel || gMail || "#";
+}
+function setLogo(){
+  const img = $("#heroLogo");
+  img.src = cfg.logoUrl || "/logo-hero.png";
+}
+function ymd(d){
+  const pad = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+async function loadConfig(){
+  const r = await fetch("/api/config"); Object.assign(cfg, await r.json());
+  setLogo(); setContact(); setGuests();
+  const today = new Date(); $("#date").value = ymd(today);
+  refreshSlots();
+}
+
+async function refreshSlots(){
+  $("#slotGrid").innerHTML = "";
+  pickedTime = "";
+  $("#bookBtn").disabled = true;
+  const date = $("#date").value;
+  const guests = $("#guests").value;
+
+  if(!date){ $("#slotMsg").textContent = "Select a date."; return; }
+
+  const r = await fetch(`/api/slots?date=${encodeURIComponent(date)}`);
+  const slots = await r.json();
+
+  let added = 0;
+  for(const s of slots){
+    const btn = document.createElement("button");
+    btn.type="button";
+    btn.className="slot";
+    btn.textContent = s.time;
+    if(!s.canReserve){ btn.disabled = true; }
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".slot.selected").forEach(n=>n.classList.remove("selected"));
+      btn.classList.add("selected");
+      pickedTime = s.time;
+      $("#bookBtn").disabled = false;
+      $("#formHint").textContent = "";
+    });
+    $("#slotGrid").appendChild(btn);
+    added++;
   }
+  $("#slotMsg").textContent = added ? "Pick a time." : "We are fully booked or closed on this date. Please choose another day.";
+}
 
-  async function loadSlots(){
-    const date = $("#date").value;
-    const guests = Number($("#guests").value || 0);
-    $("#submit").disabled = true;
-    $("#time").value = "";
-    elSlots.innerHTML = "";
-    elSlotsMsg.textContent = "";
-
-    if(!date || !guests){
-      elSlotsWrap.style.display = "none";
-      return;
-    }
-
-    elSlotsWrap.style.display = "block";
-    elSlotsMsg.textContent = "Loading slots…";
-
-    try{
-      const q = new URLSearchParams({date: ymd(date)});
-      const res = await fetch("/api/slots?"+q);
-      const data = await res.json();
-
-      const visible = data.filter(s => s.allowed && s.left >= guests);
-      elSlots.innerHTML = "";
-      if(visible.length === 0){
-        elSlotsMsg.textContent = "We are fully booked at this date. Please choose another day.";
-        return;
-      }
-      elSlotsMsg.textContent = "";
-
-      visible.forEach(s=>{
-        const b = document.createElement("button");
-        b.type="button"; b.className="slot";
-        b.textContent = s.time;
-        b.addEventListener("click", ()=>{
-          document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active"));
-          b.classList.add("active");
-          $("#time").value = s.time;
-          $("#submit").disabled = false;
-        });
-        elSlots.appendChild(b);
-      });
-
-    }catch(e){
-      elSlotsMsg.textContent = "Failed to load slots.";
-    }
+async function book(){
+  const payload = {
+    date: $("#date").value,
+    time: pickedTime,
+    firstName: $("#firstName").value.trim(),
+    name: $("#name").value.trim(),
+    email: $("#email").value.trim(),
+    phone: $("#phone").value.trim(),
+    guests: Number($("#guests").value),
+    notes: $("#notes").value.trim()
+  };
+  if(!payload.firstName || !payload.name || !payload.email || !pickedTime){
+    $("#formHint").textContent = "Please fill all required fields and pick a time."; return;
   }
-
-  $("#date").addEventListener("change", loadSlots);
-  $("#guests").addEventListener("change", loadSlots);
-
-  // submit
-  $("#form").addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    $("#submit").disabled = true;
-    $("#feedback").textContent = "";
-
-    const payload = {
-      date: ymd($("#date").value),
-      time: $("#time").value,
-      firstName: $("#first").value.trim(),
-      name: $("#last").value.trim(),
-      email: $("#mail").value.trim(),
-      phone: $("#phone").value.trim(),
-      guests: Number($("#guests").value),
-      notes: $("#notes").value.trim()
-    };
-
-    if(!payload.time){
-      $("#feedback").textContent = "Please choose a time slot.";
-      $("#submit").disabled = false;
-      return;
-    }
-
-    try{
-      const res = await fetch("/api/reservations", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if(!res.ok){
-        $("#feedback").textContent = data.error || "Booking failed.";
-        $("#submit").disabled = false;
-        return;
-      }
-      $("#feedback").textContent = "Your reservation has been received. You will get a confirmation email shortly.";
-      // simple reset
-      $("#submit").disabled = true;
-    }catch(err){
-      $("#feedback").textContent = "Booking failed.";
-      $("#submit").disabled = false;
-    }
+  $("#bookBtn").disabled = true;
+  const res = await fetch("/api/reservations",{
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(payload)
   });
+  const out = await res.json();
+  const info = $("#info");
+  info.style.display = "block";
+  if(res.ok){
+    info.textContent = "Your reservation has been received. You will get a confirmation email shortly.";
+  }else{
+    info.textContent = out.error || "Booking failed";
+    $("#bookBtn").disabled = false;
+  }
+}
 
-  // default date today
-  const today = new Date();
-  $("#date").value = today.toISOString().slice(0,10);
-  </script>
+$("#date").addEventListener("change", refreshSlots);
+$("#guests").addEventListener("change", refreshSlots);
+$("#bookBtn").addEventListener("click", book);
+
+loadConfig();
+</script>
 </body>
 </html>
