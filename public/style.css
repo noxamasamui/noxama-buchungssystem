@@ -1,38 +1,115 @@
-/* public/style.css */
-
-/* body NICHT voll-beige lassen – zurück auf vorher (dein Standard) */
-body {
-  background: #e8dccc;        /* nimm deinen vorherigen Wert; Beispiel */
-  color: #3a2f28;
-  margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+/* Reset & Grundlayout */
+:root{
+  --bg: #efe3d4;          /* sanftes, warmes Beige wie zuvor */
+  --card: #f9efe4;
+  --text: #3e2e1f;
+  --muted: #7b6a58;
+  --accent:#b48a3a;
+  --accent-strong:#a07418;
+  --ok:#2f7d32;
+  --danger:#b23a3a;
+  --radius:16px;
+  --shadow:0 10px 30px rgba(0,0,0,.08);
 }
-
-/* Karten behalten hellen Hintergrund, damit es nicht „volle Fläche beige“ wirkt */
-.card {
-  background: #f8efe5;        /* dein vorheriger Card-Ton */
-  border-radius: 12px;
-  padding: 16px;
-  margin: 14px 0;
-}
-
-/* belasse alle deine bisherigen Farben – nur zwei Fixes: */
-.logo{
-  width: 140px;          /* kleiner, auch mobil gut */
-  height: auto;
-  display:block;
-  margin: 20px auto 10px auto;
-}
-
-/* Sicherheitsnetz, damit die ganze Seite NICHT beige wird */
+*{box-sizing:border-box}
 body{
-  background: #e8d8c7;   /* dein vorheriger neutraler Ton; bei Bedarf ersetzen */
+  margin:0;
+  font: 18px/1.45 "IBM Plex Serif","Georgia",serif;
+  background:var(--bg);
+  color:var(--text);
+}
+.wrap{
+  max-width: 920px;
+  margin: 40px auto 120px;
+  padding: 0 16px;
+}
+.logo{
+  display:block;
+  width: 220px;
+  height:auto;
+  margin: 6px auto 18px;
+}
+h1{
+  font-size: clamp(30px,3.4vw,46px);
+  margin:12px 0 18px;
+}
+.card{
+  background:var(--card);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding: 18px 20px;
+  margin: 18px 0;
+  border:1px solid rgba(0,0,0,.04);
+}
+small.muted{color:var(--muted)}
+label{display:block;margin:10px 0 6px}
+input,select,textarea,button{
+  font:inherit;
+  color:inherit;
+}
+input[type="text"], input[type="date"], input[type="email"], input[type="tel"], select, textarea{
+  width:100%;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,.08);
+  background:#fff;
+  outline:none;
+}
+textarea{min-height:100px;resize:vertical}
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(4,1fr);
+  gap:10px;
+}
+@media (max-width:700px){
+  .grid{grid-template-columns: repeat(3,1fr)}
+}
+@media (max-width:520px){
+  .grid{grid-template-columns: repeat(2,1fr)}
 }
 
-/* Admin-Hero/Topbanner unverändert lassen – oder falls du ein Bild oben hattest, begrenzen */
-.admin-hero img {
-  max-width: 480px;
-  height: auto;
-  display: block;
-  margin: 0 auto 12px auto;
+.slot{
+  padding:10px 0;
+  text-align:center;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.06);
+  border-radius:12px;
+  cursor:pointer;
+  user-select:none;
 }
+.slot[disabled]{
+  pointer-events:none;
+  opacity:.35;
+  text-decoration:line-through;
+}
+.slot.active{
+  background:var(--accent);
+  color:#fff;
+  border-color:var(--accent-strong);
+}
+
+.row{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width:700px){.row{grid-template-columns:1fr}}
+
+.btn{
+  display:inline-block;
+  background:var(--accent);
+  color:#fff;
+  border:none;
+  padding:10px 16px;
+  border-radius:12px;
+  cursor:pointer;
+}
+.btn.secondary{background:#fff;color:var(--text);border:1px solid rgba(0,0,0,.08)}
+.btn.danger{background:var(--danger)}
+.btn.ok{background:var(--ok)}
+.center{text-align:center}
+
+.notice{padding:12px 14px;background:#fff;border-left:4px solid var(--accent);border-radius:12px}
+.error{border-left-color:var(--danger)}
+.success{border-left-color:var(--ok)}
