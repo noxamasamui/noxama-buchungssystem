@@ -2,194 +2,194 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Contact and Table Booking</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <link rel="icon" href="/logo.png">
-  <style>
-    :root{
-      --bg:#efe6da;
-      --card:#f7efe6;
-      --ink:#3a2f28;
-      --muted:#6b513f;
-      --accent:#a6753a;
-      --chip:#fff;
-      --chipBorder:#e3d2bf;
-      --chipDisabled:#ddd2c6;
-    }
-    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif}
-    .wrap{max-width:980px;margin:0 auto;padding:32px 16px}
-    header{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:6px}
-    header img{width:150px;height:auto;border-radius:10px;display:block}
-    h1{font-size:42px;line-height:1.05;margin:10px 0 16px}
-    .card{background:var(--card);border:1px solid #e8d8c7;border-radius:14px;padding:16px}
-    .grid{display:grid;grid-template-columns:1fr;gap:12px}
-    label{font-weight:700;display:block;margin:8px 0 6px 0}
-    input,select,textarea{width:100%;padding:10px 12px;border:1px solid #d7c6b4;border-radius:10px;background:#fff;font-family:inherit}
-    textarea{min-height:64px}
-    .time-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:10px}
-    .chip{padding:10px 0;border:1px solid var(--chipBorder);border-radius:999px;text-align:center;background:var(--chip);cursor:pointer;user-select:none}
-    .chip[disabled]{background:#f0e6da;border-color:var(--chipDisabled);color:#9b8b7a;cursor:not-allowed}
-    .chip.selected{background:var(--accent);color:#fff;border-color:var(--accent)}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .btn{display:inline-block;padding:10px 14px;background:var(--accent);color:#fff;border:none;border-radius:10px;cursor:pointer}
-    .note{color:var(--muted);margin-top:6px}
-    @media (max-width:720px){
-      .time-grid{grid-template-columns:repeat(3,1fr)}
-      h1{font-size:36px}
-    }
-  </style>
+  <title>Contact and Table Booking</title>
+  <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <img src="/logo.png" alt="Logo">
-      <h1>Contact and Table Booking</h1>
-    </header>
+    <img class="logo" src="/logo-hero.png" alt="RÖSTILAND">
+    <h1>Contact and Table Booking</h1>
 
-    <section class="card grid" id="contact">
-      <div><b>Address</b><br><span id="addr"></span></div>
-      <div><b>Phone</b><br><a id="phone" href="#"></a></div>
-      <div><b>Email</b><br><a id="email" href="#"></a></div>
-    </section>
+    <div class="card">
+      <p><strong>Address</strong><br>
+        Moo 4 Lamai Beach, 84310 Suratthani, Thailand</p>
+      <p><strong>Phone</strong> <a href="tel:+666077270675">+66 077 270 675</a><br>
+         <strong>Email</strong> <a href="mailto:info@noxamasamui.com">info@noxamasamui.com</a></p>
+    </div>
 
-    <section class="card" id="form">
-      <label>Date</label>
-      <input type="date" id="date">
-      <div class="note">Choose your date first.</div>
+    <div class="card">
+      <label for="date">Date</label>
+      <input id="date" type="date"/>
 
-      <label style="margin-top:12px">Guests (max 10 online)</label>
-      <select id="guests"></select>
+      <label for="guests" style="margin-top:12px">Guests (max 10 online)</label>
+      <select id="guests">
+        <option value="">Select guests…</option>
+        <script>
+          for(let i=1;i<=10;i++){
+            document.write(`<option value="${i}">${i}</option>`);
+          }
+        </script>
+        <option value="group">Group 11+</option>
+      </select>
+      <div id="groupNote" class="notice" style="display:none;margin-top:10px">
+        For groups of 11 or more, please contact us via
+        <a href="mailto:info@noxamasamui.com">email</a> or
+        <a href="tel:+666077270675">phone</a>.
+      </div>
 
-      <label style="margin-top:12px">Choose a time slot (15 minutes grid)</label>
-      <div id="times" class="time-grid"></div>
+      <div id="closedNote" class="notice error" style="display:none;margin-top:14px">
+        We are fully booked or closed on this date. Please choose another day.
+      </div>
 
-      <div class="row" style="margin-top:12px">
+      <div id="slotsWrap" style="margin-top:14px;display:none">
+        <label>Choose a time slot (15 minutes grid)</label>
+        <div id="slots" class="grid"></div>
+      </div>
+    </div>
+
+    <form id="form" class="card" style="display:none">
+      <div class="row">
         <div>
-          <label>First name*</label>
-          <input id="firstName" required>
+          <label for="first">First name*</label>
+          <input id="first" type="text" required>
         </div>
         <div>
-          <label>Name*</label>
-          <input id="name" required>
+          <label for="name">Name*</label>
+          <input id="name" type="text" required>
         </div>
       </div>
       <div class="row">
         <div>
-          <label>Email*</label>
-          <input id="emailIn" type="email" required>
+          <label for="email">Email*</label>
+          <input id="email" type="email" required>
         </div>
         <div>
-          <label>Phone (optional)</label>
-          <input id="phoneIn">
+          <label for="phone">Phone (optional)</label>
+          <input id="phone" type="tel" placeholder="">
         </div>
       </div>
       <div>
-        <label>Notes</label>
+        <label for="notes">Notes</label>
         <textarea id="notes" placeholder="Allergies, seating request, occasion"></textarea>
       </div>
 
-      <div style="margin-top:14px">
-        <button class="btn" id="submit">Book now</button>
+      <div class="center" style="margin-top:14px">
+        <button class="btn" type="submit">Book now</button>
       </div>
 
-      <div id="msg" class="note" style="margin-top:10px"></div>
-    </section>
+      <div id="msg" class="notice success" style="display:none;margin-top:12px"></div>
+    </form>
+
   </div>
 
-  <script>
-    const $ = sel => document.querySelector(sel);
-    const addr = $("#addr"), phone = $("#phone"), mail = $("#email");
-    fetch("/api/config").then(r=>r.json()).then(c=>{
-      addr.textContent = c.address || "";
-      if(c.phone){ phone.href = "tel:"+c.phone; phone.textContent = c.phone; }
-      if(c.email){ mail.href = "mailto:"+c.email; mail.textContent = c.email; }
+<script>
+const logoUrl = '/logo-hero.png'; // zentral, falls du später umstellst
+
+const dateEl   = document.getElementById('date');
+const guestsEl = document.getElementById('guests');
+const groupNote= document.getElementById('groupNote');
+const slotsWrap= document.getElementById('slotsWrap');
+const slotsEl  = document.getElementById('slots');
+const closedNote= document.getElementById('closedNote');
+const formEl   = document.getElementById('form');
+const msgEl    = document.getElementById('msg');
+
+let pickedSlot = null;
+
+function ymdToday(){
+  const t = new Date();
+  const y=t.getFullYear(), m = String(t.getMonth()+1).padStart(2,'0'), d=String(t.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+
+dateEl.value = ymdToday();
+
+guestsEl.addEventListener('change', ()=>{
+  if(guestsEl.value==='group'){
+    slotsWrap.style.display='none';
+    formEl.style.display='none';
+    groupNote.style.display='block';
+    return;
+  }
+  groupNote.style.display='none';
+  if(dateEl.value && guestsEl.value) loadSlots();
+});
+dateEl.addEventListener('change', ()=>{
+  if(guestsEl.value && guestsEl.value!=='group') loadSlots();
+});
+
+async function loadSlots(){
+  pickedSlot=null;
+  formEl.style.display='none';
+  slotsEl.innerHTML='';
+  closedNote.style.display='none';
+  slotsWrap.style.display='none';
+
+  const r = await fetch(`/api/slots?date=${encodeURIComponent(dateEl.value)}&guests=${encodeURIComponent(guestsEl.value)}`);
+  if(!r.ok){ closedNote.style.display='block'; return }
+  const data = await r.json(); // { open:true, slots:[{t:"10:00",free:true},...] }
+
+  if(!data.open || !data.slots?.length){
+    closedNote.style.display='block';
+    return;
+  }
+  slotsWrap.style.display='block';
+  for(const s of data.slots){
+    const b = document.createElement('button');
+    b.type='button';
+    b.className='slot';
+    b.textContent=s.t;
+    if(!s.free) b.setAttribute('disabled','');
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      pickedSlot = s.t;
+      formEl.style.display='block';
+      msgEl.style.display='none';
     });
+    slotsEl.appendChild(b);
+  }
+}
 
-    // guests select 1..10
-    const gSel = $("#guests");
-    for(let i=1;i<=10;i++){
-      const o=document.createElement("option"); o.value=String(i); o.textContent=String(i);
-      gSel.appendChild(o);
-    }
+document.getElementById('form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if(!pickedSlot) return;
 
-    const dateIn = $("#date");
-    const times = $("#times");
-    const msg = $("#msg");
-    const today = new Date();
-    dateIn.valueAsNumber = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-    let selectedTime = "";
+  const payload = {
+    date: dateEl.value,
+    time: pickedSlot,
+    guests: Number(guestsEl.value),
+    firstName: document.getElementById('first').value.trim(),
+    name: document.getElementById('name').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    phone: document.getElementById('phone').value.trim() || null,
+    notes: document.getElementById('notes').value.trim() || null
+  };
 
-    function renderTimes(items){
-      times.innerHTML = "";
-      selectedTime = "";
-      items.forEach(it=>{
-        const b = document.createElement("button");
-        b.type="button";
-        b.textContent = it.time;
-        b.className = "chip";
-        if(!it.allowed || !it.canReserve){
-          b.disabled = true;
-          b.title = "Not available";
-        }else{
-          b.onclick = ()=>{
-            [...times.querySelectorAll(".chip")].forEach(x=>x.classList.remove("selected"));
-            b.classList.add("selected");
-            selectedTime = it.time;
-          };
-        }
-        times.appendChild(b);
-      });
-    }
+  const r = await fetch('/api/reservations', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const res = await r.json();
 
-    async function loadSlots(){
-      msg.textContent = "";
-      times.innerHTML = "";
-      selectedTime = "";
-      const date = dateIn.value;
-      const guests = Number(gSel.value||1);
-      if(!date) return;
-      const q = new URLSearchParams({date, guests:String(guests)});
-      const items = await fetch("/api/slots?"+q.toString()).then(r=>r.json());
-      renderTimes(items);
-      if(items.every(x=>!x.allowed || !x.canReserve)){
-        msg.textContent = "No available time slots for "+guests+" guests on this date. Please choose another time or day.";
-      }
-    }
+  if(!r.ok){
+    msgEl.className='notice error';
+    msgEl.textContent = res?.error || 'Booking failed.';
+    msgEl.style.display='block';
+    return;
+  }
 
-    dateIn.addEventListener("change", loadSlots);
-    gSel.addEventListener("change", loadSlots);
-    loadSlots();
+  msgEl.className='notice success';
+  msgEl.innerHTML = 'Thank you! Your reservation has been received. A confirmation email will arrive shortly. Please also check your spam folder.';
+  msgEl.style.display='block';
 
-    $("#submit").onclick = async ()=>{
-      msg.textContent = "";
-      const body = {
-        date: dateIn.value,
-        time: selectedTime,
-        firstName: $("#firstName").value.trim(),
-        name: $("#name").value.trim(),
-        email: $("#emailIn").value.trim(),
-        phone: $("#phoneIn").value.trim(),
-        guests: Number(gSel.value||1),
-        notes: $("#notes").value.trim()
-      };
-      if(!body.date || !body.time || !body.firstName || !body.name || !body.email){
-        msg.textContent = "Please complete all required fields and select a time.";
-        return;
-      }
-      try{
-        const r = await fetch("/api/reservations",{
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify(body)
-        });
-        const data = await r.json();
-        if(!r.ok){ msg.textContent = data?.error || "Error"; return; }
-        alert("Your reservation has been received. You will get a confirmation email shortly. Please also check your spam folder.");
-        window.scrollTo({top:0,behavior:"smooth"});
-      }catch(e){
-        msg.textContent = "Unexpected error.";
-      }
-    };
-  </script>
+  // Button-UI zurücksetzen
+  document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
+  formEl.reset();
+  formEl.style.display='none';
+});
+</script>
 </body>
 </html>
