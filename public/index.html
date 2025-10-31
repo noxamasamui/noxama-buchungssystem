@@ -8,9 +8,7 @@
 </head>
 <body>
 <div class="container">
-
-  <!-- Banner -->
-  <img class="hero" src="https://i.imgur.com/LQ4nzwd.png" alt="RÖSTILAND">
+  <img class="logo" src="/logo.png" alt="Logo"/>
 
   <h1>Contact and Table Booking</h1>
 
@@ -28,7 +26,7 @@
       <button id="reload" class="btn" type="button">↻</button>
     </div>
 
-    <div id="dayInfo" class="badge" style="display:none"></div>
+    <div id="dayInfo" class="banner hidden"></div>
 
     <label style="margin-top:10px;">Choose a time slot (15 minutes grid)</label>
     <div id="slots" class="slot-grid"></div>
@@ -67,7 +65,7 @@
 <div id="modal" class="modal hidden">
   <div class="modal-body">
     <h3>Thank you!</h3>
-    <p>Your reservation has been received. A confirmation email is on its way.<br/>Please also check your spam folder.</p>
+    <p>Your reservation has been received. You will get a confirmation email shortly.</p>
     <button id="closeModal" class="btn">OK</button>
   </div>
 </div>
@@ -75,7 +73,7 @@
 <script>
 const todayISO = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-// Kontakt laden
+// Kontaktangaben laden
 fetch("/api/config").then(r=>r.json()).then(c=>{
   document.getElementById("venueAddress").textContent = c.address || "";
   document.getElementById("venuePhone").textContent   = c.phone || "";
@@ -83,7 +81,7 @@ fetch("/api/config").then(r=>r.json()).then(c=>{
 });
 
 document.getElementById("date").value = todayISO();
-for(let i=1;i<=10;i++){ const o=document.createElement("option"); o.value=o.textContent=String(i); document.getElementById("guests").appendChild(o); }
+for(let i=1;i<=48;i++){ const o=document.createElement("option"); o.value=o.textContent=String(i); document.getElementById("guests").appendChild(o); }
 
 let selectedTime = null;
 
@@ -96,17 +94,16 @@ async function loadSlots(){
   const banner = document.getElementById("dayInfo");
   box.innerHTML = "";
 
-  const blocked = data.length && data.every(s => !s.allowed && s.reason === "Blockiert");
-  const sunday   = data.length && data.every(s => !s.allowed && s.reason === "Sonntag geschlossen");
-
-  if (blocked){
+  const anyAllowed = data.some(s => s.allowed && s.canReserve);
+  if(!anyAllowed && data.length && data.every(s => s.reason === "Blocked")){
     banner.textContent = "We are fully booked on this date. Please choose another day.";
-    banner.style.display = "inline-block";
-  } else if (sunday){
+    banner.classList.remove("hidden");
+  } else if(!anyAllowed && data.length && data.every(s => s.reason === "Sunday closed")){
     banner.textContent = "We are closed on Sundays.";
-    banner.style.display = "inline-block";
+    banner.classList.remove("hidden");
   } else {
-    banner.style.display = "none";
+    banner.classList.add("hidden");
+    banner.textContent = "";
   }
 
   data.forEach(s=>{
@@ -128,11 +125,10 @@ loadSlots();
 
 function friendlyError(e){
   if(!e) return "Something went wrong.";
-  const s = e.toLowerCase();
-  if(s.includes("blockiert")) return "We are fully booked on this date. Please choose another day.";
-  if(s.includes("sonntag")) return "We are closed on Sundays.";
-  if(s.includes("ladenschluss") || s.includes("öffn")) return "This time is outside our opening hours.";
-  if(s.includes("reservierungsplätze") || s.includes("voll")) return "We are fully booked at this time. Please select another slot.";
+  if(e.toLowerCase().includes("block")) return "We are fully booked on this date. Please choose another day.";
+  if(e.toLowerCase().includes("opening")) return "This time is outside our opening hours.";
+  if(e.toLowerCase().includes("fully")) return "We are fully booked at this time. Please select another slot.";
+  if(e.toLowerCase().includes("closed")) return "We are closed on Sundays.";
   return e;
 }
 
@@ -159,9 +155,7 @@ document.getElementById("book").onclick = async ()=>{
     m.textContent = friendlyError(e.error||"Error");
   }
 };
-document.getElementById("closeModal").onclick = ()=>{
-  document.getElementById("modal").classList.add("hidden");
-};
+document.getElementById("closeModal").onclick = ()=>document.getElementById("modal").classList.add("hidden");
 </script>
 </body>
 </html>
