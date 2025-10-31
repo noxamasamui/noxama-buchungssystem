@@ -126,6 +126,8 @@ async function notifyAdmin(subject: string, html: string) {
 app.get("/", (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
 app.get("/admin", (_req, res) => res.sendFile(path.join(publicDir, "admin.html")));
 
+// ... oben unverändert
+
 // ---------------- Public Config ----------------
 app.get("/api/config", (_req, res) => {
   res.json({
@@ -133,8 +135,20 @@ app.get("/api/config", (_req, res) => {
     address: process.env.VENUE_ADDRESS || "",
     phone: process.env.VENUE_PHONE || "",
     email: process.env.VENUE_EMAIL || "",
+    // Logo/Banner fürs Frontend (BANNER = 1200x400, Logo fallback)
+    logoUrl:
+      process.env.PUBLIC_LOGO_URL ||
+      process.env.MAIL_HEADER_URL ||
+      process.env.MAIL_LOGO_URL ||
+      "/logo-hero.png",
+    // optionaler Gruppen-CTA
+    group: {
+      label: "Group 11+?",
+      tel: process.env.VENUE_PHONE || "",
+      mail: process.env.VENUE_EMAIL || ""
+    }
   });
-});
+
 
 // ---------------- Slots API ----------------
 app.get("/api/slots", async (req, res) => {
