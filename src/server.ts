@@ -249,15 +249,16 @@ app.post("/api/reservations", async (req, res) => {
       });
 
   // --- Dedupe: gleiche E-Mail, Datum, Zeit in letzter Zeit => keine zweite Mail
-  const existing = await prisma.reservation.findFirst({
-    where: {
-      date: allow.norm!,
-      time: String(time),
-      email: String(email || ""),
-      status: "confirmed",
-    },
-    orderBy: { createdAt: "desc" as any }, // falls dein Prisma-Feld existiert; sonst weglassen
-  });
+const existing = await prisma.reservation.findFirst({
+  where: {
+    date: allow.norm!,
+    time: String(time),
+    email: String(email || ""),
+    status: "confirmed",
+  },
+  orderBy: { startTs: "desc" },   // <— statt createdAt
+});
+
 
   if (existing) {
     const since = Math.abs(Date.now() - new Date(existing.startTs).getTime());
