@@ -1,194 +1,153 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
   <title>Contact and Table Booking</title>
-  <link rel="stylesheet" href="/style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    /* kleine, gezielte Verbesserungen für Handy */
+    .btn-soft { background:#fff; border:2px solid #b38a4a33; padding:.7rem 1rem; border-radius:16px; box-shadow: 0 2px 0 #b38a4a22 inset; font-weight:700;}
+    .btn-soft:hover { box-shadow: 0 3px 0 #b38a4a33 inset; }
+    .contact-actions { display:flex; gap:.6rem; flex-wrap:wrap; }
+    .chip { display:inline-flex; align-items:center; gap:.5rem; background:#fff; border:1px solid #d9c9b3; padding:.35rem .6rem; border-radius:999px; font-size:.9rem }
+    .toast {display:none; margin:.6rem 0; padding:.8rem 1rem; background:#ecfff1; border:1px solid #c7efd0; border-radius:10px; color:#245a2f;}
+    .toast.show{display:block;}
+  </style>
 </head>
 <body>
-  <div class="container">
+  <header class="hero">
+    <img src="https://i.imgur.com/LQ4nzwd.png" alt="Röstiland" class="hero-banner"/>
+  </header>
 
-    <!-- Brand banner -->
-    <div class="brand-banner-wrap">
-      <img class="brand-banner" src="https://i.imgur.com/LQ4nzwd.png" alt="RÖSTILAND">
-    </div>
+  <main class="container">
+    <h1 class="title">Contact and Table Booking</h1>
 
-    <h1>Contact and Table Booking</h1>
-
-    <!-- Contact card -->
-    <div class="card">
+    <section class="card">
       <h2>Address</h2>
-      <div class="row">
-        <div class="col">
-          Moo 4 Lamai Beach, 84310 Suratthani, Thailand
-        </div>
-        <div class="col">
-          <a class="btn btn--ghost" href="tel:+666077270675">Phone</a>
-          <a class="btn btn--ghost" href="mailto:info@noxamasamui.com" style="margin-left:10px;">
-            info@noxamasamui.com
-          </a>
-        </div>
+      <p id="venueAddress"></p>
+      <div class="contact-actions">
+        <a id="phoneBtn" class="btn-soft" href="#">Phone</a>
+        <a id="mailBtn" class="btn-soft" href="#">Email</a>
+        <a id="mapsBtn" class="btn-soft" href="#" target="_blank" rel="noopener">Open in Maps</a>
       </div>
-    </div>
+    </section>
 
-    <!-- Booking form -->
-    <form class="card" id="form">
-      <div class="row">
-        <div class="col">
-          <label for="date">Date</label>
-          <input id="date" name="date" type="date" required>
+    <section class="card">
+      <div class="grid">
+        <div>
+          <label>Date</label>
+          <input id="date" type="date" class="input" />
         </div>
-        <div class="col">
-          <label for="guests">Guests (max 10 online)</label>
-          <select id="guests" name="guests" required></select>
+        <div>
+          <label>Guests (max 10 online)</label>
+          <select id="guests" class="input"></select>
         </div>
       </div>
 
-      <h2>Choose a time slot</h2>
-      <div id="slots-message" class="note note--warn" style="display:none;"></div>
-      <div id="slots"></div>
+      <h3>Choose a time slot</h3>
+      <div id="slots" class="slot-grid"></div>
+      <div id="slotsMsg" class="muted"></div>
+    </section>
 
-      <div class="row" style="margin-top:10px">
-        <div class="col">
-          <label for="firstName">First name*</label>
-          <input id="firstName" name="firstName" required>
+    <section class="card">
+      <div class="grid">
+        <div>
+          <label>First name*</label>
+          <input id="firstName" class="input" />
         </div>
-        <div class="col">
-          <label for="name">Name*</label>
-          <input id="name" name="name" required>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <label for="email">Email*</label>
-          <input id="email" name="email" type="email" required>
-        </div>
-        <div class="col">
-          <label for="phone">Phone (optional)</label>
-          <input id="phone" name="phone">
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <label for="notes">Notes</label>
-          <textarea id="notes" name="notes" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
+        <div>
+          <label>Name*</label>
+          <input id="name" class="input" />
         </div>
       </div>
 
-      <div style="margin-top:10px">
-        <button class="btn" type="submit">Book now</button>
+      <div class="grid">
+        <div>
+          <label>Email*</label>
+          <input id="email" class="input" />
+        </div>
+        <div>
+          <label>Phone (optional)</label>
+          <input id="phone" class="input" />
+        </div>
       </div>
-    </form>
-  </div>
 
-  <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
+      <label>Notes</label>
+      <textarea id="notes" class="input" placeholder="Allergies, seating request, occasion"></textarea>
+
+      <div id="toast" class="toast">Reservation received. You will get a confirmation email shortly.</div>
+      <button id="bookBtn" class="btn">Book now</button>
+    </section>
+  </main>
 
   <script>
-  const dateInput   = document.getElementById('date');
-  const guestsSel   = document.getElementById('guests');
-  const slotsBox    = document.getElementById('slots');
-  const msgEl       = document.getElementById('slots-message');
-  const form        = document.getElementById('form');
+    const cfg = {};
+    const $ = sel => document.querySelector(sel);
 
-  // guests 1..10 + call button later
-  for(let i=1;i<=10;i++){
-    const o=document.createElement('option'); o.value=i; o.textContent=i; guestsSel.appendChild(o);
-  }
-
-  // default date = today
-  const today = new Date(); today.setHours(0,0,0,0);
-  dateInput.value = today.toISOString().slice(0,10);
-
-  let selectedTime = null;
-
-  function showToast(msg, isError=false){
-    const el=document.getElementById('toast');
-    el.textContent=msg; el.className='toast'+(isError?' toast--error':'');
-    el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 3000);
-  }
-
-  function slotButton(t){
-    const b=document.createElement('button');
-    b.type='button'; b.className='slot'; b.textContent=t;
-    b.addEventListener('click',()=>{
-      selectedTime = t;
-      document.querySelectorAll('.slot.selected').forEach(el=>el.classList.remove('selected'));
-      b.classList.add('selected');
+    fetch('/api/config').then(r=>r.json()).then(c=>{
+      Object.assign(cfg,c);
+      $('#venueAddress').innerHTML = `<a href="${c.mapsUrl}" target="_blank" rel="noopener">${c.address}</a>`;
+      $('#phoneBtn').href = 'tel:' + (c.phone || '').replace(/\s+/g,'');
+      $('#mailBtn').href  = 'mailto:' + (c.email || '');
+      $('#mapsBtn').href  = c.mapsUrl;
     });
-    return b;
-  }
 
-  function renderSlots(items){
-    slotsBox.innerHTML='';
-    if(items.length){
-      items.forEach(i=>slotsBox.appendChild(slotButton(i.time)));
+    // init date + guests
+    const d = new Date();
+    const yyyy = d.getFullYear(), mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+    $('#date').value = `${yyyy}-${mm}-${dd}`;
+
+    for (let i=1;i<=10;i++){ const o=document.createElement('option'); o.value=o.textContent=String(i); $('#guests').appendChild(o); }
+
+    function loadSlots(){
+      const ymd = $('#date').value;
+      fetch(`/api/slots?date=${ymd}`).then(r=>r.json()).then(list=>{
+        const wrap = $('#slots'); wrap.innerHTML='';
+        $('#slotsMsg').textContent='';
+        if (!list.length){ $('#slotsMsg').textContent='We are fully booked or closed on this date. Please choose another day.'; return; }
+        list.forEach(s=>{
+          const b=document.createElement('button');
+          b.textContent = s.time;
+          b.className = 'slot' + (s.allowed ? '' : ' disabled');
+          if (s.allowed){
+            b.addEventListener('click', ()=>{
+              document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
+              b.classList.add('active');
+              b.dataset.sel='1';
+            });
+          }
+          wrap.appendChild(b);
+        });
+      });
     }
-    // 11+ guests call button
-    const callBtn=document.createElement('button');
-    callBtn.type='button';
-    callBtn.className='slot slot--call';
-    callBtn.textContent='11+ guests — call us';
-    callBtn.onclick=()=>location.href='tel:+666077270675';
-    slotsBox.appendChild(callBtn);
-  }
+    $('#date').addEventListener('change', loadSlots);
+    loadSlots();
 
-  async function loadSlots(){
-    selectedTime=null;
-    const date = dateInput.value;
-    const res  = await fetch(`/api/slots?date=${encodeURIComponent(date)}`);
-    const list = await res.json();
-
-    const sundayClosed = list.length && list.every(i => i.reason === 'Closed on Sunday');
-    const anyAllowed   = list.some(i => i.allowed);
-
-    if(sundayClosed){
-      msgEl.textContent='We’re closed on Sundays.';
-      msgEl.style.display='block';
-      renderSlots([]);
-      return;
-    }
-    if(!anyAllowed){
-      msgEl.textContent='No slots available for this date. Please choose another day.';
-      msgEl.style.display='block';
-      renderSlots([]);
-      return;
-    }
-    msgEl.style.display='none';
-    renderSlots(list.filter(i=>i.allowed));
-  }
-
-  dateInput.addEventListener('change', loadSlots);
-  guestsSel.addEventListener('change', loadSlots);
-
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    if(!selectedTime){ showToast('Please select a time slot.', true); return; }
-
-    const payload={
-      date: dateInput.value,
-      time: selectedTime,
-      guests: Number(guestsSel.value),
-      firstName: document.getElementById('firstName').value.trim(),
-      name: document.getElementById('name').value.trim(),
-      email: document.getElementById('email').value.trim(),
-      phone: document.getElementById('phone').value.trim(),
-      notes: document.getElementById('notes').value.trim()
-    };
-
-    try{
-      const r = await fetch('/api/reservations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      const j = await r.json();
-      if(!r.ok){ showToast(j.error || 'Booking failed', true); return; }
-      showToast('Reservation received. A confirmation email is on its way.');
-      form.reset(); selectedTime=null; loadSlots();
-    }catch(err){
-      showToast('Network error', true);
-    }
-  });
-
-  // init
-  loadSlots();
+    $('#bookBtn').addEventListener('click', ()=>{
+      const timeBtn = document.querySelector('.slot.active');
+      if (!timeBtn){ alert('Please choose a time'); return; }
+      const payload = {
+        date: $('#date').value,
+        time: timeBtn.textContent,
+        firstName: $('#firstName').value.trim(),
+        name: $('#name').value.trim(),
+        email: $('#email').value.trim(),
+        phone: $('#phone').value.trim(),
+        guests: Number($('#guests').value),
+        notes: $('#notes').value.trim()
+      };
+      fetch('/api/reservations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+        .then(async r=>{
+          if(!r.ok){ const e=await r.json().catch(()=>({error:'Failed'})); throw new Error(e.error||'Failed'); }
+          return r.json();
+        })
+        .then(()=>{
+          const t = $('#toast'); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 5000);
+          document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
+        })
+        .catch(err=>alert(err.message));
+    });
   </script>
 </body>
 </html>
