@@ -2,184 +2,212 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Admin — Reservations</title>
   <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-<div class="wrapper">
+  <div class="container">
 
-  <div class="hero">
-    <img src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI"/>
+    <div class="brand-banner-wrap">
+      <img class="brand-banner" src="https://i.imgur.com/LQ4nzwd.png" alt="RÖSTILAND">
+    </div>
+
+    <h1>Admin</h1>
+
+    <!-- Closures bar -->
+    <div id="closure-bar" class="note note--warn" style="display:none"></div>
+
+    <!-- List controls -->
+    <div class="card">
+      <h2>All reservations</h2>
+      <div class="row">
+        <div class="col">
+          <label>Date filter</label>
+          <input type="date" id="filterDate">
+        </div>
+        <div class="col">
+          <label>View</label>
+          <select id="view">
+            <option value="day">day</option>
+            <option value="week" selected>week</option>
+          </select>
+        </div>
+        <div class="col" style="align-self:flex-end">
+          <button id="loadBtn" class="btn">Load</button>
+        </div>
+        <div class="col" style="align-self:flex-end">
+          <button id="exportBtn" class="btn btn--ghost">Excel</button>
+        </div>
+      </div>
+
+      <div class="card" id="listCard" style="padding:0;margin-top:16px">
+        <table class="table" id="tbl">
+          <thead>
+            <tr>
+              <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
+              <th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Walk in -->
+    <div class="card">
+      <h2>Add walk in</h2>
+      <div class="row">
+        <div class="col">
+          <label>Date</label>
+          <input type="date" id="wiDate">
+        </div>
+        <div class="col">
+          <label>Time</label>
+          <input type="time" id="wiTime" value="10:00">
+        </div>
+        <div class="col">
+          <label>Guests</label>
+          <select id="wiGuests"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col"><label>Notes</label><input id="wiNotes" placeholder="Table, source, anything…"></div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="wiBtn" class="btn">Save walk in</button>
+        <span id="wiMsg" class="muted"></span>
+      </div>
+    </div>
+
+    <!-- Block restaurant -->
+    <div class="card">
+      <h2>Block restaurant</h2>
+      <div class="row">
+        <div class="col"><label>Start</label><input type="datetime-local" id="blStart"></div>
+        <div class="col"><label>End</label><input type="datetime-local" id="blEnd"></div>
+        <div class="col"><label>Reason</label><input id="blReason" placeholder="Private event, maintenance, …"></div>
+      </div>
+      <div style="margin-top:10px">
+        <button id="blBtn" class="btn">Create block</button>
+        <button id="blDayBtn" class="btn btn--ghost">Block day (from Start)</button>
+        <span id="blMsg" class="muted"></span>
+      </div>
+    </div>
   </div>
 
-  <h1 style="margin-top:8px">Admin</h1>
+  <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
 
-  <section class="card">
-    <h2>All reservations</h2>
-    <div class="row" style="align-items:end">
-      <div>
-        <label>Date filter</label>
-        <input id="listDate" class="input" type="date"/>
-      </div>
-      <div>
-        <label>View</label>
-        <select id="view" class="input">
-          <option value="day">day</option>
-          <option value="week" selected>week</option>
-        </select>
-      </div>
-      <div>
-        <button id="load" class="btn btn-pill">Load</button>
-      </div>
-      <div style="margin-left:auto">
-        <label>Export</label>
-        <a class="btn btn-pill" id="export" href="#">Excel</a>
-      </div>
-    </div>
+  <script>
+  const $ = s => document.querySelector(s);
+  const tbody = $('#tbody');
 
-    <div style="overflow:auto;margin-top:12px">
-      <table class="table" id="tbl">
-        <thead>
-          <tr>
-            <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
-            <th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th><th>Action</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Add walk in</h2>
-    <div class="row">
-      <div><label>Date</label><input id="wdate" class="input" type="date"></div>
-      <div><label>Time</label><input id="wtime" class="input" type="time" value="10:00"></div>
-      <div><label>Guests</label><input id="wguests" class="input" type="number" min="1" value="2"></div>
-    </div>
-    <label>Notes</label>
-    <input id="wnotes" class="input" placeholder="Table, source, anything…">
-    <div style="margin-top:12px"><button id="wsave" class="btn btn-pill">Save walk in</button></div>
-    <div id="walkinStatus" style="margin-top:6px;opacity:.8"></div>
-  </section>
-
-  <section class="card">
-    <h2>Block restaurant</h2>
-    <div class="row">
-      <div><label>Start</label><input id="bstart" class="input" type="datetime-local"></div>
-      <div><label>End</label><input id="bend" class="input" type="datetime-local"></div>
-      <div style="flex:2"><label>Reason</label><input id="breason" class="input" placeholder="Private event, maintenance, …"></div>
-    </div>
-    <div style="margin-top:12px">
-      <button id="bcreate" class="btn btn-pill">Create block</button>
-      <button id="bday" class="btn btn-pill" style="background:#7c5f2e">Block day (from Start)</button>
-    </div>
-
-    <h2 style="margin-top:18px">Existing blocks</h2>
-    <div id="closures" class="closures"></div>
-  </section>
-
-</div>
-
-<script>
-const $ = s => document.querySelector(s);
-
-const setToday = (input, hour=0) => {
-  const d = new Date(); d.setHours(hour,0,0,0);
-  input.value = d.toISOString().slice(0,16);
-};
-$('#listDate').valueAsDate = new Date();
-$('#wdate').valueAsDate = new Date();
-setToday($('#bstart'), 10);
-
-async function load(){
-  const date = $('#listDate').value;
-  const view = $('#view').value;
-  const data = await fetch(`/api/admin/reservations?date=${date}&view=${view}`).then(r=>r.json());
-  const tb = $('#tbl tbody'); tb.innerHTML='';
-  for(const r of data){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.date}</td>
-      <td><span class="pill">${r.time}</span></td>
-      <td>${r.firstName} ${r.name}</td>
-      <td>${r.email||''}</td>
-      <td>${r.phone||''}</td>
-      <td>${r.guests}</td>
-      <td>${r.status}</td>
-      <td>${r.notes||''}</td>
-      <td>${r.isWalkIn ? 'yes':''}</td>
-      <td>
-        <button class="btn btn-pill" data-del="${r.id}" style="background:#7c3b31">Delete</button>
-        <button class="btn btn-pill" data-ns="${r.id}" style="background:#6b5530">No show</button>
-      </td>`;
-    tb.appendChild(tr);
+  function showToast(msg, isError=false){
+    const el=document.getElementById('toast');
+    el.textContent=msg; el.className='toast'+(isError?' toast--error':'');
+    el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 2500);
   }
-}
-$('#load').addEventListener('click', load);
-load();
 
-$('#tbl').addEventListener('click', async e=>{
-  const b = e.target.closest('button'); if(!b) return;
-  if(b.dataset.del){
-    await fetch('/api/admin/reservations/'+b.dataset.del,{method:'DELETE'}); load();
-  }else if(b.dataset.ns){
-    await fetch('/api/admin/reservations/'+b.dataset.ns+'/noshow',{method:'POST'}); load();
+  function yyyyMMdd(d){
+    const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const da=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${da}`;
   }
-});
 
-$('#wsave').addEventListener('click', async ()=>{
-  const body = {
-    date: $('#wdate').value,
-    time: $('#wtime').value,
-    guests: Number($('#wguests').value),
-    notes: $('#wnotes').value
+  // defaults
+  const today=new Date(); today.setHours(0,0,0,0);
+  $('#filterDate').value = yyyyMMdd(today);
+  $('#wiDate').value = yyyyMMdd(today);
+  for(let i=1;i<=10;i++){ const o=document.createElement('option'); o.value=i;o.textContent=i; $('#wiGuests').appendChild(o); }
+
+  async function loadClosures(){
+    const res = await fetch('/api/admin/closure');
+    const list = await res.json();
+    const el = document.getElementById('closure-bar');
+    if(!list.length){ el.style.display='none'; return; }
+    el.innerHTML = '<b>Blocked periods:</b> ' + list
+      .map(c => `${new Date(c.startTs).toLocaleString()} – ${new Date(c.endTs).toLocaleString()} (${c.reason||'Closed'})`)
+      .join('<br>');
+    el.style.display='block';
+  }
+
+  async function loadList(){
+    const date=$('#filterDate').value;
+    const view=$('#view').value;
+    const r=await fetch(`/api/admin/reservations?date=${encodeURIComponent(date)}&view=${encodeURIComponent(view)}`);
+    const list=await r.json();
+    tbody.innerHTML='';
+    for(const x of list){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
+        <td>${x.date}</td>
+        <td>${x.time}</td>
+        <td>${x.firstName} ${x.name}</td>
+        <td>${x.email||''}</td>
+        <td>${x.phone||''}</td>
+        <td>${x.guests}</td>
+        <td><span class="badge badge--status">${x.status}</span></td>
+        <td>${x.notes||''}</td>
+        <td>${x.isWalkIn?'<span class="badge badge--walk">walk-in</span>':''}</td>
+        <td>
+          <button class="btn btn--ghost" data-act="noshow" data-id="${x.id}">No show</button>
+          <button class="btn" data-act="del" data-id="${x.id}" style="margin-left:6px;">Delete</button>
+        </td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  tbody.addEventListener('click', async e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    const id=b.dataset.id; const act=b.dataset.act;
+    if(act==='del'){
+      if(!confirm('Delete reservation?')) return;
+      const r=await fetch(`/api/admin/reservations/${id}`,{method:'DELETE'});
+      if(r.ok){ showToast('Deleted'); loadList(); } else showToast('Delete failed',true);
+    }
+    if(act==='noshow'){
+      const r=await fetch(`/api/admin/reservations/${id}/noshow`,{method:'POST'});
+      if(r.ok){ showToast('Marked as no-show'); loadList(); } else showToast('Update failed',true);
+    }
+  });
+
+  document.getElementById('loadBtn').onclick=loadList;
+  document.getElementById('exportBtn').onclick=()=>{
+    const period='weekly';
+    const date=$('#filterDate').value;
+    location.href=`/api/export?period=${period}&date=${encodeURIComponent(date)}`;
+  }
+
+  // Walk-in
+  document.getElementById('wiBtn').onclick=async ()=>{
+    const payload={
+      date: $('#wiDate').value,
+      time: $('#wiTime').value,
+      guests: Number($('#wiGuests').value),
+      notes: $('#wiNotes').value.trim()
+    };
+    const r=await fetch('/api/walkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(r.ok){ showToast('Walk in saved'); loadList(); } else { const j=await r.json(); showToast(j.error||'Walk in failed',true); }
   };
-  const r = await fetch('/api/walkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const d = await r.json();
-  $('#walkinStatus').textContent = r.ok ? 'Saved' : (d.error||'Failed');
-  if(r.ok) load();
-});
 
-async function loadBlocks(){
-  const list = await fetch('/api/admin/closure').then(r=>r.json());
-  const box = $('#closures'); box.innerHTML='';
-  for(const c of list){
-    const el = document.createElement('div');
-    el.className='closure';
-    const s = new Date(c.startTs); const e = new Date(c.endTs);
-    const fmt = x => x.toLocaleString();
-    el.innerHTML = `
-      <div><b>${fmt(s)}</b> → <b>${fmt(e)}</b><br><span style="opacity:.8">${c.reason||'-'}</span></div>
-      <button class="btn btn-pill del" data-id="${c.id}">Delete</button>`;
-    box.appendChild(el);
-  }
-}
-loadBlocks();
+  // block
+  document.getElementById('blBtn').onclick=async ()=>{
+    const payload={
+      startTs: $('#blStart').value.replace('T',' '),
+      endTs: $('#blEnd').value.replace('T',' '),
+      reason: $('#blReason').value.trim()
+    };
+    const r=await fetch('/api/admin/closure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(r.ok){ showToast('Block created'); loadClosures(); } else { const j=await r.json(); showToast(j.error||'Block failed',true); }
+  };
+  document.getElementById('blDayBtn').onclick=async ()=>{
+    const d = $('#blStart').value.slice(0,10);
+    const r=await fetch('/api/admin/closure/day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d, reason: $('#blReason').value.trim()})});
+    if(r.ok){ showToast('Day blocked'); loadClosures(); } else { const j=await r.json(); showToast(j.error||'Block failed',true); }
+  };
 
-$('#closures').addEventListener('click', async e=>{
-  const b = e.target.closest('button'); if(!b) return;
-  await fetch('/api/admin/closure/'+b.dataset.id,{method:'DELETE'});
-  loadBlocks();
-});
-
-$('#bcreate').addEventListener('click', async ()=>{
-  const body = {startTs: $('#bstart').value.replace('T',' '), endTs: $('#bend').value.replace('T',' '), reason: $('#breason').value};
-  await fetch('/api/admin/closure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  loadBlocks();
-});
-$('#bday').addEventListener('click', async ()=>{
-  const d = $('#bstart').value.slice(0,10);
-  await fetch('/api/admin/closure/day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d,reason:$('#breason').value})});
-  loadBlocks();
-});
-
-$('#export').addEventListener('click', e=>{
-  e.preventDefault();
-  const d = $('#listDate').value;
-  window.location.href = `/api/export?period=weekly&date=${d}`;
-});
-</script>
+  // init
+  loadClosures();
+  loadList();
+  </script>
 </body>
 </html>
