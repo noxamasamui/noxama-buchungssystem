@@ -1,213 +1,223 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
   <title>Admin — Reservations</title>
-  <link rel="stylesheet" href="/style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .chips { display:flex; flex-wrap:wrap; gap:.5rem; margin:.3rem 0 1rem 0;}
+    .chip   { background:#fff; border:1px solid #d9c9b3; border-radius:999px; padding:.35rem .6rem; display:flex; align-items:center; gap:.5rem }
+    .chip b{ font-weight:700 }
+    .chip button{ border:0; background:#f3e1d0; padding:.2rem .5rem; border-radius:999px; cursor:pointer }
+    .toolbar { display:flex; gap:.5rem; align-items:end; flex-wrap:wrap }
+    .danger { background:#7f1d1d; color:#fff; }
+  </style>
 </head>
 <body>
-  <div class="container">
+  <header class="hero">
+    <img src="https://i.imgur.com/LQ4nzwd.png" alt="Röstiland" class="hero-banner"/>
+  </header>
 
-    <div class="brand-banner-wrap">
-      <img class="brand-banner" src="https://i.imgur.com/LQ4nzwd.png" alt="RÖSTILAND">
-    </div>
+  <main class="container">
+    <h1 class="title">Admin</h1>
 
-    <h1>Admin</h1>
-
-    <!-- Closures bar -->
-    <div id="closure-bar" class="note note--warn" style="display:none"></div>
-
-    <!-- List controls -->
-    <div class="card">
-      <h2>All reservations</h2>
-      <div class="row">
-        <div class="col">
-          <label>Date filter</label>
-          <input type="date" id="filterDate">
+    <section class="card">
+      <h3>Blocked periods</h3>
+      <div id="closures" class="chips"></div>
+      <div class="grid">
+        <div>
+          <label>Start</label>
+          <input id="blkStart" class="input" type="datetime-local">
         </div>
-        <div class="col">
+        <div>
+          <label>End</label>
+          <input id="blkEnd" class="input" type="datetime-local">
+        </div>
+      </div>
+      <label>Reason</label>
+      <input id="blkReason" class="input" placeholder="Private event, maintenance, …">
+      <div style="margin-top:.6rem;">
+        <button id="createBlock" class="btn">Create block</button>
+        <button id="blockDay" class="btn">Block day (from Start)</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>All reservations</h3>
+      <div class="toolbar">
+        <div>
+          <label>Date filter</label>
+          <input id="listDate" class="input" type="date" />
+        </div>
+        <div>
           <label>View</label>
-          <select id="view">
+          <select id="view" class="input">
             <option value="day">day</option>
             <option value="week" selected>week</option>
+            <option value="month">month</option>
           </select>
         </div>
-        <div class="col" style="align-self:flex-end">
-          <button id="loadBtn" class="btn">Load</button>
+        <div>
+          <label>&nbsp;</label><br/>
+          <button id="load" class="btn">Load</button>
         </div>
-        <div class="col" style="align-self:flex-end">
-          <button id="exportBtn" class="btn btn--ghost">Excel</button>
+        <div style="flex:1"></div>
+        <div>
+          <label>Export</label>
+          <select id="exportRange" class="input">
+            <option value="weekly">weekly</option>
+            <option value="monthly">monthly</option>
+            <option value="yearly">yearly</option>
+            <option value="daily">daily</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label><br/>
+          <button id="exportBtn" class="btn">Excel</button>
         </div>
       </div>
 
-      <div class="card" id="listCard" style="padding:0;margin-top:16px">
-        <table class="table" id="tbl">
+      <div class="table-wrap">
+        <table class="table">
           <thead>
             <tr>
-              <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
-              <th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th><th>Action</th>
+              <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th><th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th><th>Action</th>
             </tr>
           </thead>
-          <tbody id="tbody"></tbody>
+          <tbody id="rows"></tbody>
         </table>
       </div>
-    </div>
+    </section>
 
-    <!-- Walk in -->
-    <div class="card">
-      <h2>Add walk in</h2>
-      <div class="row">
-        <div class="col">
+    <section class="card">
+      <h3>Add walk in</h3>
+      <div class="grid">
+        <div>
           <label>Date</label>
-          <input type="date" id="wiDate">
+          <input id="wDate" class="input" type="date">
         </div>
-        <div class="col">
+        <div>
           <label>Time</label>
-          <input type="time" id="wiTime" value="10:00">
+          <input id="wTime" class="input" type="time" step="900" value="10:00">
         </div>
-        <div class="col">
+        <div>
           <label>Guests</label>
-          <select id="wiGuests"></select>
+          <input id="wGuests" class="input" type="number" value="2" min="1" max="20">
         </div>
       </div>
-      <div class="row">
-        <div class="col"><label>Notes</label><input id="wiNotes" placeholder="Table, source, anything…"></div>
+      <label>Notes</label>
+      <input id="wNotes" class="input" placeholder="Table, source, anything…">
+      <div style="margin-top:.6rem;">
+        <button id="walkBtn" class="btn">Save walk in</button>
       </div>
-      <div style="margin-top:10px">
-        <button id="wiBtn" class="btn">Save walk in</button>
-        <span id="wiMsg" class="muted"></span>
-      </div>
-    </div>
+    </section>
 
-    <!-- Block restaurant -->
-    <div class="card">
-      <h2>Block restaurant</h2>
-      <div class="row">
-        <div class="col"><label>Start</label><input type="datetime-local" id="blStart"></div>
-        <div class="col"><label>End</label><input type="datetime-local" id="blEnd"></div>
-        <div class="col"><label>Reason</label><input id="blReason" placeholder="Private event, maintenance, …"></div>
-      </div>
-      <div style="margin-top:10px">
-        <button id="blBtn" class="btn">Create block</button>
-        <button id="blDayBtn" class="btn btn--ghost">Block day (from Start)</button>
-        <span id="blMsg" class="muted"></span>
-      </div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
+    <section class="card">
+      <h3>Danger</h3>
+      <p>Reset all reservations to zero (keeps blocks). Requires ADMIN_RESET_KEY in env.</p>
+      <button id="resetBtn" class="btn danger">Reset all reservations</button>
+    </section>
+  </main>
 
   <script>
-  const $ = s => document.querySelector(s);
-  const tbody = $('#tbody');
+    const $ = s=>document.querySelector(s);
 
-  function showToast(msg, isError=false){
-    const el=document.getElementById('toast');
-    el.textContent=msg; el.className='toast'+(isError?' toast--error':'');
-    el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 2500);
-  }
+    // defaults
+    const today = new Date(); const y=today.getFullYear(), m=String(today.getMonth()+1).padStart(2,'0'), d=String(today.getDate()).padStart(2,'0');
+    $('#listDate').value = `${y}-${m}-${d}`;
+    $('#wDate').value = `${y}-${m}-${d}`;
 
-  function yyyyMMdd(d){
-    const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const da=String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${da}`;
-  }
+    function fmt(dt){ const p=n=>String(n).padStart(2,'0'); return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}:00`; }
 
-  // defaults
-  const today=new Date(); today.setHours(0,0,0,0);
-  $('#filterDate').value = yyyyMMdd(today);
-  $('#wiDate').value = yyyyMMdd(today);
-  for(let i=1;i<=10;i++){ const o=document.createElement('option'); o.value=i;o.textContent=i; $('#wiGuests').appendChild(o); }
-
-  async function loadClosures(){
-    const res = await fetch('/api/admin/closure');
-    const list = await res.json();
-    const el = document.getElementById('closure-bar');
-    if(!list.length){ el.style.display='none'; return; }
-    el.innerHTML = '<b>Blocked periods:</b> ' + list
-      .map(c => `${new Date(c.startTs).toLocaleString()} – ${new Date(c.endTs).toLocaleString()} (${c.reason||'Closed'})`)
-      .join('<br>');
-    el.style.display='block';
-  }
-
-  async function loadList(){
-    const date=$('#filterDate').value;
-    const view=$('#view').value;
-    const r=await fetch(`/api/admin/reservations?date=${encodeURIComponent(date)}&view=${encodeURIComponent(view)}`);
-    const list=await r.json();
-    tbody.innerHTML='';
-    for(const x of list){
-      const tr=document.createElement('tr');
-      tr.innerHTML=`
-        <td>${x.date}</td>
-        <td>${x.time}</td>
-        <td>${x.firstName} ${x.name}</td>
-        <td>${x.email||''}</td>
-        <td>${x.phone||''}</td>
-        <td>${x.guests}</td>
-        <td><span class="badge badge--status">${x.status}</span></td>
-        <td>${x.notes||''}</td>
-        <td>${x.isWalkIn?'<span class="badge badge--walk">walk-in</span>':''}</td>
-        <td>
-          <button class="btn btn--ghost" data-act="noshow" data-id="${x.id}">No show</button>
-          <button class="btn" data-act="del" data-id="${x.id}" style="margin-left:6px;">Delete</button>
-        </td>`;
-      tbody.appendChild(tr);
+    // closures list + delete
+    function loadClosures(){
+      fetch('/api/admin/closure').then(r=>r.json()).then(list=>{
+        const c = $('#closures'); c.innerHTML='';
+        if(!Array.isArray(list) || !list.length){ c.innerHTML = '<span class="muted">No periods blocked.</span>'; return; }
+        list.forEach(it=>{
+          const s = new Date(it.startTs), e = new Date(it.endTs);
+          const el = document.createElement('div');
+          el.className='chip';
+          el.innerHTML = `<b>${s.toLocaleDateString()}</b> ${s.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} – ${e.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}  <span class="muted">(${it.reason||'Closed'})</span>`;
+          const btn = document.createElement('button'); btn.textContent='×';
+          btn.addEventListener('click', ()=>{
+            fetch('/api/admin/closure/'+it.id,{method:'DELETE'}).then(()=>loadClosures());
+          });
+          el.appendChild(btn);
+          c.appendChild(el);
+        });
+      });
     }
-  }
+    loadClosures();
 
-  tbody.addEventListener('click', async e=>{
-    const b=e.target.closest('button'); if(!b) return;
-    const id=b.dataset.id; const act=b.dataset.act;
-    if(act==='del'){
-      if(!confirm('Delete reservation?')) return;
-      const r=await fetch(`/api/admin/reservations/${id}`,{method:'DELETE'});
-      if(r.ok){ showToast('Deleted'); loadList(); } else showToast('Delete failed',true);
+    $('#createBlock').addEventListener('click', ()=>{
+      const s=$('#blkStart').value.replace('T',' '), e=$('#blkEnd').value.replace('T',' '), r=$('#blkReason').value;
+      if(!s||!e){ alert('Please set start and end'); return; }
+      fetch('/api/admin/closure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({startTs:s,endTs:e,reason:r})})
+        .then(r=>r.ok?loadClosures():alert('Failed to create block'));
+    });
+    $('#blockDay').addEventListener('click', ()=>{
+      const s=$('#blkStart').value.split('T')[0];
+      if(!s){ alert('Please set start date'); return; }
+      fetch('/api/admin/closure/day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:s,reason:$('#blkReason').value})})
+        .then(r=>r.ok?loadClosures():alert('Failed to block day'));
+    });
+
+    // reservations list
+    function loadList(){
+      const params = new URLSearchParams({date:$('#listDate').value, view:$('#view').value});
+      fetch('/api/admin/reservations?'+params.toString()).then(r=>r.json()).then(list=>{
+        const tb=$('#rows'); tb.innerHTML='';
+        list.forEach(r=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.date}</td><td>${r.time}</td><td>${r.firstName} ${r.name}</td>
+            <td>${r.email||''}</td><td>${r.phone||''}</td><td>${r.guests}</td>
+            <td>${r.status}</td><td>${r.notes||''}</td><td>${r.isWalkIn?'yes':''}</td>
+            <td>
+              <button class="btn btn-sm" data-del="${r.id}">Delete</button>
+              <button class="btn btn-sm" data-ns="${r.id}">No show</button>
+            </td>`;
+          tb.appendChild(tr);
+        });
+        tb.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{
+          fetch('/api/admin/reservations/'+b.dataset.del,{method:'DELETE'}).then(loadList);
+        }));
+        tb.querySelectorAll('[data-ns]').forEach(b=>b.addEventListener('click',()=>{
+          fetch('/api/admin/reservations/'+b.dataset.ns+'/noshow',{method:'POST'}).then(loadList);
+        }));
+      });
     }
-    if(act==='noshow'){
-      const r=await fetch(`/api/admin/reservations/${id}/noshow`,{method:'POST'});
-      if(r.ok){ showToast('Marked as no-show'); loadList(); } else showToast('Update failed',true);
-    }
-  });
+    loadList();
+    $('#load').addEventListener('click', loadList);
 
-  document.getElementById('loadBtn').onclick=loadList;
-  document.getElementById('exportBtn').onclick=()=>{
-    const period='weekly';
-    const date=$('#filterDate').value;
-    location.href=`/api/export?period=${period}&date=${encodeURIComponent(date)}`;
-  }
+    // export
+    $('#exportBtn').addEventListener('click', ()=>{
+      const d=$('#listDate').value, p=$('#exportRange').value;
+      window.location.href = `/api/export?date=${encodeURIComponent(d)}&period=${encodeURIComponent(p)}`;
+    });
 
-  // Walk-in
-  document.getElementById('wiBtn').onclick=async ()=>{
-    const payload={
-      date: $('#wiDate').value,
-      time: $('#wiTime').value,
-      guests: Number($('#wiGuests').value),
-      notes: $('#wiNotes').value.trim()
-    };
-    const r=await fetch('/api/walkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    if(r.ok){ showToast('Walk in saved'); loadList(); } else { const j=await r.json(); showToast(j.error||'Walk in failed',true); }
-  };
+    // walk-in
+    $('#walkBtn').addEventListener('click', ()=>{
+      const payload={
+        date: $('#wDate').value,
+        time: $('#wTime').value,
+        guests: Number($('#wGuests').value),
+        notes: $('#wNotes').value
+      };
+      fetch('/api/walkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+        .then(r=>r.ok?loadList():r.json().then(j=>{throw new Error(j.error||'Failed')}))
+        .catch(e=>alert(e.message));
+    });
 
-  // block
-  document.getElementById('blBtn').onclick=async ()=>{
-    const payload={
-      startTs: $('#blStart').value.replace('T',' '),
-      endTs: $('#blEnd').value.replace('T',' '),
-      reason: $('#blReason').value.trim()
-    };
-    const r=await fetch('/api/admin/closure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    if(r.ok){ showToast('Block created'); loadClosures(); } else { const j=await r.json(); showToast(j.error||'Block failed',true); }
-  };
-  document.getElementById('blDayBtn').onclick=async ()=>{
-    const d = $('#blStart').value.slice(0,10);
-    const r=await fetch('/api/admin/closure/day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:d, reason: $('#blReason').value.trim()})});
-    if(r.ok){ showToast('Day blocked'); loadClosures(); } else { const j=await r.json(); showToast(j.error||'Block failed',true); }
-  };
-
-  // init
-  loadClosures();
-  loadList();
+    // reset (optional)
+    $('#resetBtn').addEventListener('click', ()=>{
+      const key = prompt('Type admin reset key to confirm:');
+      if(!key) return;
+      fetch('/api/admin/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})})
+        .then(r=>r.ok?loadList():alert('Reset forbidden / failed'));
+    });
   </script>
 </body>
 </html>
