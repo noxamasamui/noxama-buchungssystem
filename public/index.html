@@ -100,54 +100,84 @@
 
     for (let i=1;i<=10;i++){ const o=document.createElement('option'); o.value=o.textContent=String(i); $('#guests').appendChild(o); }
 
-    function loadSlots(){
-      const ymd = $('#date').value;
-      fetch(`/api/slots?date=${ymd}`).then(r=>r.json()).then(list=>{
-        const wrap = $('#slots'); wrap.innerHTML='';
-        $('#slotsMsg').textContent='';
-        if (!list.length){ $('#slotsMsg').textContent='We are fully booked or closed on this date. Please choose another day.'; return; }
-        list.forEach(s=>{
-          const b=document.createElement('button');
-          b.textContent = s.time;
-          b.className = 'slot' + (s.allowed ? '' : ' disabled');
-          if (s.allowed){
-            b.addEventListener('click', ()=>{
-              document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
-              b.classList.add('active');
-              b.dataset.sel='1';
-            });
-          }
-          wrap.appendChild(b);
-        });
-      });
-    }
-    $('#date').addEventListener('change', loadSlots);
-    loadSlots();
+    <script>
+  const cfg = {};
+  const $ = sel => document.querySelector(sel);
 
-    $('#bookBtn').addEventListener('click', ()=>{
-      const timeBtn = document.querySelector('.slot.active');
-      if (!timeBtn){ alert('Please choose a time'); return; }
-      const payload = {
-        date: $('#date').value,
-        time: timeBtn.textContent,
-        firstName: $('#firstName').value.trim(),
-        name: $('#name').value.trim(),
-        email: $('#email').value.trim(),
-        phone: $('#phone').value.trim(),
-        guests: Number($('#guests').value),
-        notes: $('#notes').value.trim()
-      };
-      fetch('/api/reservations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-        .then(async r=>{
-          if(!r.ok){ const e=await r.json().catch(()=>({error:'Failed'})); throw new Error(e.error||'Failed'); }
-          return r.json();
-        })
-        .then(()=>{
-          const t = $('#toast'); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 5000);
-          document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
-        })
-        .catch(err=>alert(err.message));
+  fetch('/api/config').then(r=>r.json()).then(c=>{
+    Object.assign(cfg,c);
+    $('#venueAddress').innerHTML = `<a href="${c.mapsUrl}" target="_blank" rel="noopener">${c.address}</a>`;
+    $('#phoneBtn').href = 'tel:' + (c.phone || '').replace(/\s+/g,'');
+    $('#mailBtn').href  = 'mailto:' + (c.email || '');
+    $('#mapsBtn').href  = c.mapsUrl;
+  });
+
+  // init date + guests
+  const d = new Date();
+  const yyyy = d.getFullYear(), mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+  $('#date').value = `${yyyy}-${mm}-${dd}`;
+
+  for (let i=1;i<=10;i++){ 
+    const o=document.createElement('option'); 
+    o.value=o.textContent=String(i); 
+    $('#guests').appendChild(o); 
+  }
+
+  function renderSlots(list){
+    const wrap = $('#slots'); 
+    wrap.innerHTML='';
+    const msg = $('#slotsMsg'); 
+    msg.textContent='';
+
+    const available = list.filter(s=>s.allowed);
+    if (!available.length){
+      msg.textContent='Fully booked or closed on this date. Please choose another day.';
+      return;
+    }
+
+    available.forEach(s=>{
+      const b=document.createElement('button');
+      b.textContent = s.time;
+      b.className = 'slot';
+      b.addEventListener('click', ()=>{
+        document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+      });
+      wrap.appendChild(b);
     });
-  </script>
-</body>
-</html>
+  }
+
+  function loadSlots(){
+    const ymd = $('#date').value;
+    fetch(`/api/slots?date=${ymd}`).then(r=>r.json()).then(renderSlots);
+  }
+  $('#date').addEventListener('change', loadSlots);
+  loadSlots();
+
+  $('#bookBtn').addEventListener('click', ()=>{
+    const timeBtn = document.querySelector('.slot.active');
+    if (!timeBtn){ alert('Please choose a time'); return; }
+
+    const payload = {
+      date: $('#date').value,
+      time: timeBtn.textContent,
+      firstName: $('#firstName').value.trim(),
+      name: $('#name').value.trim(),
+      email: $('#email').value.trim(),
+      phone: $('#phone').value.trim(),
+      guests: Number($('#guests').value),
+      notes: $('#notes').value.trim()
+    };
+    fetch('/api/reservations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(async r=>{
+        if(!r.ok){ const e=await r.json().catch(()=>({error:'Failed'})); throw new Error(e.error||'Failed'); }
+        return r.json();
+      })
+      .then(()=>{
+        const t = $('#toast'); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 5000);
+        document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
+        loadSlots(); // reload slots after successful booking
+      })
+      .catch(err=>alert(err.message));
+  });
+</script>
