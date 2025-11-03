@@ -285,75 +285,75 @@ app.get("/api/config", (_req: Request, res: Response)=>{
   });
 });
 
-/* ───────── Notices API ───────── */
-app.get("/api/notices", async (req: Request, res: Response)=>{
+/* ───────────────────────────── Notices API ───────────────────────────── */
+
+async function activeNoticeFor(dateYmd: string) {
+  const { y, m, d } = splitYmd(dateYmd);
+  const startOfDay = localDate(y, m, d, 0, 0, 0);
+  const endOfDay   = localDate(y, m, d, 23, 59, 59);
+
+  return prisma.notice.findFirst({
+    where: {
+      active: true,
+      startDate: { lte: endOfDay },
+      endDate:   { gte: startOfDay },
+    },
+    orderBy: { startDate: "desc" },
+  });
+}
+
+// Public: aktive Notice für ein Datum (query ?date=YYYY-MM-DD)
+app.get("/api/notices", async (req: Request, res: Response) => {
   const date = normalizeYmd(String(req.query.date || ""));
-  if(!date) return res.json(null);
+  if (!date) return res.json(null);
   const n = await activeNoticeFor(date);
   res.json(n);
 });
-app.get("/api/admin/notices", async (_req: Request, res: Response)=>{
-  const list = await prisma.notice.findMany({ orderBy: { createdAt:"desc" } });
+
+// Admin: Liste (neueste zuerst)
+app.get("/api/admin/notices", async (_req: Request, res: Response) => {
+  const list = await prisma.notice.findMany({ orderBy: { createdAt: "desc" } });
   res.json(list);
 });
-app.post("/api/admin/notices", async (req: Request, res: Response)=>{
+
+// Admin: Anlegen
+app.post("/api/admin/notices", async (req: Request, res: Response) => {
   const { startTs, endTs, title, message, active, requireAck } = req.body || {};
   const s = new Date(String(startTs).replace(" ", "T"));
   const e = new Date(String(endTs).replace(" ", "T"));
-  if (isNaN(s.getTime()) || isNaN(e.getTime()) || !title) return res.status(400).json({ error: "Invalid data" });
- const n = await prisma.notice.create({
-  data: {
-    startDate: startTs,
-    endDate:   endTs,
-    title: String(title),
-    message: String(message || ""),
-    active: !!active,
-    requireAck: !!requireAck
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) {
+    return res.status(400).json({ error: "Invalid data" });
   }
-});
-
-app.patch("/api/admin/notices/:id", async (req: Request, res: Response)=>{
-  const id = String(req.params.id);
-  const data:any = {};
-  for (const k of ["title","message","active","requireAck"]) if (k in req.body) data[k]=req.body[k];
-  const n = await prisma.notice.update({ where:{id}, data });
+  const n = await prisma.notice.create({
+    data: {
+      startDate: s,
+      endDate:   e,
+      title: String(title),
+      message: String(message || ""),
+      active: !!active,
+      requireAck: !!requireAck,
+    },
+  });
   res.json(n);
 });
-app.delete("/api/admin/notices/:id", async (req: Request, res: Response)=>{
-  await prisma.notice.delete({ where:{ id:String(req.params.id) }});
-  res.json({ ok:true });
+
+// Admin: Ändern (teilweise)
+app.patch("/api/admin/notices/:id", async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const data: any = {};
+  for (const k of ["title", "message", "active", "requireAck"]) {
+    if (k in req.body) data[k] = req.body[k];
+  }
+  if ("startTs" in req.body) data.startDate = new Date(String(req.body.startTs).replace(" ", "T"));
+  if ("endTs"   in req.body) data.endDate   = new Date(String(req.body.endTs).replace(" ", "T"));
+  const n = await prisma.notice.update({ where: { id }, data });
+  res.json(n);
 });
 
-/* ───────── Slots API ───────── */
-app.get("/api/slots", async (req: Request, res: Response)=>{
-  const date = normalizeYmd(String(req.query.date || ""));
-  const guests = Number(req.query.guests || 1);
-  if (!date) return res.json([]);
-
-  const times = slotListForDay();
-  const out:any[] = [];
-
-  for(const t of times){
-    const allow = await slotAllowed(date, t);
-    if (!allow.ok) {
-      out.push({ time: t, canReserve: false, allowed: false, reason: allow.reason, left: 0 });
-      continue;
-    }
-    const sums = await sumsForInterval(date, allow.start!, allow.end!);
-    const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
-    const canReserve = leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
-    out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
-  }
-
-  // Zusätzlich: „komplett geblockt“ sauber melden
-  const anyReservable = out.some(s=>s.canReserve);
-  if (!anyReservable) {
-    const n = await activeNoticeFor(date);
-    res.json({ allBlocked:true, sunday: SUNDAY_CLOSED && isSunday(date), notice: n, slots: out });
-    return;
-  }
-
-  res.json({ allBlocked:false, slots: out });
+// Admin: Löschen
+app.delete("/api/admin/notices/:id", async (req: Request, res: Response) => {
+  await prisma.notice.delete({ where: { id: String(req.params.id) } });
+  res.json({ ok: true });
 });
 
 /* ───────── Online-Reservierung ───────── */
