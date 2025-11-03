@@ -1,26 +1,21 @@
-// src/mailsender.ts
-// Shim, der die bisherigen MailerSend-Exports bereitstellt,
-// intern aber den SMTP-Transport aus mailer.ts verwendet.
+// SMTP-basierter Ersatz für das frühere MailerSend-API.
 
 import { mailer, fromAddress, verifyMailer } from "./mailer";
 
 export type SendOptions = {
-  fromName: string;
-  fromEmail: string;
+  fromName?: string;
+  fromEmail?: string;
   to: string;
   subject: string;
   html: string;
 };
 
-// MailerSend-spezifisch – bei uns immer false.
-export function isTrial422(_err: any): boolean {
+// Kompatibilitäts-Helper – immer false.
+export function isTrial422(_err: unknown): boolean {
   return false;
 }
 
-/**
- * Healthcheck: wir prüfen einfach, ob der SMTP-Transport bereit ist.
- * Liefert true, wenn verify() erfolgreich ist.
- */
+// Healthcheck: prüft den Transport
 export async function healthMailMS(): Promise<boolean> {
   try {
     await verifyMailer();
@@ -30,17 +25,14 @@ export async function healthMailMS(): Promise<boolean> {
   }
 }
 
-/**
- * Ersatz für das frühere Senden via MailerSend-HTTP-API.
- * Sendet jetzt direkt per SMTP (nodemailer).
- */
+// Senden per Nodemailer (SMTP)
 export async function sendMailMS(opts: SendOptions): Promise<void> {
   const from =
     opts.fromName && opts.fromEmail
-      ? `${opts.fromName} <${opts.fromEmail}>`
-      : fromAddress();
+      ? `"${opts.fromName}" <${opts.fromEmail}>`
+      : fromAddress; // <- fromAddress ist eine Zeichenkette, kein Aufruf!
 
-  await mailer().sendMail({
+  await mailer.sendMail({
     from,
     to: opts.to,
     subject: opts.subject,
