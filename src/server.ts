@@ -1,3 +1,4 @@
+import type { Request, Response } from "express";
 import express from "express";
 import cors from "cors";
 import path from "path";
