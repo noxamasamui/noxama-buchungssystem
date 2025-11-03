@@ -1,27 +1,46 @@
-import { fileURLToPath } from "url";
-import express, { type Request, type Response } from "express";
-import cors from "cors";
+// ganz oben:
 import path from "path";
-import { PrismaClient } from "@prisma/client";
-import { nanoid } from "nanoid";
-import XLSX from "xlsx";
-import nodemailer from "nodemailer";
-import dotenv from "dotenv";
-import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
+import { fileURLToPath } from "url";
 
+// … andere Imports …
+
+// ==== ESM-sicher: aktuelle Ordner bestimmen ====
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
-const publicDir = path.resolve(__dirname, "../public");
+// Das Projekt-Root ist eine Ebene über "dist"
+const rootDir   = path.resolve(__dirname, "..");
+// Hier liegt dein /public neben /src (nicht in /dist)
+const publicDir = path.join(rootDir, "public");
 
-dotenv.config();
-
+// App anlegen
 const app = express();
-const prisma = new PrismaClient();
 
+// Statische Dateien **vor** allen Routen registrieren
+app.use(express.static(publicDir));
+
+// JSON-Parser etc. erst danach ist auch ok
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
-app.use(express.static(publicDir));
+
+// Fallback-Routen für Startseiten
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(publicDir, "index.html"));
+});
+app.get("/admin", (_req, res) => {
+  res.sendFile(path.join(publicDir, "admin.html"));
+});
+app.get("/cancelled", (_req, res) => {
+  res.sendFile(path.join(publicDir, "cancelled.html"));
+});
+
+// Optional: Diagnose – zeigt dir, ob /style.css erreichbar ist
+app.get("/__static-check", (_req, res) => {
+  res.json({ publicDir, ok: true });
+});
+
+// … deine API-Routen ( /api/... ) bleiben wie sie sind …
+
 
 /* ───────────────────────────── Konfiguration ───────────────────────────── */
 const PORT = Number(process.env.PORT || 4020);
