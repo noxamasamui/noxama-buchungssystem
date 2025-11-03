@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
+import type { Notice } from "@prisma/client";
 import { nanoid } from "nanoid";
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
@@ -29,13 +30,13 @@ const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
 const VENUE_EMAIL = process.env.VENUE_EMAIL || "info@noxamasamui.com";
 
 const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "/logo-hero.png";
-const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";  // 1200x400 Banner
+const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";
 const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
 const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
@@ -254,7 +255,6 @@ app.get("/api/slots", async (req,res)=>{
     out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
   }
 
-  // Falls komplett geblockt, Grund differenzieren
   if (out.every(s=>!s.allowed)) {
     const sunday = SUNDAY_CLOSED && isSunday(date);
     if (sunday) {
@@ -296,14 +296,12 @@ app.post("/api/reservations", async (req,res)=>{
       },
     });
 
-    // Guest mail
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
       firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests, cancelUrl
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // Admin notice
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -328,14 +326,12 @@ app.get("/cancel/:token", async (req,res)=>{
   if (!already) {
     await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
 
-    // guest
     if (r.email && r.email !== "walkin@noxama.local") {
       const gHtml = canceledGuestHtml({
         firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests, rebookUrl: `${BASE_URL}/`,
       });
       try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch {}
     }
-    // admin
     if (ADMIN_TO) {
       const aHtml = canceledAdminHtml({
         firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
@@ -555,13 +551,11 @@ function ymdInRange(ymd:string, from:string, to:string){
   return ymd >= from && ymd <= to;
 }
 
-// Admin: alle Notices
 app.get("/api/admin/notices", async (_req,res)=>{
   const list = await prisma.notice.findMany({ orderBy:[{ startDate:"asc" }, { endDate:"asc" }] });
   res.json(list);
 });
 
-// Admin: create/update
 app.post("/api/admin/notices", async (req,res)=>{
   try{
     const { id, startDate, endDate, title, message, requireAck, active } = req.body || {};
@@ -591,7 +585,6 @@ app.post("/api/admin/notices", async (req,res)=>{
   }
 });
 
-// Admin: delete
 app.delete("/api/admin/notices/:id", async (req,res)=>{
   try{
     await prisma.notice.delete({ where:{ id: req.params.id }});
@@ -602,12 +595,11 @@ app.delete("/api/admin/notices/:id", async (req,res)=>{
   }
 });
 
-// Public: Notices fuer ein Datum
 app.get("/api/notices", async (req,res)=>{
   const date = normalizeYmd(String(req.query.date||""));
   if(!date) return res.json([]);
-  const all = await prisma.notice.findMany({ where:{ active:true }});
-  const hit = all.filter(n => ymdInRange(date, n.startDate, n.endDate));
+  const all: Notice[] = await prisma.notice.findMany({ where:{ active:true }});
+  const hit = all.filter((n: Notice) => ymdInRange(date, n.startDate, n.endDate));
   res.json(hit);
 });
 
