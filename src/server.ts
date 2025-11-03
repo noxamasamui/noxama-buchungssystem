@@ -287,7 +287,6 @@ app.get("/api/config", (_req: Request, res: Response)=>{
 
 /* ───────────────────────────── Notices API ───────────────────────────── */
 
-async function activeNoticeFor(dateYmd: string) {
   const { y, m, d } = splitYmd(dateYmd);
   const startOfDay = localDate(y, m, d, 0, 0, 0);
   const endOfDay   = localDate(y, m, d, 23, 59, 59);
