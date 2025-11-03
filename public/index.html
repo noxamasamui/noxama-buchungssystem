@@ -12,7 +12,7 @@
 </head>
 <body>
 
-  <!-- Banner-Logo bis an den Boxrand -->
+  <!-- Banner-Logo -->
   <header class="hero">
     <img
       id="brandBanner"
@@ -28,13 +28,11 @@
     <section class="card">
       <h2 class="card-title">Address</h2>
 
-      <address class="address">
-        <a class="address-line"
-           href="https://maps.apple.com/?q=Moo%204%20Lamai%20Beach,%2084310%20Suratthani,%20Thailand"
-           target="_blank" rel="noopener">
+      <div class="address">
+        <div class="address-line">
           Moo 4 Lamai Beach, 84310 Suratthani, Thailand
-        </a>
-      </address>
+        </div>
+      </div>
 
       <div class="btn-row">
         <a class="btn" href="tel:+666077270675" aria-label="Call phone">
@@ -45,13 +43,6 @@
         <a class="btn" href="mailto:info@noxamasamui.com" aria-label="Send email">
           <span class="btn-icon" aria-hidden="true">✉️</span>
           <span>Email</span>
-        </a>
-
-        <a class="btn" target="_blank" rel="noopener"
-           href="https://maps.google.com/?q=Moo+4+Lamai+Beach,+84310+Suratthani,+Thailand"
-           aria-label="Open in maps">
-          <span class="btn-icon" aria-hidden="true">🗺️</span>
-          <span>Open in Maps</span>
         </a>
       </div>
     </section>
@@ -66,9 +57,7 @@
 
       <h2 class="card-title">Guests (max 10 online)</h2>
       <div class="field">
-        <select id="guests" class="input">
-          <!-- 1..10 -->
-        </select>
+        <select id="guests" class="input"></select>
       </div>
 
       <h2 class="card-title">Choose a time slot</h2>
@@ -109,13 +98,12 @@
   </div>
 
   <script>
-    /* ---------- tiny helpers ---------- */
     const $ = sel => document.querySelector(sel);
     const slotWrap = $("#slotWrap");
     const slotMsg  = $("#slotMsg");
     let selectedTime = "";
 
-    // Fill guest select
+    // Fill guests 1..10
     (function fillGuests(){
       const g = $("#guests");
       for (let i=1;i<=10;i++){
@@ -126,7 +114,6 @@
       }
     })();
 
-    // Date management
     function ymd(d){
       const y = d.getFullYear();
       const m = String(d.getMonth()+1).padStart(2,"0");
@@ -141,7 +128,6 @@
     let currentYmd = ymd(today);
     $("#date").value = ddmmyyyy(today);
 
-    // very light date picker: +/− one day with the icon, long tap shows native
     $("#datePick").addEventListener("click", () => {
       const cur = new Date(currentYmd);
       cur.setDate(cur.getDate()+1);
@@ -151,7 +137,6 @@
       renderSlots();
     });
     $("#date").addEventListener("click", () => {
-      // try native picker via prompt fallback (mobile-safe)
       const v = prompt("Enter date (YYYY-MM-DD):", currentYmd);
       if (!v) return;
       const d = new Date(v);
@@ -163,14 +148,12 @@
       }
     });
 
-    // fetch slots and render
     async function renderSlots(){
       slotWrap.innerHTML = "";
       slotMsg.hidden = true;
 
-      const guests = Number($("#guests").value || 1);
       const res = await fetch(`/api/slots?date=${encodeURIComponent(currentYmd)}`);
-      const data = await res.json(); // [{time, canReserve, allowed, reason, left, ...}]
+      const data = await res.json();
       const anyAvail = data.some(s => s.canReserve);
 
       if (!anyAvail) {
@@ -202,13 +185,11 @@
     }
     renderSlots();
 
-    // re-render when guest count changes (kann Kapazitäten beeinflussen)
     $("#guests").addEventListener("change", () => {
       selectedTime = "";
       renderSlots();
     });
 
-    // submit booking
     $("#bookingForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = $("#bookBtn");
@@ -238,24 +219,18 @@
         const j = await r.json();
 
         if (!r.ok) {
-          // Soft-Error im Form, keine JS-Alert-Hölle
-          showModal(
-            j?.error || "Reservation could not be completed. Please choose another time."
-          );
-          // falls slots inzwischen weg sind: neu laden
+          showModal(j?.error || "Reservation could not be completed. Please choose another time.");
           await renderSlots();
           btn.disabled = false;
           return;
         }
 
-        // success: Bestätigungsmodal
         showModal(
           "Thank you for your booking. You will receive a confirmation email shortly. Please also check your spam folder."
         );
-        // Form zurücksetzen
         selectedTime = "";
         $("#bookingForm").reset();
-        $("#date").value = ddmmyyyy(new Date(currentYmd)); // Datum belassen
+        $("#date").value = ddmmyyyy(new Date(currentYmd));
         await renderSlots();
       } catch (err) {
         console.error(err);
