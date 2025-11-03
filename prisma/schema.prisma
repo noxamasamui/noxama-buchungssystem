@@ -1,6 +1,5 @@
-generator client {
-  provider = "prisma-client-js"
-}
+// prisma/schema.prisma
+generator client { provider = "prisma-client-js" }
 
 datasource db {
   provider = "postgresql"
@@ -27,19 +26,16 @@ model Reservation {
   isWalkIn     Boolean  @default(false)
   reminderSent Boolean  @default(false)
 
-  createdAt    DateTime @default(now())
-
   @@index([date, time])
   @@index([startTs])
   @@index([endTs])
 }
 
 model Closure {
-  id        String   @id @default(cuid())
-  startTs   DateTime
-  endTs     DateTime
-  reason    String   @db.VarChar(160)
-  createdAt DateTime @default(now())
+  id       String   @id @default(cuid())
+  startTs  DateTime
+  endTs    DateTime
+  reason   String   @db.VarChar(160)
 
   @@index([startTs])
   @@index([endTs])
@@ -53,7 +49,6 @@ model Notice {
   message    String   @db.Text
   requireAck Boolean  @default(false)
   active     Boolean  @default(true)
-  createdAt  DateTime @default(now())
 }
 
 enum ReservationStatus {
