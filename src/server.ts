@@ -1,4 +1,4 @@
-// src/server.ts
+import { fileURLToPath } from "url";
 import express, { type Request, type Response } from "express";
 import cors from "cors";
 import path from "path";
@@ -9,12 +9,15 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const publicDir = path.resolve(__dirname, "../public");
+
 dotenv.config();
 
-/* ───────────────────────── App / Prisma / Static ───────────────────────── */
 const app = express();
 const prisma = new PrismaClient();
-const publicDir = path.resolve(__dirname, "../public");
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
