@@ -1,12 +1,10 @@
 import nodemailer from "nodemailer";
-import SMTPTransport from "nodemailer/lib/smtp-transport";
 
 const FROM_NAME = process.env.MAIL_FROM_NAME || process.env.BRAND_NAME || "Restaurant";
 export const fromAddress =
   process.env.MAIL_FROM_ADDRESS || process.env.VENUE_EMAIL || "noreply@example.com";
 
-// Wichtig: explizit als SMTPTransport.Options typisieren
-const transportOptions: SMTPTransport.Options = {
+const transportOptions = {
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 465),
   secure: String(process.env.SMTP_SECURE || "true").toLowerCase() !== "false",
@@ -17,7 +15,7 @@ const transportOptions: SMTPTransport.Options = {
   pool: String(process.env.MAIL_POOL || "false").toLowerCase() === "true",
 };
 
-export const mailer = nodemailer.createTransport(transportOptions);
+export const mailer = nodemailer.createTransport(transportOptions as any);
 
 export async function sendMail(to: string, subject: string, html: string) {
   await mailer.sendMail({ from: `"${FROM_NAME}" <${fromAddress}>`, to, subject, html });
