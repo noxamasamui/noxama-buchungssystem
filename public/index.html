@@ -56,6 +56,7 @@
   </section>
 </main>
 
+<!-- Nice dialogs -->
 <dialog id="okDlg" class="dlg">
   <div class="dlg-card">
     <h3>Thank you for your booking</h3>
@@ -69,13 +70,25 @@
   </div>
 </dialog>
 
-<!-- NEW: Notice dialog -->
-<dialog id="noticeDlg" class="dlg">
+<dialog id="infoDlg" class="dlg">
   <div class="dlg-card">
-    <h3 id="noticeTitle">Notice</h3>
-    <p id="noticeMsg"></p>
+    <h3 id="infoTitle">Information</h3>
+    <p id="infoBody"></p>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;" id="ackRow" hidden>
+      <input type="checkbox" id="ackCb"/><label for="ackCb" class="muted">I have read this notice</label>
+    </div>
     <div class="actions">
-      <button id="noticeOk" class="btn primary">OK</button>
+      <button id="infoOk" class="btn primary">OK</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="errorDlg" class="dlg">
+  <div class="dlg-card">
+    <h3>We’re sorry</h3>
+    <p id="errorText">Something went wrong.</p>
+    <div class="actions">
+      <button id="errorOk" class="btn primary">OK</button>
     </div>
   </div>
 </dialog>
@@ -84,6 +97,24 @@
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 let SELECTED_TIME = "";
+
+function showInfo(title, body, requireAck=false){
+  $("#infoTitle").textContent = title || "Information";
+  $("#infoBody").innerHTML = body || "";
+  const ack = $("#ackRow");
+  ack.hidden = !requireAck;
+  $("#ackCb").checked = false;
+  $("#infoOk").onclick = ()=>{
+    if(requireAck && !$("#ackCb").checked) return;
+    $("#infoDlg").close();
+  };
+  $("#infoDlg").showModal();
+}
+function showError(msg){
+  $("#errorText").textContent = msg || "Something went wrong.";
+  $("#errorOk").onclick = ()=>$("#errorDlg").close();
+  $("#errorDlg").showModal();
+}
 
 async function loadConfig(){
   const r = await fetch("/api/config"); const c = await r.json();
@@ -102,33 +133,13 @@ async function loadConfig(){
   gsel.value = "2";
 }
 
-// LocalStorage key to avoid showing the same notice over and over
-function noticeSeenKey(date,id){ return `noticeSeen:${date}:${id}`; }
-
-async function checkNoticesForDate(dateYmd){
+async function maybeShowNotices(ymd){
   try{
-    const r = await fetch(`/api/notices?date=${encodeURIComponent(dateYmd)}`);
+    const r = await fetch(`/api/notices?date=${encodeURIComponent(ymd)}`);
     const list = await r.json();
-    // find the first unseen notice for this date
-    const n = list.find(x => !localStorage.getItem(noticeSeenKey(dateYmd, x.id)));
-    if(!n) return;
-
-    $("#noticeTitle").textContent = n.title || "Notice";
-    $("#noticeMsg").textContent = n.message || "";
-    const dlg = $("#noticeDlg");
-    const needAck = !!n.requireAck;
-
-    $("#noticeOk").onclick = ()=>{
-      localStorage.setItem(noticeSeenKey(dateYmd, n.id), "1");
-      dlg.close();
-    };
-
-    dlg.showModal();
-
-    // if no ack required, auto-close and still mark as seen
-    if(!needAck){
-      setTimeout(()=>{ try{ dlg.close(); }catch{} }, 4000);
-      localStorage.setItem(noticeSeenKey(dateYmd, n.id), "1");
+    if(Array.isArray(list) && list.length){
+      const n = list[0]; // simple: zeige die erste aktive Notice
+      showInfo(n.title || "Notice", n.message || "", !!n.requireAck);
     }
   }catch{}
 }
@@ -138,8 +149,8 @@ async function loadSlots(){
   const d = $("#date").value; const g = $("#guests").value || "1";
   if (!d) return;
 
-  // NEW: show notices for the selected date first
-  await checkNoticesForDate(d);
+  // Show date-related notices (admin)
+  await maybeShowNotices(d);
 
   const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${encodeURIComponent(g)}`);
   const list = await r.json();
@@ -159,9 +170,12 @@ async function loadSlots(){
   }
   if (!any){
     const hasSunday = list.some(x=>x.reason==="Closed on Sunday");
-    $("#slotInfo").textContent = hasSunday
-      ? "We are closed on Sunday. Please choose another day."
-      : "We are fully booked for this date. Please choose another day.";
+    if (hasSunday) {
+      $("#slotInfo").textContent = "We are closed on Sunday. Please choose another day.";
+      showInfo("Closed on Sunday", "We are closed on Sunday. Please choose another day.");
+    } else {
+      $("#slotInfo").textContent = "We are fully booked for this date. Please choose another day.";
+    }
   }
 }
 
@@ -176,15 +190,22 @@ async function book(){
     notes: $("#notes").value.trim()
   };
   if (!payload.date || !payload.time || !payload.firstName || !payload.name || !payload.email){
-    alert("Please complete all required fields."); return;
-  }
-  const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-  if (!r.ok){
-    const e = await r.json().catch(()=>({error:"Error"}));
-    alert(e.error || "Reservation failed");
+    showError("Please complete all required fields.");
     return;
   }
-  $("#okDlg").showModal();
+  try{
+    const r = await fetch("/api/reservations", {
+      method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload)
+    });
+    if (!r.ok){
+      const e = await r.json().catch(()=>({error:"Reservation failed"}));
+      showError(e.error || "Reservation failed");
+      return;
+    }
+    $("#okDlg").showModal();
+  }catch{
+    showError("Network error. Please try again.");
+  }
 }
 
 document.addEventListener("DOMContentLoaded", async ()=>{
