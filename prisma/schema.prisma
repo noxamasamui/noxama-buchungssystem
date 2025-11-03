@@ -1,58 +1,54 @@
 // prisma/schema.prisma
-generator client { provider = "prisma-client-js" }
+
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model Reservation {
-  id           String   @id @default(cuid())
-  date         String   @db.VarChar(10)   // YYYY-MM-DD
-  time         String   @db.VarChar(5)    // HH:mm
-  startTs      DateTime
-  endTs        DateTime
-
-  firstName    String   @db.VarChar(80)
-  name         String   @db.VarChar(120)
-  email        String   @db.VarChar(180)
-  phone        String?  @db.VarChar(60)
-
-  guests       Int
-  notes        String?  @db.Text
-
-  status       ReservationStatus @default(confirmed)
-  cancelToken  String   @unique
-  isWalkIn     Boolean  @default(false)
-  reminderSent Boolean  @default(false)
-
-  @@index([date, time])
-  @@index([startTs])
-  @@index([endTs])
-}
-
-model Closure {
-  id       String   @id @default(cuid())
-  startTs  DateTime
-  endTs    DateTime
-  reason   String   @db.VarChar(160)
-
-  @@index([startTs])
-  @@index([endTs])
-}
-
-model Notice {
-  id         String   @id @default(cuid())
-  startDate  String   @db.VarChar(10)   // YYYY-MM-DD
-  endDate    String   @db.VarChar(10)   // YYYY-MM-DD
-  title      String   @db.VarChar(160)
-  message    String   @db.Text
-  requireAck Boolean  @default(false)
-  active     Boolean  @default(true)
-}
-
 enum ReservationStatus {
   confirmed
   canceled
   noshow
+}
+
+model Reservation {
+  id           String             @id @default(cuid())
+  date         String
+  time         String
+  startTs      DateTime
+  endTs        DateTime
+  firstName    String
+  name         String
+  email        String?
+  phone        String?
+  guests       Int
+  notes        String?
+  status       ReservationStatus   @default(confirmed)
+  cancelToken  String              @unique
+  isWalkIn     Boolean             @default(false)
+  reminderSent Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+}
+
+model Closure {
+  id        String   @id @default(cuid())
+  startTs   DateTime
+  endTs     DateTime
+  reason    String   @default("Closed")
+  createdAt DateTime @default(now())
+}
+
+model Notice {
+  id          String   @id @default(cuid())
+  startDate   String
+  endDate     String
+  title       String
+  message     String
+  requireAck  Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
 }
