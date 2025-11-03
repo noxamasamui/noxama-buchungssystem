@@ -1,351 +1,339 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Admin — Reservations</title>
-  <link rel="stylesheet" href="/style.css">
-  <style>
-    .toolbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
-    .table{width:100%;border-collapse:separate;border-spacing:0 8px}
-    .table th,.table td{padding:10px 12px;background:#faefe0}
-    .table th{background:#eddcc5;text-align:left}
-    .table .cell-actions{white-space:nowrap}
-    .btn.small{padding:8px 12px;font-size:14px}
-    .muted{opacity:.8}
-    .blocked-list{padding:10px 12px;background:#faefe0;border-radius:12px}
-    .blocked-item{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #ead6b6}
-    .blocked-item:last-child{border-bottom:0}
-    .danger{background:#fff2f2;border:1px solid #f1c6c6}
-  </style>
+  <link rel="stylesheet" href="/style.css"/>
 </head>
-
-<body class="page">
-  <header class="hero">
-  <img
-    src="https://i.imgur.com/LQ4nzwd.png"
-    alt="RÖSTILAND"
-    onerror="this.src='/logo-hero.png'">
-</header>
-  <header class="hero small">
-    <img src="/logo-hero.png" alt="RÖSTILAND" class="hero-img">
+<body>
+  <header class="header">
+    <div class="logo-wrap">
+      <!-- full-width banner; falls back to same image -->
+      <img id="brandBanner" class="logo" src="/logo-hero.png" alt="Logo"/>
+    </div>
   </header>
 
   <main class="container">
-    <h1 class="page-title">Admin</h1>
 
-    <!-- Filter + Export -->
+    <h1 class="center">Admin</h1>
+
+    <!-- Blocked periods overview -->
+    <section class="card" id="blocksCard">
+      <div class="flex">
+        <h2 style="margin-right:8px;">Blocked periods</h2>
+        <span class="small">Create and remove maintenance or private events</span>
+        <span class="right small" id="tzInfo"></span>
+      </div>
+      <div id="blocksList" class="blocks"></div>
+    </section>
+
+    <!-- Reservations list -->
     <section class="card">
-      <h2 class="card-title">All reservations</h2>
+      <h2>All reservations</h2>
+
       <div class="toolbar">
-        <div>
-          <label class="label">Date filter</label>
-          <input id="fltDate" type="date" class="input">
+        <div class="field">
+          <label for="filterDate">Date filter</label>
+          <input type="date" id="filterDate"/>
         </div>
-        <div>
-          <label class="label">View</label>
-          <select id="fltView" class="input">
+
+        <div class="field">
+          <label for="viewMode">View</label>
+          <select id="viewMode">
             <option value="day">day</option>
             <option value="week" selected>week</option>
             <option value="month">month</option>
           </select>
         </div>
-        <button id="btnLoad" class="btn primary">Load</button>
 
-        <div style="margin-left:auto"></div>
+        <button class="btn" id="btnLoad">Load</button>
 
-        <div>
-          <label class="label">Export</label>
-          <div class="toolbar">
-            <select id="expPeriod" class="input">
+        <div class="right flex">
+          <div class="field">
+            <label for="exportPeriod">Export</label>
+            <select id="exportPeriod">
               <option value="daily">daily</option>
               <option value="weekly" selected>weekly</option>
               <option value="monthly">monthly</option>
               <option value="yearly">yearly</option>
             </select>
-            <button id="btnExport" class="btn">Excel</button>
           </div>
+          <button class="btn outline" id="btnExport">Excel</button>
         </div>
       </div>
 
-      <div class="table-wrap mt">
-        <table class="table" id="tbl">
+      <div style="overflow:auto; margin-top:12px;">
+        <table class="table" id="reservationsTable">
           <thead>
             <tr>
-              <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th><th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th><th class="cell-actions">Action</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Guests</th>
+              <th>Status</th>
+              <th>Notes</th>
+              <th>Walk in</th>
+              <th>Visits</th>
+              <th class="right">Action</th>
             </tr>
           </thead>
-          <tbody id="rows"></tbody>
+          <tbody id="reservationsBody"></tbody>
         </table>
-        <div id="listMsg" class="help"></div>
       </div>
     </section>
 
-    <!-- Walk in -->
+    <!-- Walk in + Close day -->
     <section class="card">
-      <h2 class="card-title">Add walk in</h2>
-      <div class="grid3">
-        <div>
-          <label class="label">Date</label>
-          <input id="wDate" type="date" class="input">
+      <h2>Add walk in</h2>
+      <div class="flex">
+        <div style="flex:1; min-width:220px;">
+          <label>Date</label>
+          <input type="date" id="wiDate">
         </div>
-        <div>
-          <label class="label">Time</label>
-          <input id="wTime" type="time" class="input" value="10:00" step="900">
+        <div style="flex:1; min-width:160px;">
+          <label>Time</label>
+          <input type="time" id="wiTime" value="10:00">
         </div>
-        <div>
-          <label class="label">Guests</label>
-          <select id="wGuests" class="input">
-            <option>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
-          </select>
+        <div style="flex:1; min-width:120px;">
+          <label>Guests</label>
+          <input type="number" id="wiGuests" min="1" value="2">
         </div>
       </div>
-      <label class="label">Notes</label>
-      <input id="wNotes" class="input" placeholder="Table, source, anything...">
-      <div class="btn-row">
-        <button id="btnWalk" class="btn primary">Save walk in</button>
+      <label>Notes</label>
+      <input type="text" id="wiNotes" placeholder="Table, source, anything…"/>
+      <div style="margin-top:10px;">
+        <button class="btn" id="btnWalkIn">Save walk in</button>
+        <span class="small" id="wiMsg"></span>
       </div>
-      <div id="walkMsg" class="help"></div>
     </section>
 
-    <!-- Blocks (moved to the bottom) -->
-    <section class="card">
-      <h2 class="card-title">Blocked periods</h2>
-      <div id="blocked" class="blocked-list"></div>
-    </section>
-
-    <section class="card">
-      <h2 class="card-title">Block restaurant</h2>
-      <div class="grid3">
-        <div>
-          <label class="label">Start</label>
-          <input id="bStart" type="datetime-local" class="input">
+    <!-- Create block -->
+    <section class="card" id="blockTools">
+      <h2>Block restaurant</h2>
+      <div class="flex">
+        <div style="flex:1; min-width:240px;">
+          <label>Start</label>
+          <input type="datetime-local" id="blStart">
         </div>
-        <div>
-          <label class="label">End</label>
-          <input id="bEnd" type="datetime-local" class="input">
-        </div>
-        <div>
-          <label class="label">Reason</label>
-          <input id="bReason" class="input" placeholder="Private event, maintenance, …" value="Closed">
+        <div style="flex:1; min-width:240px;">
+          <label>End</label>
+          <input type="datetime-local" id="blEnd">
         </div>
       </div>
-      <div class="btn-row">
-        <button id="btnBlock" class="btn">Create block</button>
-        <button id="btnBlockDay" class="btn">Block day (from Start)</button>
+      <label>Reason</label>
+      <input type="text" id="blReason" value="Closed"/>
+      <div style="margin-top:10px;" class="flex">
+        <button class="btn" id="btnCreateBlock">Create block</button>
+        <div class="right"></div>
+        <div class="small">or block a full day:</div>
+        <input type="date" id="blDay" />
+        <button class="btn outline" id="btnBlockDay">Block day</button>
+        <span class="small" id="blMsg"></span>
       </div>
-      <div id="blockMsg" class="help"></div>
     </section>
 
     <!-- Danger zone -->
-    <section class="card danger">
-      <h2 class="card-title">Danger</h2>
-      <p class="help">Reset all reservations to zero (keeps blocks). Requires <code>ADMIN_RESET_KEY</code> in env.</p>
-      <button id="btnReset" class="btn">Reset all reservations</button>
+    <section class="card">
+      <h2>Danger</h2>
+      <p class="small">Reset all reservations to zero (keeps blocks). Requires <code>ADMIN_RESET_KEY</code> in env.</p>
+      <button class="btn warn" id="btnResetAll">Reset all reservations</button>
     </section>
 
+    <div class="spacer"></div>
   </main>
 
   <script>
-  (function(){
-    const $ = sel => document.querySelector(sel);
-    const rows = $('#rows');
+    // --- tiny helpers
+    const $ = (s,p=document)=>p.querySelector(s);
+    const $$ = (s,p=document)=>Array.from(p.querySelectorAll(s));
 
-    document.addEventListener('DOMContentLoaded', init);
+    let CONFIG = { logo: "/logo.png" };
 
-    async function init(){
-      // defaults
-      const d = new Date();
-      const yyyy = d.getFullYear(), mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
-      $('#fltDate').value = `${yyyy}-${mm}-${dd}`;
-      $('#wDate').value   = `${yyyy}-${mm}-${dd}`;
+    function fmtDate(d){ return new Date(d).toISOString().slice(0,10); }
 
-      // events
-      $('#btnLoad').addEventListener('click', loadList);
-      $('#btnExport').addEventListener('click', exportExcel);
-      $('#btnWalk').addEventListener('click', saveWalkin);
-
-      $('#btnBlock').addEventListener('click', createBlock);
-      $('#btnBlockDay').addEventListener('click', createBlockDay);
-
-      $('#btnReset').addEventListener('click', resetAll);
-
-      // first load
-      loadList();
-      loadBlocks();
+    async function loadConfig(){
+      const r = await fetch("/api/config"); CONFIG = await r.json();
+      // Banner: if a dedicated banner exists, use it; otherwise same logo
+      const hero = CONFIG.logo || "/logo.png";
+      $("#brandBanner").src = hero;
+      $("#tzInfo").textContent = `Times shown in local server time`;
     }
 
-    async function loadList(){
-      rows.innerHTML = '';
-      $('#listMsg').textContent='';
-      try{
-        const date = $('#fltDate').value;
-        const view = $('#fltView').value;
-        const list = await fetch(`/api/admin/reservations?date=${encodeURIComponent(date)}&view=${encodeURIComponent(view)}`).then(r=>r.json());
-        if(!list.length){
-          $('#listMsg').textContent='No reservations for this period.';
-          return;
-        }
-        list.forEach(addRow);
-      }catch(e){
-        $('#listMsg').textContent='Failed to load reservations.';
+    // -------- reservations list
+    async function loadReservations(){
+      const date = $("#filterDate").value || fmtDate(new Date());
+      const view = $("#viewMode").value;
+      const url = `/api/admin/reservations?date=${encodeURIComponent(date)}&view=${encodeURIComponent(view)}`;
+      const r = await fetch(url);
+      const list = await r.json();
+      const tbody = $("#reservationsBody");
+      tbody.innerHTML = "";
+      if(!Array.isArray(list) || list.length===0){
+        tbody.innerHTML = `<tr><td colspan="11" class="small">No entries</td></tr>`;
+        return;
+      }
+      for(const it of list){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${it.date}</td>
+          <td>${it.time}</td>
+          <td>${it.firstName||""} ${it.name||""}</td>
+          <td>${it.email||""}</td>
+          <td>${it.phone||""}</td>
+          <td>${it.guests}</td>
+          <td><span class="pill ${it.status==='confirmed'?'ok':(it.status==='canceled'?'bad':'warn')}">${it.status}</span></td>
+          <td>${it.notes||""}</td>
+          <td>${it.isWalkIn?'<span class="pill walk">yes</span>':''}</td>
+          <td>${it.visitCount||0} (${it.discount||0}%)</td>
+          <td class="row-actions right">
+            <button class="btn outline" data-act="noshow" data-id="${it.id}">No show</button>
+            <button class="btn warn" data-act="delete" data-id="${it.id}">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
       }
     }
 
-    function addRow(r){
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.date}</td>
-        <td>${r.time}</td>
-        <td>${r.firstName||''} ${r.name||''}</td>
-        <td>${r.email||''}</td>
-        <td>${r.phone||''}</td>
-        <td>${r.guests}</td>
-        <td>${r.status}</td>
-        <td>${r.notes||''}</td>
-        <td>${r.isWalkIn ? 'yes' : ''}</td>
-        <td class="cell-actions">
-          <button class="btn small danger" data-del="${r.id}">Delete</button>
-          <button class="btn small" data-noshow="${r.id}">No show</button>
-        </td>`;
-      // actions
-      tr.querySelector('[data-del]').addEventListener('click', async (ev)=>{
-        const id = ev.currentTarget.getAttribute('data-del');
-        if(!confirm('Delete this reservation?')) return;
-        try{
-          await fetch(`/api/admin/reservations/${id}`,{method:'DELETE'});
-          tr.remove();
-        }catch(e){ alert('Delete failed'); }
-      });
-      tr.querySelector('[data-noshow]').addEventListener('click', async (ev)=>{
-        const id = ev.currentTarget.getAttribute('data-noshow');
-        try{
-          const r = await fetch(`/api/admin/reservations/${id}/noshow`,{method:'POST'}).then(r=>r.json());
-          tr.children[6].textContent = r.status;
-        }catch(e){ alert('Mark no-show failed'); }
-      });
+    // row actions
+    $("#reservationsBody").addEventListener("click", async (ev)=>{
+      const b = ev.target.closest("button[data-act]");
+      if(!b) return;
+      const id = b.getAttribute("data-id");
+      const act = b.getAttribute("data-act");
 
-      rows.appendChild(tr);
-    }
-
-    async function exportExcel(){
-      const period = $('#expPeriod').value;
-      const date   = $('#fltDate').value;
-      const url    = `/api/export?period=${encodeURIComponent(period)}&date=${encodeURIComponent(date)}`;
-      // force download
-      const a = document.createElement('a');
-      a.href = url; a.download = '';
-      document.body.appendChild(a); a.click(); a.remove();
-    }
-
-    async function saveWalkin(){
-      $('#walkMsg').textContent='';
       try{
-        const payload = {
-          date: $('#wDate').value,
-          time: $('#wTime').value,
-          guests: Number($('#wGuests').value),
-          notes: $('#wNotes').value
+        if(act==="delete"){
+          if(!confirm("Delete this reservation?")) return;
+          await fetch(`/api/admin/reservations/${id}`, { method:"DELETE" });
+        }else if(act==="noshow"){
+          await fetch(`/api/admin/reservations/${id}/noshow`, { method:"POST" });
+        }
+        await loadReservations();
+      }catch(e){
+        alert("Action failed");
+      }
+    });
+
+    // export
+    $("#btnExport").addEventListener("click", ()=>{
+      const date = $("#filterDate").value || fmtDate(new Date());
+      const period = $("#exportPeriod").value || "weekly";
+      window.location.href = `/api/export?period=${encodeURIComponent(period)}&date=${encodeURIComponent(date)}`;
+    });
+
+    // walk in
+    $("#btnWalkIn").addEventListener("click", async ()=>{
+      $("#wiMsg").textContent = "";
+      try{
+        const body = {
+          date: $("#wiDate").value,
+          time: $("#wiTime").value,
+          guests: Number($("#wiGuests").value||0),
+          notes: $("#wiNotes").value
         };
-        const r = await fetch('/api/walkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-        if(!r.ok){
-          const e = await r.json().catch(()=>({error:'Failed'}));
-          throw new Error(e.error||'Failed');
-        }
-        $('#walkMsg').textContent='Saved.';
-        loadList();
-      }catch(e){
-        $('#walkMsg').textContent = e.message || 'Failed to save walk-in';
-      }
-    }
+        const r = await fetch("/api/walkin",{method:"POST", headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+        const j = await r.json();
+        if(!r.ok){ $("#wiMsg").textContent = j.error || "Failed"; return; }
+        $("#wiMsg").textContent = "Saved.";
+        await loadReservations();
+      }catch(e){ $("#wiMsg").textContent = "Failed"; }
+    });
 
-    // ---- Blocks ----
+    // blocks load
     async function loadBlocks(){
-      const wrap = $('#blocked');
-      wrap.innerHTML = '';
-      try{
-        const list = await fetch('/api/admin/closure').then(r=>r.json());
-        if(!list.length){ wrap.textContent = 'No blocks.'; return; }
-        list.forEach(b=>{
-          const div = document.createElement('div');
-          div.className = 'blocked-item';
-          const start = new Date(b.startTs).toLocaleString();
-          const end   = new Date(b.endTs).toLocaleString();
-          div.innerHTML = `
-            <div><b>${start}</b> — <b>${end}</b> <span class="muted">(${b.reason||'Closed'})</span></div>
-            <div><button class="btn small danger" data-bdel="${b.id}">Remove</button></div>`;
-          div.querySelector('[data-bdel]').addEventListener('click', async ()=>{
-            if(!confirm('Remove this block?')) return;
-            try{ await fetch('/api/admin/closure/'+b.id,{method:'DELETE'}); div.remove(); }
-            catch(e){ alert('Delete block failed'); }
-          });
-          wrap.appendChild(div);
-        });
-      }catch(e){
-        wrap.textContent = 'Failed to load blocks.';
+      const r = await fetch("/api/admin/closure");
+      const list = await r.json();
+      const wrap = $("#blocksList");
+      wrap.innerHTML = "";
+      if(!Array.isArray(list) || list.length===0){
+        wrap.innerHTML = `<div class="small">No blocks</div>`;
+        return;
+      }
+      for(const c of list){
+        const el = document.createElement("div");
+        el.className = "block";
+        const from = new Date(c.startTs).toLocaleString();
+        const to = new Date(c.endTs).toLocaleString();
+        el.innerHTML = `
+          <div class="flex">
+            <div><b>${from}</b> &nbsp;—&nbsp; <b>${to}</b> &nbsp; <span class="small">(${c.reason})</span></div>
+            <div class="right">
+              <button class="btn outline" data-del-block="${c.id}">Remove</button>
+            </div>
+          </div>`;
+        wrap.appendChild(el);
       }
     }
 
-    async function createBlock(){
-      $('#blockMsg').textContent='';
+    // create block
+    $("#btnCreateBlock").addEventListener("click", async ()=>{
+      $("#blMsg").textContent="";
       try{
-        const payload = {
-          startTs: $('#bStart').value.replace('T',' '),
-          endTs:   $('#bEnd').value.replace('T',' '),
-          reason:  $('#bReason').value
+        const body = {
+          startTs: $("#blStart").value,
+          endTs: $("#blEnd").value,
+          reason: $("#blReason").value||"Closed"
         };
-        const r = await fetch('/api/admin/closure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-        if(!r.ok){
-          const e = await r.json().catch(()=>({error:'Failed'}));
-          throw new Error(e.error||'Failed');
-        }
-        $('#blockMsg').textContent='Block saved.';
-        loadBlocks();
-      }catch(e){
-        $('#blockMsg').textContent = e.message || 'Failed to create block';
-      }
-    }
+        const r = await fetch("/api/admin/closure",{method:"POST", headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const j = await r.json();
+        if(!r.ok){ $("#blMsg").textContent = j.error||"Failed"; return;}
+        $("#blMsg").textContent = "Created.";
+        await loadBlocks();
+      }catch(e){ $("#blMsg").textContent="Failed"; }
+    });
 
-    async function createBlockDay(){
-      $('#blockMsg').textContent='';
+    // block day
+    $("#btnBlockDay").addEventListener("click", async ()=>{
+      $("#blMsg").textContent="";
       try{
-        const dt = $('#bStart').value.split('T')[0]; // only date
-        const r = await fetch('/api/admin/closure/day',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({date: dt, reason: $('#bReason').value})
-        });
-        if(!r.ok){
-          const e = await r.json().catch(()=>({error:'Failed'}));
-          throw new Error(e.error||'Failed');
-        }
-        $('#blockMsg').textContent='Day blocked.';
-        loadBlocks();
-      }catch(e){
-        $('#blockMsg').textContent = e.message || 'Failed to block day';
-      }
-    }
+        const body = { date: $("#blDay").value, reason: $("#blReason").value||"Closed" };
+        const r = await fetch("/api/admin/closure/day",{method:"POST", headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const j = await r.json();
+        if(!r.ok){ $("#blMsg").textContent = j.error||"Failed"; return;}
+        $("#blMsg").textContent = "Day blocked.";
+        await loadBlocks();
+      }catch(e){ $("#blMsg").textContent="Failed"; }
+    });
 
-    // ---- Reset all reservations ----
-    async function resetAll(){
-      const key = prompt('Type admin reset key to confirm:');
+    // remove block
+    $("#blocksList").addEventListener("click", async (ev)=>{
+      const b = ev.target.closest("[data-del-block]");
+      if(!b) return;
+      const id = b.getAttribute("data-del-block");
+      if(!confirm("Remove this block?")) return;
+      await fetch(`/api/admin/closure/${id}`, { method:"DELETE" });
+      await loadBlocks();
+    });
+
+    // reset all
+    $("#btnResetAll").addEventListener("click", async ()=>{
+      const key = prompt("Type admin reset key to confirm:");
       if(!key) return;
-      try{
-        const r = await fetch('/api/admin/reset',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({key})
-        });
-        if(!r.ok){
-          const e = await r.json().catch(()=>({error:'Failed'}));
-          throw new Error(e.error||'Failed');
-        }
-        alert('All reservations reset.');
-        loadList();
-      }catch(e){
-        alert(e.message || 'Reset failed');
-      }
-    }
-  })();
+      const r = await fetch("/api/admin/reset",{method:"POST", headers:{'Content-Type':'application/json'}, body:JSON.stringify({key})});
+      const j = await r.json();
+      if(!r.ok){ alert(j.error||"Failed"); return; }
+      alert("All reservations removed.");
+      await loadReservations();
+    });
+
+    // load button
+    $("#btnLoad").addEventListener("click", loadReservations);
+
+    // init
+    (async function init(){
+      await loadConfig();
+      const today = new Date();
+      $("#filterDate").value = fmtDate(today);
+      $("#wiDate").value = fmtDate(today);
+      $("#blDay").value = fmtDate(today);
+      $("#blStart").value = fmtDate(today)+"T10:00";
+      $("#blEnd").value = fmtDate(today)+"T22:00";
+      await loadReservations();
+      await loadBlocks();
+    })();
   </script>
 </body>
 </html>
