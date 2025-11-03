@@ -2,35 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Admin — ROESTILAND Reservations</title>
+  <title>Admin — RÖSTILAND Reservations</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
 <header class="hero">
-  <img id="heroLogo" src="/logo-hero.png" alt="ROESTILAND by NOXAMA SAMUI"/>
+  <img id="heroLogo" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI"/>
 </header>
 
 <main class="container">
   <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
   <h1>Admin</h1>
-
-  <section class="card">
-    <h2>Date notices</h2>
-    <div class="row">
-      <div><label>Start</label><input id="nStart" type="date" class="input"/></div>
-      <div><label>End</label><input id="nEnd" type="date" class="input"/></div>
-      <div style="flex:1"><label>Title</label><input id="nTitle" class="input" placeholder="Christmas Menu"/></div>
-    </div>
-    <label>Message</label><textarea id="nMsg" class="input" rows="3" placeholder="Menu & price info"></textarea>
-    <div class="row">
-      <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="nAck"/> Require acknowledgment</label>
-      <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="nActive" checked/> Active</label>
-      <button id="nSave" class="btn" type="button">Save notice</button>
-      <span id="nSaved" class="badge"></span>
-    </div>
-    <div id="nList" class="muted" style="margin-top:10px;">No notices</div>
-  </section>
 
   <section class="card">
     <h2>All reservations</h2>
@@ -40,8 +23,8 @@
         <div><label>View</label>
           <select id="view" class="input">
             <option value="day">day</option>
-            <option value="week" selected>week</option>
-            <option value="month">month</option>
+            <option value="week">week</option>
+            <option value="month" selected>month</option>
           </select>
         </div>
         <button class="btn" id="btnLoad" type="button">Load</button>
@@ -96,27 +79,21 @@
   </section>
 
   <section class="card">
-    <h2>Blocked periods</h2>
+    <h2>Closures (periods & whole day)</h2>
     <div class="row">
       <div><label>Start</label><input id="cStart" type="datetime-local" class="input"/></div>
       <div><label>End</label><input id="cEnd" type="datetime-local" class="input"/></div>
       <div><label>Reason</label><input id="cReason" class="input" placeholder="Closed / Private event"/></div>
-    </div>
-    <div class="row">
       <button id="btnBlock" class="btn" type="button">Create block</button>
       <span id="cMsg" class="badge"></span>
     </div>
-    <div id="closureList" style="margin-top:10px"></div>
-  </section>
-
-  <section class="card">
-    <h2>Block day (quick)</h2>
-    <div class="row">
-      <div><label>Day</label><input id="cDay" type="date" class="input"/></div>
+    <div class="row" style="margin-top:10px">
+      <div><label>Whole day</label><input id="cDay" type="date" class="input"/></div>
       <div><label>Reason</label><input id="cDayReason" class="input" placeholder="Closed"/></div>
       <button id="btnBlockDay" class="btn" type="button">Block whole day</button>
       <span id="cDayMsg" class="badge"></span>
     </div>
+    <div id="closureList" style="margin-top:10px"></div>
   </section>
 
   <section class="card">
@@ -159,11 +136,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   $("#btnBlockDay").onclick = blockDay;
   $("#btnReset").onclick = resetAll;
 
-  $("#nSave").onclick = saveNotice;
-
   await loadList();
   await loadClosures();
-  await loadNotices();
 });
 
 function fillWalkInTimes(){
@@ -228,10 +202,15 @@ async function saveWalkIn(){
 }
 
 async function createBlock(){
-  const payload = { startTs: $("#cStart").value, endTs: $("#cEnd").value, reason: $("#cReason").value };
+  const payload = {
+    startTs: $("#cStart").value,
+    endTs: $("#cEnd").value,
+    reason: $("#cReason").value
+  };
   const r = await fetch("/api/admin/closure", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   const m = $("#cMsg");
-  if (r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  if (r.ok){ m.textContent="Block saved"; $("#cStart").value=""; $("#cEnd").value=""; $("#cReason").value=""; loadClosures(); }
+  else { const e = await r.json(); m.textContent = e.error || "Error"; }
 }
 
 async function blockDay(){
@@ -240,7 +219,8 @@ async function blockDay(){
   const reason = $("#cDayReason").value || "Closed";
   const r = await fetch("/api/admin/closure/day", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ date: val, reason }) });
   const m = $("#cDayMsg");
-  if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  if(r.ok){ m.textContent="Day blocked"; $("#cDay").value=""; $("#cDayReason").value=""; loadClosures(); }
+  else { const e = await r.json(); m.textContent = e.error || "Error"; }
 }
 
 async function loadClosures(){
@@ -261,33 +241,6 @@ async function loadClosures(){
   });
 }
 
-/* Notices */
-async function loadNotices(){
-  const r = await fetch("/api/admin/notices"); const list = await r.json();
-  const box = $("#nList"); box.innerHTML = "";
-  if(!list.length){ box.textContent="No notices"; return; }
-  list.forEach(n=>{
-    const el = document.createElement("div");
-    el.className = "badge";
-    el.innerHTML = `<b>${n.startDate} → ${n.endDate}</b> ${n.title} ${n.active ? "" : "(inactive)"} `;
-    const del = document.createElement("button");
-    del.className="btn-plain btn-sm"; del.textContent="remove";
-    del.onclick = async ()=>{ await fetch(`/api/admin/notices/${n.id}`, {method:"DELETE"}); loadNotices(); };
-    el.appendChild(del);
-    box.appendChild(el);
-  });
-}
-async function saveNotice(){
-  const payload = {
-    startDate: $("#nStart").value, endDate: $("#nEnd").value,
-    title: $("#nTitle").value, message: $("#nMsg").value,
-    requireAck: $("#nAck").checked, active: $("#nActive").checked
-  };
-  const r = await fetch("/api/admin/notices", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-  const m = $("#nSaved"); if(r.ok){ m.textContent="Saved"; loadNotices(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
-}
-
-/* Reset */
 async function resetAll(){
   const key = $("#resetKey").value.trim();
   if(!key){ alert("Enter reset key"); return; }
