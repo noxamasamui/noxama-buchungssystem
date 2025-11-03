@@ -16,6 +16,23 @@
   <h1>Admin</h1>
 
   <section class="card">
+    <h2>Date notices</h2>
+    <div class="row">
+      <div><label>Start</label><input id="nStart" type="date" class="input"/></div>
+      <div><label>End</label><input id="nEnd" type="date" class="input"/></div>
+      <div style="flex:1"><label>Title</label><input id="nTitle" class="input" placeholder="Christmas Menu"/></div>
+    </div>
+    <label>Message</label><textarea id="nMsg" class="input" rows="3" placeholder="Menu & price info"></textarea>
+    <div class="row">
+      <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="nAck"/> Require acknowledgment</label>
+      <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="nActive" checked/> Active</label>
+      <button id="nSave" class="btn" type="button">Save notice</button>
+      <span id="nSaved" class="badge"></span>
+    </div>
+    <div id="nList" class="muted" style="margin-top:10px;">No notices</div>
+  </section>
+
+  <section class="card">
     <h2>All reservations</h2>
     <div class="toolbar">
       <div class="row">
@@ -102,25 +119,6 @@
     </div>
   </section>
 
-  <!-- NEW: Date notices -->
-  <section class="card">
-    <h2>Date notices</h2>
-    <div class="row">
-      <div><label>Start</label><input id="nStart" type="date" class="input"/></div>
-      <div><label>End</label><input id="nEnd" type="date" class="input"/></div>
-      <div><label>Title</label><input id="nTitle" class="input" placeholder="Christmas Menu"/></div>
-    </div>
-    <label>Message</label>
-    <textarea id="nMsg" class="input" rows="3" placeholder="On Dec 24 we serve a fixed menu for 1490 THB per person."></textarea>
-    <div class="row">
-      <label><input id="nAck" type="checkbox"/> Require acknowledgment</label>
-      <label><input id="nActive" type="checkbox" checked/> Active</label>
-      <button id="btnNoticeSave" class="btn" type="button">Save notice</button>
-      <span id="nSaveMsg" class="badge"></span>
-    </div>
-    <div id="noticeList" style="margin-top:10px"></div>
-  </section>
-
   <section class="card">
     <h2>Danger zone</h2>
     <div class="row">
@@ -161,8 +159,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   $("#btnBlockDay").onclick = blockDay;
   $("#btnReset").onclick = resetAll;
 
-  // NEW: notices
-  $("#btnNoticeSave").onclick = saveNotice;
+  $("#nSave").onclick = saveNotice;
 
   await loadList();
   await loadClosures();
@@ -231,11 +228,7 @@ async function saveWalkIn(){
 }
 
 async function createBlock(){
-  const payload = {
-    startTs: $("#cStart").value,
-    endTs: $("#cEnd").value,
-    reason: $("#cReason").value
-  };
+  const payload = { startTs: $("#cStart").value, endTs: $("#cEnd").value, reason: $("#cReason").value };
   const r = await fetch("/api/admin/closure", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
   const m = $("#cMsg");
   if (r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
@@ -268,6 +261,33 @@ async function loadClosures(){
   });
 }
 
+/* Notices */
+async function loadNotices(){
+  const r = await fetch("/api/admin/notices"); const list = await r.json();
+  const box = $("#nList"); box.innerHTML = "";
+  if(!list.length){ box.textContent="No notices"; return; }
+  list.forEach(n=>{
+    const el = document.createElement("div");
+    el.className = "badge";
+    el.innerHTML = `<b>${n.startDate} → ${n.endDate}</b> ${n.title} ${n.active ? "" : "(inactive)"} `;
+    const del = document.createElement("button");
+    del.className="btn-plain btn-sm"; del.textContent="remove";
+    del.onclick = async ()=>{ await fetch(`/api/admin/notices/${n.id}`, {method:"DELETE"}); loadNotices(); };
+    el.appendChild(del);
+    box.appendChild(el);
+  });
+}
+async function saveNotice(){
+  const payload = {
+    startDate: $("#nStart").value, endDate: $("#nEnd").value,
+    title: $("#nTitle").value, message: $("#nMsg").value,
+    requireAck: $("#nAck").checked, active: $("#nActive").checked
+  };
+  const r = await fetch("/api/admin/notices", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+  const m = $("#nSaved"); if(r.ok){ m.textContent="Saved"; loadNotices(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+}
+
+/* Reset */
 async function resetAll(){
   const key = $("#resetKey").value.trim();
   if(!key){ alert("Enter reset key"); return; }
@@ -275,38 +295,6 @@ async function resetAll(){
   const r = await fetch("/api/admin/reset", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ key }) });
   const m = $("#rMsg");
   if (r.ok){ m.textContent="Reset done"; loadList(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
-}
-
-/* NEW: Notices CRUD */
-async function loadNotices(){
-  const r = await fetch("/api/admin/notices");
-  const list = await r.json();
-  const box = $("#noticeList"); box.innerHTML = "";
-  if(!list.length){ box.textContent = "No notices"; return; }
-  list.forEach(n=>{
-    const d = document.createElement("div");
-    d.className = "badge";
-    d.innerHTML = `<b>${n.title}</b> &nbsp; ${n.startDate} bis ${n.endDate} ${n.active ? "" : "(inactive)"} `;
-    const del = document.createElement("button");
-    del.className="btn-plain btn-sm"; del.type="button"; del.textContent="remove";
-    del.onclick = async ()=>{ await fetch(`/api/admin/notices/${n.id}`, {method:"DELETE"}); loadNotices(); };
-    d.appendChild(del);
-    box.appendChild(d);
-  });
-}
-
-async function saveNotice(){
-  const payload = {
-    startDate: $("#nStart").value,
-    endDate: $("#nEnd").value,
-    title: $("#nTitle").value.trim(),
-    message: $("#nMsg").value.trim(),
-    requireAck: $("#nAck").checked,
-    active: $("#nActive").checked
-  };
-  const r = await fetch("/api/admin/notices", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-  const m = $("#nSaveMsg");
-  if(r.ok){ m.textContent="Saved"; loadNotices(); } else { const e=await r.json(); m.textContent=e.error||"Error"; }
 }
 </script>
 </body>
