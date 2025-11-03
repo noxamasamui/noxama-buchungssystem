@@ -1,282 +1,281 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Contact and Table Booking</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-
-  <!-- Basis-Styles der App -->
-  <link rel="stylesheet" href="/style.css"/>
-
-  <!-- Minimaler „Rescue“-Style, damit das Layout wieder so sauber wirkt wie früher,
-       unabhängig davon, was aktuell in style.css steht. Kannst du gern später rausnehmen,
-       wenn style.css wieder 1:1 passt. -->
-  <style>
-    :root{
-      --bg:#d6c7b2;        /* Hintergrund (beige, wie gewünscht) */
-      --card:#f7efe6;      /* Karten-Hintergrund */
-      --ink:#3a2f28;       /* Textfarbe */
-      --muted:#8b7767;     /* Sekundärtext */
-      --accent:#a87a39;    /* Akzent/Buttons */
-      --accent-ink:#fff;   /* Button Text */
-      --ring:rgba(0,0,0,.08);
-      --radius:14px;
-    }
-    html,body{background:var(--bg); color:var(--ink); font-family: Georgia, "Times New Roman", serif;}
-    .container{max-width:940px;margin:24px auto 80px;padding:0 16px;}
-    h1{font-size:42px;line-height:1.15;margin:14px 0 22px;}
-    .card{
-      background:var(--card);
-      border-radius:var(--radius);
-      box-shadow:0 1px 0 var(--ring), 0 12px 28px rgba(0,0,0,.06);
-      padding:18px 18px 20px;
-      margin:18px 0;
-    }
-    .logo-wrap{display:flex;justify-content:center;margin:8px 0 6px;}
-    .logo-hero{
-      width: 320px;       /* groß, aber nicht „erschlagend“ */
-      max-width: 60vw;    /* mobil schön skaliert */
-      height:auto; display:block; border-radius:12px;
-      box-shadow:0 2px 20px rgba(0,0,0,.10);
-    }
-
-    /* Grid / Inputs */
-    label{display:block;font-weight:700;margin:12px 0 6px;}
-    input,select,textarea{
-      width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(0,0,0,.12);
-      background:#fff;font:inherit;color:var(--ink);box-sizing:border-box;
-    }
-    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,122,57,.25);}
-    .row{display:flex;gap:10px;align-items:center}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-
-    /* Slots */
-    .slot-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
-    @media (max-width:720px){.slot-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
-    @media (max-width:460px){.slot-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-    .slot{
-      padding:10px 0;border-radius:999px;border:1px solid rgba(0,0,0,.12);
-      background:#fff;cursor:pointer;text-align:center;font-weight:600;
-      transition:.15s;
-    }
-    .slot:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.06)}
-    .slot.disabled{opacity:.35;cursor:not-allowed;background:#faf7f3}
-    .slot.active{background:var(--accent);color:var(--accent-ink);border-color:transparent}
-
-    /* Buttons / Badges */
-    .btn{
-      background:var(--accent);color:var(--accent-ink);border:none;
-      padding:12px 16px;border-radius:10px;cursor:pointer;font-weight:700;
-      box-shadow:0 6px 16px rgba(168,122,57,.25);transition:.15s;
-    }
-    .btn:hover{filter:brightness(.97);transform:translateY(-1px)}
-    .btn-plain{background:transparent;border:none;color:var(--accent);cursor:pointer}
-    .badge{display:inline-block;background:#fff3d6;color:#7a5b2a;border:1px solid rgba(0,0,0,.06);padding:6px 10px;border-radius:999px}
-    .actions{display:flex;align-items:center;gap:12px;margin-top:14px}
-
-    /* Banner unter dem Datumsfeld (Hinweise) */
-    .banner{background:#fff8ec;border-left:6px solid var(--accent);padding:10px 12px;border-radius:10px;margin:10px 0}
-    .hidden{display:none}
-
-    /* Modal „Thank you“ */
-    .modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:50}
-    .modal.hidden{display:none}
-    .modal-body{
-      width:min(560px,92vw);background:#fff;border-radius:16px;padding:22px 20px;
-      box-shadow:0 14px 40px rgba(0,0,0,.25);text-align:center
-    }
-    .modal h3{margin:0 0 6px;font-size:26px}
-    .modal p{margin:6px 0 14px;color:#5c493a}
-    /* Kontaktkasten */
-    .contact p{margin:6px 0}
-  </style>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="preconnect" href="https://i.imgur.com">
+  <meta name="color-scheme" content="light only">
 </head>
 <body>
-<div class="container">
 
-  <!-- großes, neues Logo (hero) -->
-  <div class="logo-wrap">
-    <picture>
-      <source srcset="/logo-hero.png" type="image/png"/>
-      <img class="logo-hero" src="/logo.png" alt="Logo"/>
-    </picture>
-  </div>
+  <!-- Banner-Logo bis an den Boxrand -->
+  <header class="hero">
+    <img
+      id="brandBanner"
+      src="https://i.imgur.com/LQ4nzwd.png"
+      alt="RÖSTILAND"
+      onerror="this.src='/logo-hero.png'">
+  </header>
 
-  <h1>Contact and Table Booking</h1>
+  <main class="container">
+    <h1 class="page-title">Contact and Table Booking</h1>
 
-  <!-- Kontakt -->
-  <div class="card">
-    <div id="contactBox" class="contact">
-      <p><b>Address</b><br/><span id="venueAddress"></span></p>
-      <p><b>Phone</b> <a id="venuePhoneLink" href="#" style="color:inherit;text-decoration:none"><span id="venuePhone"></span></a><br/>
-         <b>Email</b> <a id="venueEmailLink" href="#" style="color:inherit;text-decoration:none"><span id="venueEmail"></span></a>
+    <!-- Address card -->
+    <section class="card">
+      <h2 class="card-title">Address</h2>
+
+      <address class="address">
+        <a class="address-line"
+           href="https://maps.apple.com/?q=Moo%204%20Lamai%20Beach,%2084310%20Suratthani,%20Thailand"
+           target="_blank" rel="noopener">
+          Moo 4 Lamai Beach, 84310 Suratthani, Thailand
+        </a>
+      </address>
+
+      <div class="btn-row">
+        <a class="btn" href="tel:+666077270675" aria-label="Call phone">
+          <span class="btn-icon" aria-hidden="true">📞</span>
+          <span>Phone</span>
+        </a>
+
+        <a class="btn" href="mailto:info@noxamasamui.com" aria-label="Send email">
+          <span class="btn-icon" aria-hidden="true">✉️</span>
+          <span>Email</span>
+        </a>
+
+        <a class="btn" target="_blank" rel="noopener"
+           href="https://maps.google.com/?q=Moo+4+Lamai+Beach,+84310+Suratthani,+Thailand"
+           aria-label="Open in maps">
+          <span class="btn-icon" aria-hidden="true">🗺️</span>
+          <span>Open in Maps</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Booking form -->
+    <form id="bookingForm" class="card" autocomplete="off">
+      <h2 class="card-title">Date</h2>
+      <div class="field">
+        <input type="text" id="date" class="input" readonly>
+        <button type="button" id="datePick" class="icon-btn" aria-label="Pick date">📅</button>
+      </div>
+
+      <h2 class="card-title">Guests (max 10 online)</h2>
+      <div class="field">
+        <select id="guests" class="input">
+          <!-- 1..10 -->
+        </select>
+      </div>
+
+      <h2 class="card-title">Choose a time slot</h2>
+      <div id="slotWrap" class="pill-grid" aria-live="polite"></div>
+      <div id="slotMsg" class="hint" hidden></div>
+
+      <h2 class="card-title">First name*</h2>
+      <input id="firstName" class="input" required placeholder="First name">
+
+      <h2 class="card-title">Name*</h2>
+      <input id="name" class="input" required placeholder="Last name">
+
+      <h2 class="card-title">Email*</h2>
+      <input id="email" class="input" type="email" required placeholder="name@example.com">
+
+      <h2 class="card-title">Phone (optional)</h2>
+      <input id="phone" class="input" inputmode="tel" placeholder="">
+
+      <h2 class="card-title">Notes</h2>
+      <textarea id="notes" class="input" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
+
+      <div class="actions">
+        <button class="btn-primary" type="submit" id="bookBtn">Book now</button>
+      </div>
+    </form>
+  </main>
+
+  <!-- Bestätigungs-Modal -->
+  <div id="modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-title">Reservation received</div>
+      <p id="modalText">
+        Thank you for your booking. You will receive a confirmation email shortly.
+        Please also check your spam folder.
       </p>
+      <button class="btn-primary" id="modalOk">OK</button>
     </div>
   </div>
 
-  <!-- Buchung -->
-  <div class="card">
-    <label>Date</label>
-    <div class="row">
-      <input id="date" type="date"/>
-      <button id="reload" class="btn" type="button" title="Reload slots">↻</button>
-    </div>
+  <script>
+    /* ---------- tiny helpers ---------- */
+    const $ = sel => document.querySelector(sel);
+    const slotWrap = $("#slotWrap");
+    const slotMsg  = $("#slotMsg");
+    let selectedTime = "";
 
-    <div id="dayInfo" class="banner hidden"></div>
-
-    <label style="margin-top:10px;">Choose a time slot (15 minutes grid)</label>
-    <div id="slots" class="slot-grid"></div>
-
-    <div class="grid2" style="margin-top:10px">
-      <div>
-        <label>First name*</label>
-        <input id="firstName" required />
-      </div>
-      <div>
-        <label>Name*</label>
-        <input id="name" required />
-      </div>
-    </div>
-
-    <label>Email*</label>
-    <input id="email" type="email" required />
-
-    <label>Phone (optional)</label>
-    <input id="phone" />
-
-    <label>Guests*</label>
-    <select id="guests"></select>
-
-    <label>Notes</label>
-    <textarea id="notes" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
-
-    <div class="actions">
-      <button id="book" class="btn" type="button">Book now</button>
-      <span id="msg" class="badge"></span>
-    </div>
-  </div>
-</div>
-
-<!-- Thank-you modal (nur nach erfolgreicher Buchung sichtbar) -->
-<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
-  <div class="modal-body">
-    <h3>Thank you!</h3>
-    <p>Your reservation has been received. You will get a confirmation email shortly.<br/>Please also check your spam folder.</p>
-    <button id="closeModal" class="btn">OK</button>
-  </div>
-</div>
-
-<script>
-  // ---------- utilities ----------
-  const todayISO = ()=>{
-    const d=new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  };
-
-  function friendlyError(e){
-    if(!e) return "Something went wrong.";
-    const s = String(e).toLowerCase();
-    if(s.includes("block")) return "We are fully booked on this date. Please choose another day.";
-    if(s.includes("opening") || s.includes("öffnungs")) return "This time is outside our opening hours.";
-    if(s.includes("fully") || s.includes("ausgebucht")) return "We are fully booked at this time. Please select another slot.";
-    return e;
-  }
-
-  // ---------- kontakt laden ----------
-  fetch("/api/config").then(r=>r.json()).then(c=>{
-    const addr = document.getElementById("venueAddress");
-    const ph = document.getElementById("venuePhone");
-    const em = document.getElementById("venueEmail");
-    const phL = document.getElementById("venuePhoneLink");
-    const emL = document.getElementById("venueEmailLink");
-    addr.textContent = c.address || "";
-    ph.textContent   = c.phone || "";
-    em.textContent   = c.email || "";
-    if(c.phone){ phL.href = "tel:"+c.phone.replace(/\s+/g,""); }
-    if(c.email){ emL.href = "mailto:"+c.email; }
-  });
-
-  // ---------- Formular init ----------
-  document.getElementById("date").value = todayISO();
-  for(let i=1;i<=48;i++){
-    const o=document.createElement("option");
-    o.value=o.textContent=String(i);
-    document.getElementById("guests").appendChild(o);
-  }
-
-  let selectedTime = null;
-
-  async function loadSlots(){
-    selectedTime = null;
-    const d = document.getElementById("date").value;
-    const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}`);
-    const data = await r.json();
-    const box = document.getElementById("slots");
-    const banner = document.getElementById("dayInfo");
-    box.innerHTML = "";
-
-    // freundliche Meldung bei komplett gesperrtem Tag
-    const anyAllowed = data.some(s => s.allowed && s.canReserve);
-    if(!anyAllowed && data.length && data.every(s => s.reason === "Blockiert")){
-      banner.textContent = "We are fully booked on this date. Please choose another day.";
-      banner.classList.remove("hidden");
-    } else {
-      banner.classList.add("hidden");
-      banner.textContent = "";
-    }
-
-    data.forEach(s=>{
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "slot " + (s.allowed && s.canReserve ? "" : "disabled");
-      b.textContent = s.time;
-      if (s.allowed && s.canReserve) {
-        b.onclick = ()=>{ document.querySelectorAll(".slot.active").forEach(x=>x.classList.remove("active")); b.classList.add("active"); selectedTime = s.time; };
-      } else {
-        b.title = s.reason || "Not available";
+    // Fill guest select
+    (function fillGuests(){
+      const g = $("#guests");
+      for (let i=1;i<=10;i++){
+        const o = document.createElement("option");
+        o.value = String(i);
+        o.textContent = String(i);
+        g.appendChild(o);
       }
-      box.appendChild(b);
+    })();
+
+    // Date management
+    function ymd(d){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const dd= String(d.getDate()).padStart(2,"0");
+      return `${y}-${m}-${dd}`;
+    }
+    function ddmmyyyy(d){
+      const dt = new Date(d);
+      return `${String(dt.getDate()).padStart(2,"0")}.${String(dt.getMonth()+1).padStart(2,"0")}.${dt.getFullYear()}`;
+    }
+    const today = new Date();
+    let currentYmd = ymd(today);
+    $("#date").value = ddmmyyyy(today);
+
+    // very light date picker: +/− one day with the icon, long tap shows native
+    $("#datePick").addEventListener("click", () => {
+      const cur = new Date(currentYmd);
+      cur.setDate(cur.getDate()+1);
+      currentYmd = ymd(cur);
+      $("#date").value = ddmmyyyy(cur);
+      selectedTime = "";
+      renderSlots();
     });
-  }
-  document.getElementById("reload").onclick = loadSlots;
-  document.getElementById("date").addEventListener("change", loadSlots);
-  loadSlots();
-
-  // ---------- Buchung ----------
-  document.getElementById("book").onclick = async ()=>{
-    const d = document.getElementById("date").value;
-    const firstName = document.getElementById("firstName").value.trim();
-    const name = document.getElementById("name").value.trim();
-    const email = document.getElementById("email").value.trim();
-    const phone = document.getElementById("phone").value.trim();
-    const guests = Number(document.getElementById("guests").value);
-    const notes = document.getElementById("notes").value.trim();
-    const m = document.getElementById("msg");
-
-    if(!selectedTime){ m.textContent="Please select a time slot"; return; }
-    if(!firstName || !name || !email){ m.textContent="Please fill in all required fields"; return; }
-
-    m.textContent = "";
-    const payload = { date:d, time:selectedTime, firstName, name, email, phone, guests, notes };
-
-    try{
-      const r = await fetch("/api/reservations", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(payload)
-      });
-      if(r.ok){
-        // nur hier: Danke-Modal zeigen
-        document.getElementById("modal").classList.remove("hidden");
-      }else{
-        const e = await r.json().catch(()=>({error:"Error"}));
-        m.textContent = friendlyError(e.error||"Error");
+    $("#date").addEventListener("click", () => {
+      // try native picker via prompt fallback (mobile-safe)
+      const v = prompt("Enter date (YYYY-MM-DD):", currentYmd);
+      if (!v) return;
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) {
+        currentYmd = ymd(d);
+        $("#date").value = ddmmyyyy(d);
+        selectedTime = "";
+        renderSlots();
       }
-    }catch(e){
-      m.textContent = "Network error. Please try again.";
+    });
+
+    // fetch slots and render
+    async function renderSlots(){
+      slotWrap.innerHTML = "";
+      slotMsg.hidden = true;
+
+      const guests = Number($("#guests").value || 1);
+      const res = await fetch(`/api/slots?date=${encodeURIComponent(currentYmd)}`);
+      const data = await res.json(); // [{time, canReserve, allowed, reason, left, ...}]
+      const anyAvail = data.some(s => s.canReserve);
+
+      if (!anyAvail) {
+        slotMsg.textContent = "We are fully booked or closed on this date. Please choose another day.";
+        slotMsg.hidden = false;
+      }
+
+      data.forEach(s => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "pill";
+        b.textContent = s.time;
+
+        if (!s.canReserve) {
+          b.classList.add("disabled");
+          b.disabled = true;
+          b.setAttribute("aria-disabled","true");
+        }
+
+        b.addEventListener("click", () => {
+          if (b.disabled) return;
+          [...slotWrap.querySelectorAll(".pill.selected")].forEach(x => x.classList.remove("selected"));
+          b.classList.add("selected");
+          selectedTime = s.time;
+        }, {passive:true});
+
+        slotWrap.appendChild(b);
+      });
     }
-  };
-  document.getElementById("closeModal").onclick = ()=>document.getElementById("modal").classList.add("hidden");
-</script>
+    renderSlots();
+
+    // re-render when guest count changes (kann Kapazitäten beeinflussen)
+    $("#guests").addEventListener("change", () => {
+      selectedTime = "";
+      renderSlots();
+    });
+
+    // submit booking
+    $("#bookingForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = $("#bookBtn");
+      if (!selectedTime) {
+        alert("Please select a time slot.");
+        return;
+      }
+      btn.disabled = true;
+
+      const payload = {
+        date: currentYmd,
+        time: selectedTime,
+        firstName: $("#firstName").value.trim(),
+        name: $("#name").value.trim(),
+        email: $("#email").value.trim(),
+        phone: $("#phone").value.trim(),
+        guests: Number($("#guests").value || 1),
+        notes: $("#notes").value.trim()
+      };
+
+      try {
+        const r = await fetch("/api/reservations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const j = await r.json();
+
+        if (!r.ok) {
+          // Soft-Error im Form, keine JS-Alert-Hölle
+          showModal(
+            j?.error || "Reservation could not be completed. Please choose another time."
+          );
+          // falls slots inzwischen weg sind: neu laden
+          await renderSlots();
+          btn.disabled = false;
+          return;
+        }
+
+        // success: Bestätigungsmodal
+        showModal(
+          "Thank you for your booking. You will receive a confirmation email shortly. Please also check your spam folder."
+        );
+        // Form zurücksetzen
+        selectedTime = "";
+        $("#bookingForm").reset();
+        $("#date").value = ddmmyyyy(new Date(currentYmd)); // Datum belassen
+        await renderSlots();
+      } catch (err) {
+        console.error(err);
+        showModal("Network error. Please try again.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function showModal(text){
+      $("#modalText").textContent = text;
+      const m = $("#modal");
+      m.classList.add("show");
+      m.setAttribute("aria-hidden","false");
+    }
+    $("#modalOk").addEventListener("click", () => {
+      const m = $("#modal");
+      m.classList.remove("show");
+      m.setAttribute("aria-hidden","true");
+    }, {passive:true});
+  </script>
 </body>
 </html>
