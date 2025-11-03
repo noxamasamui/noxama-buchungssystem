@@ -1,34 +1,23 @@
-// src/mailer.ts
 import nodemailer from "nodemailer";
 
-const HOST = process.env.SMTP_HOST || "";
-const PORT = Number(process.env.SMTP_PORT || 587);
-const USER = process.env.SMTP_USER || "";
-const PASS = process.env.SMTP_PASS || "";
-const SECURE = String(process.env.SMTP_SECURE || "false").toLowerCase() === "true";
+const FROM_NAME = process.env.MAIL_FROM_NAME || process.env.BRAND_NAME || "Restaurant";
+const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || process.env.VENUE_EMAIL || "noreply@example.com";
 
-export function fromAddress() {
-  const brand = process.env.BRAND_NAME || "RÖSTILAND BY NOXAMA SAMUI";
-  const addr =
-    process.env.MAIL_FROM_ADDRESS ||
-    process.env.SMTP_USER ||
-    "info@noxamasamui.com";
-  return `"${brand}" <${addr}>`;
-}
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 465),
+  secure: String(process.env.SMTP_SECURE || "true").toLowerCase() !== "false",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+  pool: String(process.env.MAIL_POOL || "false").toLowerCase() === "true",
+});
 
-let _tx: nodemailer.Transporter | null = null;
-
-export function mailer() {
-  if (_tx) return _tx;
-  _tx = nodemailer.createTransport({
-    host: HOST,
-    port: PORT,
-    secure: SECURE,
-    auth: USER && PASS ? { user: USER, pass: PASS } : undefined,
-  });
-  return _tx!;
+export async function sendMail(to: string, subject: string, html: string) {
+  await transporter.sendMail({ from: `"${FROM_NAME}" <${FROM_ADDR}>`, to, subject, html });
 }
 
 export async function verifyMailer() {
-  await mailer().verify();
+  try { await transporter.verify(); } catch { /* ignore in prod */ }
 }
