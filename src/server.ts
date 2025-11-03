@@ -370,7 +370,9 @@ app.post("/api/reservations", async (req, res)=>{
       firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests,
       cancelUrl, nth, discount, teaser
     });
-    try { await sendMail(created.email, `${BRAND_NAME} — Reservation #${nth}`, html); } catch (e) { console.error("mail guest", e); }
+
+    // FIX: normalize possible null email
+    try { await sendMail(created.email || FROM_ADDR, `${BRAND_NAME} — Reservation #${nth}`, html); } catch (e) { console.error("mail guest", e); }
 
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
