@@ -8,21 +8,16 @@ import { nanoid } from "nanoid";
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
-import {
-  addMinutes,
-  addHours,
-  differenceInMinutes,
-  format
-} from "date-fns";
+import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
 import { execSync } from "node:child_process";
 
 dotenv.config();
 
-/* ───────────────────────────── Node ESM __dirname ─────────────────────── */
+/* ESM __dirname */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ───────────────────────── App / Prisma / Static ───────────────────────── */
+/* App / Prisma / Static */
 const app = express();
 const prisma = new PrismaClient();
 const publicDir = path.resolve(__dirname, "../public");
@@ -31,7 +26,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.static(publicDir));
 
-/* ───────────────────────────── Konfiguration ───────────────────────────── */
+/* Konfiguration */
 const PORT = Number(process.env.PORT || 4020);
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
@@ -47,7 +42,8 @@ const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);       // Minuten zwischen auswählbaren Slots
+const RES_DURATION_MIN = num(process.env.RES_DURATION_MIN, 90); // Sitzdauer in Minuten
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
@@ -63,21 +59,18 @@ const ADMIN_TO =
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
 
-/* ────────────────────────────── Mailer ─────────────────────────────────── */
+/* Mailer */
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 465),
   secure: String(process.env.SMTP_SECURE || "true").toLowerCase() !== "false",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 async function sendMail(to: string, subject: string, html: string) {
   await transporter.sendMail({ from: `"${FROM_NAME}" <${FROM_ADDR}>`, to, subject, html });
 }
 
-/* ───────────────────────────────── Helpers ─────────────────────────────── */
+/* Helpers */
 function num(v: unknown, fb: number) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
 function strBool(v: unknown, fb = false) { if (v==null) return fb; return String(v).trim().toLowerCase()==="true"; }
 function pad2(n: number){ return String(n).padStart(2,"0"); }
@@ -90,8 +83,7 @@ function normalizeYmd(input: string): string {
     return `${yy}-${pad2(mm)}-${pad2(dd)}`;
   }
   const d = new Date(s);
-  if (!isNaN(d.getTime()))
-    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  if (!isNaN(d.getTime())) return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   return "";
 }
 function splitYmd(ymd: string){ const [y,m,d] = ymd.split("-").map(Number); return {y,m,d}; }
@@ -99,17 +91,28 @@ function localDate(y:number,m:number,d:number,hh=0,mm=0,ss=0){ return new Date(y
 function localDateFrom(ymd:string, hhmm:string){ const {y,m,d}=splitYmd(ymd); const [hh,mm]=hhmm.split(":").map(Number); return localDate(y,m,d,hh,mm,0); }
 function isSunday(ymd:string){ const {y,m,d}=splitYmd(ymd); return localDate(y,m,d).getDay()===0; }
 
-function slotListForDay(){ const out:string[]=[]; for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++){ for(let m=0;m<60;m+=SLOT_INTERVAL){ out.push(`${pad2(h)}:${pad2(m)}`); } } return out; }
-function capacityOnlineLeft(reserved:number, walkins:number){ const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER); return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins); }
+function slotListForDay(){
+  const out:string[]=[];
+  for(let h=OPEN_HOUR; h<CLOSE_HOUR; h++){
+    for(let m=0; m<60; m+=SLOT_INTERVAL){
+      out.push(`${pad2(h)}:${pad2(m)}`);
+    }
+  }
+  return out;
+}
+function capacityOnlineLeft(reserved:number, walkins:number){
+  const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER);
+  return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
+}
 
-/* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
+/* DB helpers: overlaps / sums / duration per slot */
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
     where: {
       date: dateYmd,
       status: { in: ["confirmed", "noshow"] },
-      AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }]
-    }
+      AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }],
+    },
   });
 }
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
@@ -118,13 +121,9 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
-function slotDuration(date:string, time:string){
-  const t = localDateFrom(date,time);
-  const next = addMinutes(t, SLOT_INTERVAL);
-  return differenceInMinutes(next, t);
-}
+function slotDurationMinutes(){ return RES_DURATION_MIN; }
 
-/* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
+/* Slot-Erlaubnis (inkl. Sitzdauer-Fenster) */
 async function slotAllowed(date: string, time: string){
   const norm = normalizeYmd(date);
   if(!norm) return { ok:false as const, reason:"Invalid date" as const };
@@ -132,7 +131,8 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false as const, reason:"Invalid time" as const };
-  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
+
+  const minutes = slotDurationMinutes();
   const end = addMinutes(start, minutes);
 
   const {y,m,d}=splitYmd(norm);
@@ -147,7 +147,7 @@ async function slotAllowed(date: string, time: string){
   return { ok:true as const, norm, start, end, open, close, minutes };
 }
 
-/* ───────────────────────────── Mail-Templates ─────────────────────────── */
+/* Mail-Templates */
 function emailHeader(logoUrl:string){
   if (MAIL_HEADER_URL) {
     return `
@@ -165,7 +165,6 @@ function emailHeader(logoUrl:string){
       <img src="${logoUrl}" alt="${BRAND_NAME}" style="width:190px;height:auto;border:0;outline:none;" />
     </div>`;
 }
-
 function confirmationHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;cancelUrl:string;}){
   const header = emailHeader(MAIL_LOGO_URL);
   return `
@@ -189,7 +188,6 @@ function confirmationHtml(p:{firstName:string;name:string;date:string;time:strin
     <p style="margin-top:16px;font-size:14px;text-align:center;">Warm regards from <b>${BRAND_NAME}</b></p>
   </div>`;
 }
-
 function canceledGuestHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;rebookUrl:string;}){
   const header = emailHeader(MAIL_LOGO_URL);
   return `
@@ -204,7 +202,6 @@ function canceledGuestHtml(p:{firstName:string;name:string;date:string;time:stri
     <p>With warm regards,<br/><b>${BRAND_NAME}</b></p>
   </div>`;
 }
-
 function canceledAdminHtml(p:{ firstName:string; lastName:string; email:string; phone:string; guests:number; date:string; time:string; notes:string; }){
   const header = emailHeader(MAIL_LOGO_URL);
   return `
@@ -222,21 +219,16 @@ function canceledAdminHtml(p:{ firstName:string; lastName:string; email:string; 
   </div>`;
 }
 
-/* ─────────────────────────────── Pages ─────────────────────────────────── */
-app.get("/health", async (_req: Request, res: Response) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
-  }
+/* Pages */
+app.get("/health", async (_req, res) => {
+  try { await prisma.$queryRaw`SELECT 1`; res.json({ ok:true }); }
+  catch(e){ res.status(500).json({ ok:false, error:String(e) }); }
 });
+app.get("/", (_req, res)=>res.sendFile(path.join(publicDir,"index.html")));
+app.get("/admin", (_req, res)=>res.sendFile(path.join(publicDir,"admin.html")));
 
-app.get("/", (_req: Request, res: Response)=>res.sendFile(path.join(publicDir,"index.html")));
-app.get("/admin", (_req: Request, res: Response)=>res.sendFile(path.join(publicDir,"admin.html")));
-
-/* ─────────────────────────── Public Config ─────────────────────────────── */
-app.get("/api/config", (_req: Request, res: Response)=>{
+/* Public Config */
+app.get("/api/config", (_req, res)=>{
   res.json({
     brand: BRAND_NAME,
     address: VENUE_ADDRESS,
@@ -248,8 +240,8 @@ app.get("/api/config", (_req: Request, res: Response)=>{
   });
 });
 
-/* ───────────────────────────── Slots API ───────────────────────────────── */
-app.get("/api/slots", async (req: Request, res: Response)=>{
+/* Slots API */
+app.get("/api/slots", async (req, res)=>{
   const date = normalizeYmd(String(req.query.date || ""));
   const guests = Number(req.query.guests || 1);
   if (!date) return res.json([]);
@@ -271,18 +263,15 @@ app.get("/api/slots", async (req: Request, res: Response)=>{
 
   if (out.every(s=>!s.allowed)) {
     const sunday = SUNDAY_CLOSED && isSunday(date);
-    if (sunday) {
-      out.forEach(s => s.reason = "Closed on Sunday");
-    } else {
-      out.forEach(s => { if (s.reason==="Blocked" || s.reason==null) s.reason = "Fully booked for this date. Please choose another day."; });
-    }
+    if (sunday) out.forEach(s => s.reason = "Closed on Sunday");
+    else out.forEach(s => { if (s.reason==="Blocked" || s.reason==null) s.reason = "Fully booked for this date. Please choose another day."; });
   }
 
   res.json(out);
 });
 
-/* ────────────────────────── Online-Reservierung ───────────────────────── */
-app.post("/api/reservations", async (req: Request, res: Response)=>{
+/* Online-Reservierung */
+app.post("/api/reservations", async (req, res)=>{
   try{
     const { date, time, firstName, name, email, phone, guests, notes } = req.body as any;
     const g = Number(guests || 0);
@@ -331,8 +320,8 @@ app.post("/api/reservations", async (req: Request, res: Response)=>{
   }
 });
 
-/* ─────────────────────────────── Cancel ────────────────────────────────── */
-app.get("/cancel/:token", async (req: Request, res: Response)=>{
+/* Cancel */
+app.get("/cancel/:token", async (req, res)=>{
   const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
   if (!r) return res.status(404).send("Not found");
 
@@ -357,8 +346,8 @@ app.get("/cancel/:token", async (req: Request, res: Response)=>{
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
-/* ───────────────────────────── Admin: Liste ────────────────────────────── */
-app.get("/api/admin/reservations", async (req: Request, res: Response)=>{
+/* Admin: Liste */
+app.get("/api/admin/reservations", async (req, res)=>{
   const date = normalizeYmd(String(req.query.date || ""));
   const view = String(req.query.view || "day");
 
@@ -385,17 +374,17 @@ app.get("/api/admin/reservations", async (req: Request, res: Response)=>{
   }
   res.json(list);
 });
-app.delete("/api/admin/reservations/:id", async (req: Request, res: Response)=>{
+app.delete("/api/admin/reservations/:id", async (req, res)=>{
   await prisma.reservation.delete({ where: { id: req.params.id } });
   res.json({ ok:true });
 });
-app.post("/api/admin/reservations/:id/noshow", async (req: Request, res: Response)=>{
+app.post("/api/admin/reservations/:id/noshow", async (req, res)=>{
   const r = await prisma.reservation.update({ where: { id: req.params.id }, data: { status:"noshow" }});
   res.json(r);
 });
 
-/* ───────────────────────────── Admin: Walk-in ──────────────────────────── */
-app.post("/api/admin/walkin", async (req: Request, res: Response)=>{
+/* Admin: Walk-in */
+app.post("/api/admin/walkin", async (req, res)=>{
   try{
     const { date, time, guests, notes } = req.body as any;
     const g = Number(guests || 0);
@@ -413,7 +402,7 @@ app.post("/api/admin/walkin", async (req: Request, res: Response)=>{
       open = localDate(y,m,d, OPEN_HOUR,0,0);
       close = localDate(y,m,d, CLOSE_HOUR,0,0);
       if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
-      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
+      const minutes = Math.max(15, Math.min(RES_DURATION_MIN, differenceInMinutes(close, start)));
       startTs = start; endTs = addMinutes(start, minutes); if (endTs > close) endTs = close;
     }
 
@@ -435,8 +424,8 @@ app.post("/api/admin/walkin", async (req: Request, res: Response)=>{
   }
 });
 
-/* ───────────────────────────── Admin: Closures ─────────────────────────── */
-app.post("/api/admin/closure", async (req: Request, res: Response)=>{
+/* Admin: Closures */
+app.post("/api/admin/closure", async (req, res)=>{
   try{
     const { startTs, endTs, reason } = req.body as any;
     const s = new Date(String(startTs).replace(" ", "T"));
@@ -450,7 +439,7 @@ app.post("/api/admin/closure", async (req: Request, res: Response)=>{
     res.status(500).json({ error: "Failed to create block" });
   }
 });
-app.post("/api/admin/closure/day", async (req: Request, res: Response)=>{
+app.post("/api/admin/closure/day", async (req, res)=>{
   try{
     const date = normalizeYmd(String((req.body as any).date || ""));
     if (!date) return res.status(400).json({ error: "Invalid date" });
@@ -465,7 +454,7 @@ app.post("/api/admin/closure/day", async (req: Request, res: Response)=>{
     res.status(500).json({ error: "Failed to block day" });
   }
 });
-app.get("/api/admin/closure", async (_req: Request, res: Response)=>{
+app.get("/api/admin/closure", async (_req, res)=>{
   try{
     const list = await prisma.closure.findMany({ orderBy: { startTs:"desc" } });
     res.json(list);
@@ -474,13 +463,13 @@ app.get("/api/admin/closure", async (_req: Request, res: Response)=>{
     res.status(500).json({ error: "Failed to load blocks" });
   }
 });
-app.delete("/api/admin/closure/:id", async (req: Request, res: Response)=>{
+app.delete("/api/admin/closure/:id", async (req, res)=>{
   try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
   catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
 });
 
-/* ───────────────────────────── Admin: Reset ────────────────────────────── */
-app.post("/api/admin/reset", async (req: Request, res: Response)=>{
+/* Admin: Reset */
+app.post("/api/admin/reset", async (req, res)=>{
   try{
     const { key } = (req.body || {}) as any;
     if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
@@ -492,8 +481,8 @@ app.post("/api/admin/reset", async (req: Request, res: Response)=>{
   }
 });
 
-/* ───────────────────────────────── Export ──────────────────────────────── */
-app.get("/api/export", async (req: Request, res: Response)=>{
+/* Export */
+app.get("/api/export", async (req, res)=>{
   try{
     const period = String(req.query.period || "weekly");
     const date = normalizeYmd(String(req.query.date || ""));
@@ -520,7 +509,7 @@ app.get("/api/export", async (req: Request, res: Response)=>{
       Email: r.email, Phone: r.phone || "",
       Guests: r.guests, Status: r.status,
       Notes: r.notes || "", WalkIn: r.isWalkIn ? "yes" : "",
-      CreatedAt: r.createdAt ? format(r.createdAt, "yyyy-MM-dd HH:mm") : "",
+      CreatedAt: r.startTs ? format(r.startTs, "yyyy-MM-dd HH:mm") : "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -538,14 +527,14 @@ app.get("/api/export", async (req: Request, res: Response)=>{
   }
 });
 
-/* ───────────────────────────── Notices (optional) ──────────────────────── */
+/* Notices */
 function ymdInRange(ymd: string, from: string, to: string){ return ymd >= from && ymd <= to; }
 
-app.get("/api/admin/notices", async (_req: Request, res: Response) => {
+app.get("/api/admin/notices", async (_req, res) => {
   const list = await prisma.notice.findMany({ orderBy: [{ startDate: "asc" }, { endDate: "asc" }] });
   res.json(list);
 });
-app.post("/api/admin/notices", async (req: Request, res: Response) => {
+app.post("/api/admin/notices", async (req, res) => {
   try{
     const { id, startDate, endDate, title, message, requireAck, active } = (req.body || {}) as any;
     const s = normalizeYmd(String(startDate || "")); const e = normalizeYmd(String(endDate || ""));
@@ -565,53 +554,29 @@ app.post("/api/admin/notices", async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to save notice" });
   }
 });
-app.delete("/api/admin/notices/:id", async (req: Request, res: Response) => {
+app.delete("/api/admin/notices/:id", async (req, res) => {
   try{ await prisma.notice.delete({ where: { id: req.params.id } }); res.json({ ok: true }); }
   catch(e){ console.error("Notice delete error:", e); res.status(500).json({ error: "Failed to delete notice" }); }
 });
-app.get("/api/notices", async (req: Request, res: Response) => {
+app.get("/api/notices", async (req, res) => {
   const date = normalizeYmd(String(req.query.date || ""));
   if (!date) return res.json([]);
   const all = await prisma.notice.findMany({ where: { active: true } });
   res.json(all.filter(n => ymdInRange(date, n.startDate, n.endDate)));
 });
 
-/* ───────────────────────────── Reminder Job ────────────────────────────── */
-setInterval(async ()=>{
-  try{
-    const now = new Date();
-    const from = addHours(now, 24);
-    const to   = addHours(now, 25);
-    const list = await prisma.reservation.findMany({
-      where: { status:"confirmed", isWalkIn:false, reminderSent:false, startTs: { gte: from, lt: to } },
-    });
-    for(const r of list){
-      const html = confirmationHtml({
-        firstName:r.firstName, name:r.name, date:r.date, time:r.time, guests:r.guests,
-        cancelUrl: `${BASE_URL}/cancel/${r.cancelToken}`,
-      });
-      try{
-        await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html);
-        await prisma.reservation.update({ where: { id: r.id }, data: { reminderSent:true } });
-      }catch(e){ console.error("reminder mail", e); }
-    }
-  }catch(e){ console.error("reminder job", e); }
-}, 30*60*1000);
-
-/* ───────────────────────────────── Start ───────────────────────────────── */
+/* Start (mit Selbstheilung der DB) */
 function ensureSchema() {
   try {
     console.log("Sync DB schema with Prisma (db push)...");
-    // Akzeptiert Schema-Änderungen ohne Migrationen; perfekt für Render
     execSync("npx prisma db push --accept-data-loss", { stdio: "inherit" });
     console.log("DB schema synced.");
   } catch (e) {
     console.warn("DB push failed:", (e as Error).message);
   }
 }
-
 async function start(){
-  ensureSchema();                 // <<<<<< WICHTIG: DB immer passend machen
+  ensureSchema();
   await prisma.$connect();
   try{ await transporter.verify(); }catch(e){ console.warn("SMTP verify failed:", (e as Error).message); }
   app.listen(PORT, "0.0.0.0", ()=>console.log(`Server running on ${PORT}`));
