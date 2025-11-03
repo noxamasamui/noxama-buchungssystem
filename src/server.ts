@@ -140,17 +140,19 @@ async function slotAllowed(date: string, time: string){
   return { ok:true, norm, start, end, open, close, minutes };
 }
 
-async function activeNoticeFor(dateYmd: string) {
-  const dayStart = localDateFrom(dateYmd, "00:00");
-  const dayEnd = localDateFrom(dateYmd, "23:59");
-  const n = await prisma.notice.findFirst({
+async function activeNoticeFor(dateYmd: string){
+  const { y, m, d } = splitYmd(dateYmd);
+  const startOfDay = localDate(y, m, d, 0, 0, 0);
+  const endOfDay   = localDate(y, m, d, 23, 59, 59);
+
+  return prisma.notice.findFirst({
     where: {
       active: true,
-      AND: [{ startTs: { lte: dayEnd } }, { endTs: { gte: dayStart } }],
+      startDate: { lte: endOfDay },
+      endDate:   { gte: startOfDay }
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { startDate: "desc" }
   });
-  return n || null;
 }
 
 /* ───── Email-Templates (mit Loyalty) ───── */
@@ -299,9 +301,17 @@ app.post("/api/admin/notices", async (req: Request, res: Response)=>{
   const s = new Date(String(startTs).replace(" ", "T"));
   const e = new Date(String(endTs).replace(" ", "T"));
   if (isNaN(s.getTime()) || isNaN(e.getTime()) || !title) return res.status(400).json({ error: "Invalid data" });
-  const n = await prisma.notice.create({ data: { startTs:s, endTs:e, title:String(title), message:String(message||""), active:!!active, requireAck:!!requireAck }});
-  res.json(n);
+ const n = await prisma.notice.create({
+  data: {
+    startDate: startTs,
+    endDate:   endTs,
+    title: String(title),
+    message: String(message || ""),
+    active: !!active,
+    requireAck: !!requireAck
+  }
 });
+
 app.patch("/api/admin/notices/:id", async (req: Request, res: Response)=>{
   const id = String(req.params.id);
   const data:any = {};
