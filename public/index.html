@@ -1,183 +1,231 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Contact and Table Booking</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="/style.css" />
-  <style>
-    /* kleine, gezielte Verbesserungen für Handy */
-    .btn-soft { background:#fff; border:2px solid #b38a4a33; padding:.7rem 1rem; border-radius:16px; box-shadow: 0 2px 0 #b38a4a22 inset; font-weight:700;}
-    .btn-soft:hover { box-shadow: 0 3px 0 #b38a4a33 inset; }
-    .contact-actions { display:flex; gap:.6rem; flex-wrap:wrap; }
-    .chip { display:inline-flex; align-items:center; gap:.5rem; background:#fff; border:1px solid #d9c9b3; padding:.35rem .6rem; border-radius:999px; font-size:.9rem }
-    .toast {display:none; margin:.6rem 0; padding:.8rem 1rem; background:#ecfff1; border:1px solid #c7efd0; border-radius:10px; color:#245a2f;}
-    .toast.show{display:block;}
-  </style>
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+
+<body class="page">
+  <!-- Banner / Logo -->
   <header class="hero">
-    <img src="https://i.imgur.com/LQ4nzwd.png" alt="Röstiland" class="hero-banner"/>
+    <img src="/logo-hero.png" alt="RÖSTILAND" class="hero-img">
   </header>
 
   <main class="container">
-    <h1 class="title">Contact and Table Booking</h1>
 
+    <h1 class="page-title">Contact and Table Booking</h1>
+
+    <!-- Address card -->
     <section class="card">
-      <h2>Address</h2>
-      <p id="venueAddress"></p>
-      <div class="contact-actions">
-        <a id="phoneBtn" class="btn-soft" href="#">Phone</a>
-        <a id="mailBtn" class="btn-soft" href="#">Email</a>
-        <a id="mapsBtn" class="btn-soft" href="#" target="_blank" rel="noopener">Open in Maps</a>
+      <h2 class="card-title">Address</h2>
+      <div id="venueAddress" class="address-text">
+        Moo 4 Lamai Beach, 84310 Suratthani, Thailand
+      </div>
+
+      <div class="btn-row">
+        <a id="phoneBtn" class="btn" href="tel:+66 077 270 675">Phone</a>
+        <a id="mailBtn"  class="btn" href="mailto:info@noxamasamui.com">Email</a>
+        <a id="mapsBtn"  class="btn" target="_blank" rel="noopener" href="https://maps.google.com?q=Röstiland">Open in Maps</a>
       </div>
     </section>
 
+    <!-- Booking controls -->
     <section class="card">
-      <div class="grid">
-        <div>
-          <label>Date</label>
-          <input id="date" type="date" class="input" />
-        </div>
-        <div>
-          <label>Guests (max 10 online)</label>
-          <select id="guests" class="input"></select>
-        </div>
-      </div>
+      <h2 class="card-title">Date</h2>
+      <input id="date" type="date" class="input" />
 
-      <h3>Choose a time slot</h3>
-      <div id="slots" class="slot-grid"></div>
-      <div id="slotsMsg" class="muted"></div>
+      <h2 class="card-title mt">Guests (max 10 online)</h2>
+      <select id="guests" class="input"></select>
+
+      <h2 class="card-title mt">Choose a time slot</h2>
+      <div id="slots" class="slots"></div>
+      <div id="slotsMsg" class="help"></div>
     </section>
 
+    <!-- Guest data -->
     <section class="card">
-      <div class="grid">
+      <div class="grid2">
         <div>
-          <label>First name*</label>
-          <input id="firstName" class="input" />
+          <label class="label">First name*</label>
+          <input id="firstName" class="input" required>
         </div>
         <div>
-          <label>Name*</label>
-          <input id="name" class="input" />
-        </div>
-      </div>
-
-      <div class="grid">
-        <div>
-          <label>Email*</label>
-          <input id="email" class="input" />
-        </div>
-        <div>
-          <label>Phone (optional)</label>
-          <input id="phone" class="input" />
+          <label class="label">Name*</label>
+          <input id="name" class="input" required>
         </div>
       </div>
 
-      <label>Notes</label>
-      <textarea id="notes" class="input" placeholder="Allergies, seating request, occasion"></textarea>
+      <div class="grid2">
+        <div>
+          <label class="label">Email*</label>
+          <input id="email" class="input" required>
+        </div>
+        <div>
+          <label class="label">Phone (optional)</label>
+          <input id="phone" class="input">
+        </div>
+      </div>
 
-      <div id="toast" class="toast">Reservation received. You will get a confirmation email shortly.</div>
-      <button id="bookBtn" class="btn">Book now</button>
+      <label class="label">Notes</label>
+      <textarea id="notes" class="input" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
+
+      <div class="btn-row end">
+        <button id="bookBtn" class="btn primary">Book now</button>
+      </div>
     </section>
+
   </main>
 
+  <!-- Toast -->
+  <div id="toast" class="toast">Reservation received. You will get a confirmation email shortly.</div>
+
   <script>
-    const cfg = {};
+  (function(){
     const $ = sel => document.querySelector(sel);
+    const cfg = {};
 
-    fetch('/api/config').then(r=>r.json()).then(c=>{
-      Object.assign(cfg,c);
-      $('#venueAddress').innerHTML = `<a href="${c.mapsUrl}" target="_blank" rel="noopener">${c.address}</a>`;
-      $('#phoneBtn').href = 'tel:' + (c.phone || '').replace(/\s+/g,'');
-      $('#mailBtn').href  = 'mailto:' + (c.email || '');
-      $('#mapsBtn').href  = c.mapsUrl;
-    });
+    document.addEventListener('DOMContentLoaded', init);
 
-    // init date + guests
-    const d = new Date();
-    const yyyy = d.getFullYear(), mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
-    $('#date').value = `${yyyy}-${mm}-${dd}`;
+    async function init(){
+      // Safe config load
+      try{
+        const c = await fetch('/api/config').then(r=>r.json());
+        Object.assign(cfg,c);
+        const addrHtml = c.mapsUrl
+          ? `<a href="${c.mapsUrl}" target="_blank" rel="noopener">${c.address||''}</a>`
+          : (c.address||'');
+        $('#venueAddress').innerHTML = addrHtml;
+        $('#phoneBtn').href = 'tel:' + (c.phone||'').replace(/\s+/g,'');
+        $('#mailBtn').href  = 'mailto:' + (c.email||'');
+        $('#mapsBtn').href  = c.mapsUrl || 'https://maps.google.com?q=Röstiland';
+      }catch(e){
+        // not fatal
+      }
 
-    for (let i=1;i<=10;i++){ const o=document.createElement('option'); o.value=o.textContent=String(i); $('#guests').appendChild(o); }
+      // Date today
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      $('#date').value = `${yyyy}-${mm}-${dd}`;
 
-    <script>
-  const cfg = {};
-  const $ = sel => document.querySelector(sel);
+      // Guests 1..10 reliably
+      const gSel = $('#guests');
+      gSel.innerHTML = '';
+      for(let i=1;i<=10;i++){
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = String(i);
+        gSel.appendChild(o);
+      }
 
-  fetch('/api/config').then(r=>r.json()).then(c=>{
-    Object.assign(cfg,c);
-    $('#venueAddress').innerHTML = `<a href="${c.mapsUrl}" target="_blank" rel="noopener">${c.address}</a>`;
-    $('#phoneBtn').href = 'tel:' + (c.phone || '').replace(/\s+/g,'');
-    $('#mailBtn').href  = 'mailto:' + (c.email || '');
-    $('#mapsBtn').href  = c.mapsUrl;
-  });
+      // Events
+      $('#date').addEventListener('change', loadSlots);
+      $('#guests').addEventListener('change', loadSlots);
+      $('#bookBtn').addEventListener('click', book);
 
-  // init date + guests
-  const d = new Date();
-  const yyyy = d.getFullYear(), mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
-  $('#date').value = `${yyyy}-${mm}-${dd}`;
-
-  for (let i=1;i<=10;i++){ 
-    const o=document.createElement('option'); 
-    o.value=o.textContent=String(i); 
-    $('#guests').appendChild(o); 
-  }
-
-  function renderSlots(list){
-    const wrap = $('#slots'); 
-    wrap.innerHTML='';
-    const msg = $('#slotsMsg'); 
-    msg.textContent='';
-
-    const available = list.filter(s=>s.allowed);
-    if (!available.length){
-      msg.textContent='Fully booked or closed on this date. Please choose another day.';
-      return;
+      loadSlots();
     }
 
-    available.forEach(s=>{
-      const b=document.createElement('button');
-      b.textContent = s.time;
-      b.className = 'slot';
-      b.addEventListener('click', ()=>{
-        document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
-        b.classList.add('active');
+    function renderSlots(list){
+      const box = $('#slots');
+      const msg = $('#slotsMsg');
+      box.innerHTML = '';
+      msg.textContent = '';
+
+      // show all slots, but only enable allowed ones
+      if(!list.length){
+        msg.textContent = 'No slots available.';
+        return;
+      }
+
+      let anyEnabled = false;
+
+      list.forEach(s=>{
+        const b = document.createElement('button');
+        b.textContent = s.time;
+        b.className = 'slot';
+        if(!s.allowed){
+          b.classList.add('disabled');
+          b.title = s.reason || 'Not available';
+          b.setAttribute('aria-disabled','true');
+          // do not attach click handler
+        }else{
+          b.addEventListener('click', ()=>{
+            document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
+            b.classList.add('active');
+          });
+          anyEnabled = true;
+        }
+        box.appendChild(b);
       });
-      wrap.appendChild(b);
-    });
-  }
 
-  function loadSlots(){
-    const ymd = $('#date').value;
-    fetch(`/api/slots?date=${ymd}`).then(r=>r.json()).then(renderSlots);
-  }
-  $('#date').addEventListener('change', loadSlots);
-  loadSlots();
+      if(!anyEnabled){
+        msg.textContent = 'Fully booked or closed on this date. Please choose another day.';
+      }
+    }
 
-  $('#bookBtn').addEventListener('click', ()=>{
-    const timeBtn = document.querySelector('.slot.active');
-    if (!timeBtn){ alert('Please choose a time'); return; }
+    async function loadSlots(){
+      const ymd = $('#date').value;
+      // guests nicht nötig fürs backend; trotzdem robust geladen
+      try{
+        const list = await fetch(`/api/slots?date=${encodeURIComponent(ymd)}`).then(r=>r.json());
+        renderSlots(list);
+      }catch(e){
+        $('#slots').innerHTML = '';
+        $('#slotsMsg').textContent = 'Failed to load time slots.';
+      }
+    }
 
-    const payload = {
-      date: $('#date').value,
-      time: timeBtn.textContent,
-      firstName: $('#firstName').value.trim(),
-      name: $('#name').value.trim(),
-      email: $('#email').value.trim(),
-      phone: $('#phone').value.trim(),
-      guests: Number($('#guests').value),
-      notes: $('#notes').value.trim()
-    };
-    fetch('/api/reservations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-      .then(async r=>{
-        if(!r.ok){ const e=await r.json().catch(()=>({error:'Failed'})); throw new Error(e.error||'Failed'); }
-        return r.json();
-      })
-      .then(()=>{
-        const t = $('#toast'); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 5000);
+    async function book(){
+      const timeBtn = document.querySelector('.slot.active');
+      if(!timeBtn){ alert('Please choose a time.'); return; }
+
+      const payload = {
+        date: $('#date').value,
+        time: timeBtn.textContent,
+        firstName: $('#firstName').value.trim(),
+        name: $('#name').value.trim(),
+        email: $('#email').value.trim(),
+        phone: $('#phone').value.trim(),
+        guests: Number($('#guests').value),
+        notes: $('#notes').value.trim()
+      };
+
+      // quick required checks
+      if(!payload.firstName || !payload.name || !payload.email){
+        alert('Please fill in first name, name and email.');
+        return;
+      }
+
+      try{
+        const res = await fetch('/api/reservations',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+
+        if(!res.ok){
+          const err = await res.json().catch(()=>({error:'Booking failed'}));
+          alert(err.error || 'Booking failed');
+          return;
+        }
+
+        // success toast + reload slots
+        const t = $('#toast');
+        t.textContent = 'Reservation received. You will get a confirmation email shortly.';
+        t.classList.add('show');
+        setTimeout(()=>t.classList.remove('show'), 4000);
+
         document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
-        loadSlots(); // reload slots after successful booking
-      })
-      .catch(err=>alert(err.message));
-  });
-</script>
+        loadSlots();
+      }catch(e){
+        alert('Network error. Please try again.');
+      }
+    }
+  })();
+  </script>
+</body>
+</html>
