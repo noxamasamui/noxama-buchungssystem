@@ -1,231 +1,281 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Contact and Table Booking</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="preconnect" href="https://i.imgur.com">
+  <meta name="color-scheme" content="light only">
 </head>
+<body>
 
-<body class="page">
-  <!-- Banner / Logo -->
+  <!-- Banner-Logo bis an den Boxrand -->
   <header class="hero">
-    <img src="/logo-hero.png" alt="RÖSTILAND" class="hero-img">
+    <img
+      id="brandBanner"
+      src="https://i.imgur.com/LQ4nzwd.png"
+      alt="RÖSTILAND"
+      onerror="this.src='/logo-hero.png'">
   </header>
 
   <main class="container">
-
     <h1 class="page-title">Contact and Table Booking</h1>
 
     <!-- Address card -->
     <section class="card">
       <h2 class="card-title">Address</h2>
-      <div id="venueAddress" class="address-text">
-        Moo 4 Lamai Beach, 84310 Suratthani, Thailand
-      </div>
+
+      <address class="address">
+        <a class="address-line"
+           href="https://maps.apple.com/?q=Moo%204%20Lamai%20Beach,%2084310%20Suratthani,%20Thailand"
+           target="_blank" rel="noopener">
+          Moo 4 Lamai Beach, 84310 Suratthani, Thailand
+        </a>
+      </address>
 
       <div class="btn-row">
-        <a id="phoneBtn" class="btn" href="tel:+66 077 270 675">Phone</a>
-        <a id="mailBtn"  class="btn" href="mailto:info@noxamasamui.com">Email</a>
-        <a id="mapsBtn"  class="btn" target="_blank" rel="noopener" href="https://maps.google.com?q=Röstiland">Open in Maps</a>
+        <a class="btn" href="tel:+666077270675" aria-label="Call phone">
+          <span class="btn-icon" aria-hidden="true">📞</span>
+          <span>Phone</span>
+        </a>
+
+        <a class="btn" href="mailto:info@noxamasamui.com" aria-label="Send email">
+          <span class="btn-icon" aria-hidden="true">✉️</span>
+          <span>Email</span>
+        </a>
+
+        <a class="btn" target="_blank" rel="noopener"
+           href="https://maps.google.com/?q=Moo+4+Lamai+Beach,+84310+Suratthani,+Thailand"
+           aria-label="Open in maps">
+          <span class="btn-icon" aria-hidden="true">🗺️</span>
+          <span>Open in Maps</span>
+        </a>
       </div>
     </section>
 
-    <!-- Booking controls -->
-    <section class="card">
+    <!-- Booking form -->
+    <form id="bookingForm" class="card" autocomplete="off">
       <h2 class="card-title">Date</h2>
-      <input id="date" type="date" class="input" />
-
-      <h2 class="card-title mt">Guests (max 10 online)</h2>
-      <select id="guests" class="input"></select>
-
-      <h2 class="card-title mt">Choose a time slot</h2>
-      <div id="slots" class="slots"></div>
-      <div id="slotsMsg" class="help"></div>
-    </section>
-
-    <!-- Guest data -->
-    <section class="card">
-      <div class="grid2">
-        <div>
-          <label class="label">First name*</label>
-          <input id="firstName" class="input" required>
-        </div>
-        <div>
-          <label class="label">Name*</label>
-          <input id="name" class="input" required>
-        </div>
+      <div class="field">
+        <input type="text" id="date" class="input" readonly>
+        <button type="button" id="datePick" class="icon-btn" aria-label="Pick date">📅</button>
       </div>
 
-      <div class="grid2">
-        <div>
-          <label class="label">Email*</label>
-          <input id="email" class="input" required>
-        </div>
-        <div>
-          <label class="label">Phone (optional)</label>
-          <input id="phone" class="input">
-        </div>
+      <h2 class="card-title">Guests (max 10 online)</h2>
+      <div class="field">
+        <select id="guests" class="input">
+          <!-- 1..10 -->
+        </select>
       </div>
 
-      <label class="label">Notes</label>
+      <h2 class="card-title">Choose a time slot</h2>
+      <div id="slotWrap" class="pill-grid" aria-live="polite"></div>
+      <div id="slotMsg" class="hint" hidden></div>
+
+      <h2 class="card-title">First name*</h2>
+      <input id="firstName" class="input" required placeholder="First name">
+
+      <h2 class="card-title">Name*</h2>
+      <input id="name" class="input" required placeholder="Last name">
+
+      <h2 class="card-title">Email*</h2>
+      <input id="email" class="input" type="email" required placeholder="name@example.com">
+
+      <h2 class="card-title">Phone (optional)</h2>
+      <input id="phone" class="input" inputmode="tel" placeholder="">
+
+      <h2 class="card-title">Notes</h2>
       <textarea id="notes" class="input" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
 
-      <div class="btn-row end">
-        <button id="bookBtn" class="btn primary">Book now</button>
+      <div class="actions">
+        <button class="btn-primary" type="submit" id="bookBtn">Book now</button>
       </div>
-    </section>
-
+    </form>
   </main>
 
-  <!-- Toast -->
-  <div id="toast" class="toast">Reservation received. You will get a confirmation email shortly.</div>
+  <!-- Bestätigungs-Modal -->
+  <div id="modal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-title">Reservation received</div>
+      <p id="modalText">
+        Thank you for your booking. You will receive a confirmation email shortly.
+        Please also check your spam folder.
+      </p>
+      <button class="btn-primary" id="modalOk">OK</button>
+    </div>
+  </div>
 
   <script>
-  (function(){
+    /* ---------- tiny helpers ---------- */
     const $ = sel => document.querySelector(sel);
-    const cfg = {};
+    const slotWrap = $("#slotWrap");
+    const slotMsg  = $("#slotMsg");
+    let selectedTime = "";
 
-    document.addEventListener('DOMContentLoaded', init);
-
-    async function init(){
-      // Safe config load
-      try{
-        const c = await fetch('/api/config').then(r=>r.json());
-        Object.assign(cfg,c);
-        const addrHtml = c.mapsUrl
-          ? `<a href="${c.mapsUrl}" target="_blank" rel="noopener">${c.address||''}</a>`
-          : (c.address||'');
-        $('#venueAddress').innerHTML = addrHtml;
-        $('#phoneBtn').href = 'tel:' + (c.phone||'').replace(/\s+/g,'');
-        $('#mailBtn').href  = 'mailto:' + (c.email||'');
-        $('#mapsBtn').href  = c.mapsUrl || 'https://maps.google.com?q=Röstiland';
-      }catch(e){
-        // not fatal
-      }
-
-      // Date today
-      const d = new Date();
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const dd = String(d.getDate()).padStart(2,'0');
-      $('#date').value = `${yyyy}-${mm}-${dd}`;
-
-      // Guests 1..10 reliably
-      const gSel = $('#guests');
-      gSel.innerHTML = '';
-      for(let i=1;i<=10;i++){
-        const o = document.createElement('option');
+    // Fill guest select
+    (function fillGuests(){
+      const g = $("#guests");
+      for (let i=1;i<=10;i++){
+        const o = document.createElement("option");
         o.value = String(i);
         o.textContent = String(i);
-        gSel.appendChild(o);
+        g.appendChild(o);
+      }
+    })();
+
+    // Date management
+    function ymd(d){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const dd= String(d.getDate()).padStart(2,"0");
+      return `${y}-${m}-${dd}`;
+    }
+    function ddmmyyyy(d){
+      const dt = new Date(d);
+      return `${String(dt.getDate()).padStart(2,"0")}.${String(dt.getMonth()+1).padStart(2,"0")}.${dt.getFullYear()}`;
+    }
+    const today = new Date();
+    let currentYmd = ymd(today);
+    $("#date").value = ddmmyyyy(today);
+
+    // very light date picker: +/− one day with the icon, long tap shows native
+    $("#datePick").addEventListener("click", () => {
+      const cur = new Date(currentYmd);
+      cur.setDate(cur.getDate()+1);
+      currentYmd = ymd(cur);
+      $("#date").value = ddmmyyyy(cur);
+      selectedTime = "";
+      renderSlots();
+    });
+    $("#date").addEventListener("click", () => {
+      // try native picker via prompt fallback (mobile-safe)
+      const v = prompt("Enter date (YYYY-MM-DD):", currentYmd);
+      if (!v) return;
+      const d = new Date(v);
+      if (!isNaN(d.getTime())) {
+        currentYmd = ymd(d);
+        $("#date").value = ddmmyyyy(d);
+        selectedTime = "";
+        renderSlots();
+      }
+    });
+
+    // fetch slots and render
+    async function renderSlots(){
+      slotWrap.innerHTML = "";
+      slotMsg.hidden = true;
+
+      const guests = Number($("#guests").value || 1);
+      const res = await fetch(`/api/slots?date=${encodeURIComponent(currentYmd)}`);
+      const data = await res.json(); // [{time, canReserve, allowed, reason, left, ...}]
+      const anyAvail = data.some(s => s.canReserve);
+
+      if (!anyAvail) {
+        slotMsg.textContent = "We are fully booked or closed on this date. Please choose another day.";
+        slotMsg.hidden = false;
       }
 
-      // Events
-      $('#date').addEventListener('change', loadSlots);
-      $('#guests').addEventListener('change', loadSlots);
-      $('#bookBtn').addEventListener('click', book);
+      data.forEach(s => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "pill";
+        b.textContent = s.time;
 
-      loadSlots();
+        if (!s.canReserve) {
+          b.classList.add("disabled");
+          b.disabled = true;
+          b.setAttribute("aria-disabled","true");
+        }
+
+        b.addEventListener("click", () => {
+          if (b.disabled) return;
+          [...slotWrap.querySelectorAll(".pill.selected")].forEach(x => x.classList.remove("selected"));
+          b.classList.add("selected");
+          selectedTime = s.time;
+        }, {passive:true});
+
+        slotWrap.appendChild(b);
+      });
     }
+    renderSlots();
 
-    function renderSlots(list){
-      const box = $('#slots');
-      const msg = $('#slotsMsg');
-      box.innerHTML = '';
-      msg.textContent = '';
+    // re-render when guest count changes (kann Kapazitäten beeinflussen)
+    $("#guests").addEventListener("change", () => {
+      selectedTime = "";
+      renderSlots();
+    });
 
-      // show all slots, but only enable allowed ones
-      if(!list.length){
-        msg.textContent = 'No slots available.';
+    // submit booking
+    $("#bookingForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = $("#bookBtn");
+      if (!selectedTime) {
+        alert("Please select a time slot.");
         return;
       }
-
-      let anyEnabled = false;
-
-      list.forEach(s=>{
-        const b = document.createElement('button');
-        b.textContent = s.time;
-        b.className = 'slot';
-        if(!s.allowed){
-          b.classList.add('disabled');
-          b.title = s.reason || 'Not available';
-          b.setAttribute('aria-disabled','true');
-          // do not attach click handler
-        }else{
-          b.addEventListener('click', ()=>{
-            document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
-            b.classList.add('active');
-          });
-          anyEnabled = true;
-        }
-        box.appendChild(b);
-      });
-
-      if(!anyEnabled){
-        msg.textContent = 'Fully booked or closed on this date. Please choose another day.';
-      }
-    }
-
-    async function loadSlots(){
-      const ymd = $('#date').value;
-      // guests nicht nötig fürs backend; trotzdem robust geladen
-      try{
-        const list = await fetch(`/api/slots?date=${encodeURIComponent(ymd)}`).then(r=>r.json());
-        renderSlots(list);
-      }catch(e){
-        $('#slots').innerHTML = '';
-        $('#slotsMsg').textContent = 'Failed to load time slots.';
-      }
-    }
-
-    async function book(){
-      const timeBtn = document.querySelector('.slot.active');
-      if(!timeBtn){ alert('Please choose a time.'); return; }
+      btn.disabled = true;
 
       const payload = {
-        date: $('#date').value,
-        time: timeBtn.textContent,
-        firstName: $('#firstName').value.trim(),
-        name: $('#name').value.trim(),
-        email: $('#email').value.trim(),
-        phone: $('#phone').value.trim(),
-        guests: Number($('#guests').value),
-        notes: $('#notes').value.trim()
+        date: currentYmd,
+        time: selectedTime,
+        firstName: $("#firstName").value.trim(),
+        name: $("#name").value.trim(),
+        email: $("#email").value.trim(),
+        phone: $("#phone").value.trim(),
+        guests: Number($("#guests").value || 1),
+        notes: $("#notes").value.trim()
       };
 
-      // quick required checks
-      if(!payload.firstName || !payload.name || !payload.email){
-        alert('Please fill in first name, name and email.');
-        return;
-      }
-
-      try{
-        const res = await fetch('/api/reservations',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
+      try {
+        const r = await fetch("/api/reservations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
+        const j = await r.json();
 
-        if(!res.ok){
-          const err = await res.json().catch(()=>({error:'Booking failed'}));
-          alert(err.error || 'Booking failed');
+        if (!r.ok) {
+          // Soft-Error im Form, keine JS-Alert-Hölle
+          showModal(
+            j?.error || "Reservation could not be completed. Please choose another time."
+          );
+          // falls slots inzwischen weg sind: neu laden
+          await renderSlots();
+          btn.disabled = false;
           return;
         }
 
-        // success toast + reload slots
-        const t = $('#toast');
-        t.textContent = 'Reservation received. You will get a confirmation email shortly.';
-        t.classList.add('show');
-        setTimeout(()=>t.classList.remove('show'), 4000);
-
-        document.querySelectorAll('.slot.active').forEach(x=>x.classList.remove('active'));
-        loadSlots();
-      }catch(e){
-        alert('Network error. Please try again.');
+        // success: Bestätigungsmodal
+        showModal(
+          "Thank you for your booking. You will receive a confirmation email shortly. Please also check your spam folder."
+        );
+        // Form zurücksetzen
+        selectedTime = "";
+        $("#bookingForm").reset();
+        $("#date").value = ddmmyyyy(new Date(currentYmd)); // Datum belassen
+        await renderSlots();
+      } catch (err) {
+        console.error(err);
+        showModal("Network error. Please try again.");
+      } finally {
+        btn.disabled = false;
       }
+    });
+
+    function showModal(text){
+      $("#modalText").textContent = text;
+      const m = $("#modal");
+      m.classList.add("show");
+      m.setAttribute("aria-hidden","false");
     }
-  })();
+    $("#modalOk").addEventListener("click", () => {
+      const m = $("#modal");
+      m.classList.remove("show");
+      m.setAttribute("aria-hidden","true");
+    }, {passive:true});
   </script>
 </body>
 </html>
