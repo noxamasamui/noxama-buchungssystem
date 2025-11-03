@@ -1,691 +1,455 @@
-// ganz oben:
+// src/server.ts
+// Kompakter, geprüfter Express-Server mit korrekten Typen (ESM)
+
+import express from "express";
+import type { Request as ExpressRequest, Response as ExpressResponse } from "express";
+import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// … andere Imports …
+import { PrismaClient } from "@prisma/client";
+import { nanoid } from "nanoid";
+import * as XLSX from "xlsx";
 
-// ==== ESM-sicher: aktuelle Ordner bestimmen ====
+import dotenv from "dotenv";
+import {
+  addMinutes,
+  addHours,
+  differenceInMinutes,
+  format,
+} from "date-fns";
+
+// mailsender (dein Shim aus src/mailsender.ts)
+import { sendMailMS } from "./mailsender";
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ESM-kompatibles __dirname und Pfade
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
-// Das Projekt-Root ist eine Ebene über "dist"
-const rootDir   = path.resolve(__dirname, "..");
-// Hier liegt dein /public neben /src (nicht in /dist)
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, "..");
 const publicDir = path.join(rootDir, "public");
 
-// App anlegen
-const app = express();
+// Globale Helfer (falls Number/String versehentlich überschattet werden)
+const toNum = (v: unknown) => globalThis.Number(v);
+const toStr = (v: unknown) => String(v);
 
-// Statische Dateien **vor** allen Routen registrieren
+// ──────────────────────────────────────────────────────────────────────────────
+// App / Prisma / Middlewares
+dotenv.config();
+
+const app = express();
+const prisma = new PrismaClient();
+
+app.use(express.json());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.static(publicDir));
 
-// JSON-Parser etc. erst danach ist auch ok
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+// Typ-Aliase für Express
+type Req = ExpressRequest;
+type Res = ExpressResponse;
 
-// Fallback-Routen für Startseiten
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(publicDir, "index.html"));
-});
-app.get("/admin", (_req, res) => {
-  res.sendFile(path.join(publicDir, "admin.html"));
-});
-app.get("/cancelled", (_req, res) => {
-  res.sendFile(path.join(publicDir, "cancelled.html"));
-});
-
-// Optional: Diagnose – zeigt dir, ob /style.css erreichbar ist
-app.get("/__static-check", (_req, res) => {
-  res.json({ publicDir, ok: true });
-});
-
-// … deine API-Routen ( /api/... ) bleiben wie sie sind …
-
-
-/* ───────────────────────────── Konfiguration ───────────────────────────── */
-const PORT = Number(process.env.PORT || 4020);
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+// ──────────────────────────────────────────────────────────────────────────────
+// Konfiguration aus ENV
+const PORT = toNum(process.env.PORT) || 10000;
 
 const BRAND_NAME = process.env.BRAND_NAME || "RÖSTILAND BY NOXAMA SAMUI";
-const VENUE_ADDRESS = process.env.VENUE_ADDRESS || "Moo 4 Lamai Beach, 84310 Suratthani, Thailand";
-const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
+const VENUE_ADDRESS =
+  process.env.VENUE_ADDRESS || "Moo 4 Lamai Beach, 84310 Suratthani, Thailand";
 const VENUE_EMAIL = process.env.VENUE_EMAIL || "info@noxamasamui.com";
-
-const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "/logo-hero.png";
+const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
+const PUBLIC_LOGO_URL = process.env.PUBLIC_LOGO_URL || "";
 const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";
-const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
-const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
+const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "";
 
-const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
-const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15); // Minuten
-const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
+const TZ = process.env.TZ || "Asia/Bangkok";
+const SUNDAY_CLOSED = String(process.env.SUNDAY_CLOSED || "true") === "true";
 
-const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
-const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
-const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
-const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 8);
+const ONLINE_SEATS_CAP = toNum(process.env.ONLINE_SEATS_CAP) || 40;
+const MAX_SEATS_TOTAL = toNum(process.env.MAX_SEATS_TOTAL) || 48;
 
-const ADMIN_TO =
-  String(process.env.ADMIN_EMAIL || "") ||
-  String(process.env.MAIL_TO_ADMIN || "") ||
-  String(process.env.SMTP_USER || "") ||
-  FROM_ADDR;
+// Öffnungszeiten – Lunch
+const OPEN_LUNCH_START = process.env.OPEN_LUNCH_START || "10:00";
+const OPEN_LUNCH_END = process.env.OPEN_LUNCH_END || "16:30";
+const OPEN_LUNCH_DURATION_MIN = toNum(process.env.OPEN_LUNCH_DURATION_MIN) || 90;
 
-const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
+// Öffnungszeiten – Dinner
+const OPEN_DINNER_START = process.env.OPEN_DINNER_START || "17:00";
+const OPEN_DINNER_END = process.env.OPEN_DINNER_END || "22:00";
+const OPEN_DINNER_DURATION_MIN = toNum(process.env.OPEN_DINNER_DURATION_MIN) || 150;
 
-/* ────────────────────────────── Mailer (SMTP) ──────────────────────────── */
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || 465),
-  secure: String(process.env.SMTP_SECURE || "true").toLowerCase() !== "false",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-async function sendMail(to: string, subject: string, html: string) {
-  await transporter.sendMail({ from: `"${FROM_NAME}" <${FROM_ADDR}>`, to, subject, html });
-}
+// ──────────────────────────────────────────────────────────────────────────────
+// Statische Seiten
+app.get("/", (_req: Req, res: Res) => res.sendFile(path.join(publicDir, "index.html")));
+app.get("/admin", (_req: Req, res: Res) => res.sendFile(path.join(publicDir, "admin.html")));
+app.get("/cancelled", (_req: Req, res: Res) =>
+  res.sendFile(path.join(publicDir, "cancelled.html"))
+);
 
-/* ───────────────────────────────── Helpers ─────────────────────────────── */
-function num(v: any, fb: number) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
-function strBool(v: any, fb = false) { if (v == null) return fb; return String(v).trim().toLowerCase() === "true"; }
-function pad2(n: number) { return String(n).padStart(2, "0"); }
+// ──────────────────────────────────────────────────────────────────────────────
+// Hilfsfunktionen
 
 function normalizeYmd(input: string): string {
-  const s = String(input || "").trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(s)) {
-    const [dd, mm, yy] = s.split(".").map(Number);
-    return `${yy}-${pad2(mm)}-${pad2(dd)}`;
-  }
-  const d = new Date(s);
-  if (!isNaN(d.getTime()))
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  // akzeptiert 2025-11-24 oder 24.11.2025
+  if (!input) return "";
+  if (input.includes("-")) return input.slice(0, 10);
+  const m = input.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return "";
 }
-function splitYmd(ymd: string) { const [y, m, d] = ymd.split("-").map(Number); return { y, m, d }; }
-function localDate(y: number, m: number, d: number, hh = 0, mm = 0, ss = 0) { return new Date(y, m - 1, d, hh, mm, ss); }
-function localDateFrom(ymd: string, hhmm: string) { const { y, m, d } = splitYmd(ymd); const [hh, mm] = hhmm.split(":").map(Number); return localDate(y, m, d, hh, mm, 0); }
-function isSunday(ymd: string) { const { y, m, d } = splitYmd(ymd); return localDate(y, m, d).getDay() === 0; }
 
-function slotListForDay() { const out: string[] = []; for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) { for (let m = 0; m < 60; m += SLOT_INTERVAL) { out.push(`${pad2(h)}:${pad2(m)}`); } } return out; }
+function listSlotsForDate(dateISO: string): { time: string }[] {
+  // baut 15-Minuten Slots für Lunch + Dinner
+  const build = (hhmmStart: string, hhmmEnd: string) => {
+    const [sh, sm] = hhmmStart.split(":").map((s) => toNum(s));
+    const [eh, em] = hhmmEnd.split(":").map((s) => toNum(s));
+    let cur = new Date(`${dateISO}T${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}:00`);
+    const end = new Date(`${dateISO}T${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}:00`);
+    const out: { time: string }[] = [];
+    while (cur <= end) {
+      out.push({ time: `${String(cur.getHours()).padStart(2, "0")}:${String(cur.getMinutes()).padStart(2, "0")}` });
+      cur = addMinutes(cur, 15);
+    }
+    return out;
+  };
 
-function capacityOnlineLeft(reserved: number, walkins: number) {
-  const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER);
-  return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
+  return [
+    ...build(OPEN_LUNCH_START, OPEN_LUNCH_END),
+    ...build(OPEN_DINNER_START, OPEN_DINNER_END),
+  ];
 }
 
-/* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
-async function overlapping(dateYmd: string, start: Date, end: Date) {
-  return prisma.reservation.findMany({
-    where: {
-      date: dateYmd,
-      status: { in: ["confirmed", "noshow"] },
-      AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }],
-    },
+async function seatsTakenAt(dateISO: string, time: string): Promise<number> {
+  const list = await prisma.reservation.findMany({
+    where: { date: dateISO, time, status: { in: ["confirmed", "no-show"] } },
+    select: { guests: true },
   });
-}
-async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
-  const list = await overlapping(dateYmd, start, end);
-  const reserved = list.filter(r => !r.isWalkIn).reduce((s, r) => s + r.guests, 0);
-  const walkins = list.filter(r => r.isWalkIn).reduce((s, r) => s + r.guests, 0);
-  return { reserved, walkins, total: reserved + walkins };
-}
-function slotDuration(date: string, time: string) {
-  const t = localDateFrom(date, time);
-  const next = addMinutes(t, SLOT_INTERVAL);
-  return differenceInMinutes(next, t);
+  return list.reduce((a, r) => a + (r.guests || 0), 0);
 }
 
-/* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
-async function slotAllowed(date: string, time: string) {
-  const norm = normalizeYmd(date);
-  if (!norm) return { ok: false, reason: "Invalid date" };
-  if (SUNDAY_CLOSED && isSunday(norm)) return { ok: false, reason: "Closed on Sunday" };
+async function isClosedAt(dateISO: string, time: string): Promise<string | null> {
+  // Sonntag zu
+  const d = new Date(`${dateISO}T00:00:00`);
+  if (SUNDAY_CLOSED && d.getDay() === 0) return "Closed on Sunday";
 
-  const start = localDateFrom(norm, time);
-  if (isNaN(start.getTime())) return { ok: false, reason: "Invalid time" };
-  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
-  const end = addMinutes(start, minutes);
+  // Zeit in Date
+  const [hh, mm] = time.split(":").map((s) => toNum(s));
+  const ts = new Date(`${dateISO}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00`);
 
-  const { y, m, d } = splitYmd(norm);
-  const open = localDate(y, m, d, OPEN_HOUR, 0, 0);
-  const close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
-  if (start < open) return { ok: false, reason: "Before opening" };
-  if (end > close) return { ok: false, reason: "After closing" };
-
-  const blocked = await prisma.closure.findFirst({ where: { AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }] } });
-  if (blocked) return { ok: false, reason: "Blocked" };
-
-  return { ok: true, norm, start, end, open, close, minutes };
+  const blocks = await prisma.closure.findMany({
+    where: { startTs: { lte: ts }, endTs: { gte: ts } },
+    select: { reason: true },
+  });
+  if (blocks.length) return blocks[0].reason || "Closed";
+  return null;
 }
 
-/* ───────────────────────────── Mail-Templates ──────────────────────────── */
-function emailHeader(logoUrl: string) {
-  if (MAIL_HEADER_URL) {
-    return `
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr><td align="center" style="padding:0">
-          <img src="${MAIL_HEADER_URL}" alt="${BRAND_NAME}"
-               style="display:block;width:100%;max-width:640px;height:auto;border:0;outline:none;">
-        </td></tr>
-      </table>`;
-  }
-  return `
-    <div style="max-width:640px;margin:0 auto 10px auto;padding:28px 0;background:
-      radial-gradient(ellipse at center, rgba(179,130,47,0.18) 0%, rgba(179,130,47,0.08) 40%, rgba(255,255,255,0) 72%);
-      text-align:center;">
-      <img src="${logoUrl}" alt="${BRAND_NAME}" style="width:190px;height:auto;border:0;outline:none;" />
-    </div>`;
-}
+// ──────────────────────────────────────────────────────────────────────────────
+// Öffentliche API
 
-function loyaltySnippet(totalConfirmed: number) {
-  const n = totalConfirmed; // inklusive aktueller Buchung
-  let line = "";
-
-  if (n >= 15) {
-    line = `You now enjoy a <b>15% Loyalty Discount</b> for this and all future visits.`;
-  } else if (n >= 10) {
-    const next = n >= 15 ? null : 15 - n;
-    line = `You now enjoy a <b>10% Loyalty Discount</b>${next ? ` — only ${next} booking${next === 1 ? "" : "s"} to reach <b>15%</b>.` : ""}`;
-  } else if (n >= 5) {
-    const next = 10 - n;
-    line = `You now enjoy a <b>5% Loyalty Discount</b> — just ${next} more booking${next === 1 ? "" : "s"} to reach <b>10%</b>.`;
-  } else {
-    const next = n < 4 ? 5 - n : 1;
-    line = `Thank you for your loyalty! After ${n >= 4 ? "your next" : `${next} more`} booking${next === 1 ? "" : "s"} you’ll unlock a <b>5% Loyalty Discount</b>.`;
-  }
-
-  return `
-    <div style="background:#fff6e9;border:1px solid #f0dfc1;border-radius:12px;padding:12px 14px;margin:12px 0;">
-      <b>Thank you for your loyalty!</b><br/>
-      ${line}
-    </div>`;
-}
-
-function confirmationHtml(p: {
-  firstName: string; name: string; date: string; time: string; guests: number; cancelUrl: string;
-  loyaltyCount?: number;
-}) {
-  const header = emailHeader(MAIL_LOGO_URL);
-  const loyalty = typeof p.loyaltyCount === "number" ? loyaltySnippet(p.loyaltyCount) : "";
-  return `
-  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
-    ${header}
-    <h2 style="text-align:center;margin:6px 0 14px 0;">Your Reservation at ${BRAND_NAME}</h2>
-    <p>Hi ${p.firstName} ${p.name},</p>
-    <p>Thank you for your reservation. We look forward to welcoming you.</p>
-    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
-      <p style="margin:0;"><b>Date</b> ${p.date}</p>
-      <p style="margin:0;"><b>Time</b> ${p.time}</p>
-      <p style="margin:0;"><b>Guests</b> ${p.guests}</p>
-      <p style="margin:0;"><b>Address</b> ${VENUE_ADDRESS}</p>
-    </div>
-    ${loyalty}
-    <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
-      <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
-    </div>
-    <p style="margin-top:18px;text-align:center;">
-      <a href="${p.cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a>
-    </p>
-    <p style="margin-top:16px;font-size:14px;text-align:center;">Warm regards from <b>${BRAND_NAME}</b></p>
-  </div>`;
-}
-
-function canceledGuestHtml(p: { firstName: string; name: string; date: string; time: string; guests: number; rebookUrl: string; }) {
-  const header = emailHeader(MAIL_LOGO_URL);
-  return `
-  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
-    ${header}
-    <h2 style="text-align:center;margin:6px 0 14px 0;">We’ll miss you this round 😢</h2>
-    <p>Hi ${p.firstName} ${p.name},</p>
-    <p>Your reservation for <b>${p.guests}</b> on <b>${p.date}</b> at <b>${p.time}</b> has been canceled.</p>
-    <p style="text-align:center;margin:16px 0;">
-      <a href="${p.rebookUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Book your comeback</a>
-    </p>
-    <p>With warm regards,<br/><b>${BRAND_NAME}</b></p>
-  </div>`;
-}
-
-function canceledAdminHtml(p: { firstName: string; lastName: string; email: string; phone: string; guests: number; date: string; time: string; notes: string; }) {
-  const header = emailHeader(MAIL_LOGO_URL);
-  return `
-  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
-    ${header}
-    <h2 style="text-align:center;margin:6px 0 8px 0;">Reservation canceled</h2>
-    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
-      <p style="margin:0;"><b>Guest</b> ${p.firstName} ${p.lastName} (${p.email})</p>
-      <p style="margin:0;"><b>Phone</b> ${p.phone || "-"}</p>
-      <p style="margin:0;"><b>Date</b> ${p.date} &nbsp; <b>Time</b> ${p.time}</p>
-      <p style="margin:0;"><b>Guests</b> ${p.guests}</p>
-      <p style="margin:0;"><b>Notes</b> ${p.notes || "-"}</p>
-    </div>
-    <p style="text-align:center;margin-top:10px;"><b>${BRAND_NAME}</b></p>
-  </div>`;
-}
-
-/* ─────────────────────────────── Pages ─────────────────────────────────── */
-app.get("/", (_req: Request, res: Response) => res.sendFile(path.join(publicDir, "index.html")));
-app.get("/admin", (_req: Request, res: Response) => res.sendFile(path.join(publicDir, "admin.html")));
-
-/* ─────────────────────────── Public Config ─────────────────────────────── */
-app.get("/api/config", (_req: Request, res: Response) => {
+app.get("/api/config", (_req: Req, res: Res) => {
   res.json({
-    brand: BRAND_NAME,
+    brandName: BRAND_NAME,
     address: VENUE_ADDRESS,
-    phone: VENUE_PHONE,
     email: VENUE_EMAIL,
-    maxOnlineGuests: MAX_ONLINE_GUESTS,
-    mailLogoUrl: MAIL_LOGO_URL,
+    phone: VENUE_PHONE,
+    tz: TZ,
+    sundayClosed: SUNDAY_CLOSED,
     mailHeaderUrl: MAIL_HEADER_URL,
+    mailLogoUrl: MAIL_LOGO_URL || PUBLIC_LOGO_URL,
+    maxOnlineGuests: 10,
   });
 });
 
-/* ───────────────────────────── Notices API ───────────────────────────── */
-async function activeNoticeFor(dateYmd: string) {
-  const { y, m, d } = splitYmd(dateYmd);
-  const startOfDay = localDate(y, m, d, 0, 0, 0);
-  const endOfDay = localDate(y, m, d, 23, 59, 59);
+app.get("/api/notices", async (req: Req, res: Res) => {
+  const date = normalizeYmd(toStr(req.query?.date ?? ""));
+  if (!date) return res.json([]);
+  const startOfDay = new Date(`${date}T00:00:00`);
+  const endOfDay = addHours(startOfDay, 24);
 
-  return prisma.notice.findFirst({
+  const list = await prisma.notice.findMany({
     where: {
       active: true,
-      startDate: { lte: endOfDay },
-      endDate: { gte: startOfDay },
+      startTs: { lte: endOfDay },
+      endTs: { gte: startOfDay },
     },
-    orderBy: { startDate: "desc" },
+    orderBy: { startTs: "desc" },
   });
-}
-
-// Public: aktive Notice für ein Datum (?date=YYYY-MM-DD)
-app.get("/api/notices", async (req: Request, res: Response) => {
-  const date = normalizeYmd(String(req.query.date || ""));
-  if (!date) return res.json(null);
-  const n = await activeNoticeFor(date);
-  res.json(n);
-});
-
-// Admin: Liste
-app.get("/api/admin/notices", async (_req: Request, res: Response) => {
-  const list = await prisma.notice.findMany({ orderBy: { createdAt: "desc" } });
   res.json(list);
 });
 
-// Admin: Anlegen
-app.post("/api/admin/notices", async (req: Request, res: Response) => {
-  const { startTs, endTs, title, message, active, requireAck } = req.body || {};
-  const s = new Date(String(startTs).replace(" ", "T"));
-  const e = new Date(String(endTs).replace(" ", "T"));
-  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) {
+app.get("/api/slots", async (req: Req, res: Res) => {
+  const date = normalizeYmd(toStr(req.query?.date ?? ""));
+  const guests = Math.min(10, Math.max(1, toNum(req.query?.guests ?? 1)));
+  if (!date) return res.json([]);
+
+  const slots = listSlotsForDate(date);
+  const result = [];
+
+  for (const s of slots) {
+    const closedReason = await isClosedAt(date, s.time);
+    if (closedReason) {
+      result.push({ time: s.time, canReserve: false, reason: closedReason });
+      continue;
+    }
+    const taken = await seatsTakenAt(date, s.time);
+    const left = Math.max(0, ONLINE_SEATS_CAP - taken);
+    result.push({
+      time: s.time,
+      canReserve: left >= guests,
+      reason: left >= guests ? "" : "Fully booked at this time",
+    });
+  }
+  res.json(result);
+});
+
+app.post("/api/reservations", async (req: Req, res: Res) => {
+  const b = req.body as any;
+  const date = normalizeYmd(toStr(b?.date ?? ""));
+  const time = toStr(b?.time ?? "");
+  const firstName = toStr(b?.firstName ?? "");
+  const name = toStr(b?.name ?? "");
+  const email = toStr(b?.email ?? "");
+  const phone = b?.phone ? toStr(b.phone) : null;
+  const guests = Math.min(10, Math.max(1, toNum(b?.guests ?? 1)));
+  const notes = toStr(b?.notes ?? "");
+
+  if (!date || !time || !firstName || !name || !email) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+
+  const closed = await isClosedAt(date, time);
+  if (closed) return res.status(409).json({ error: closed });
+
+  const taken = await seatsTakenAt(date, time);
+  if (taken + guests > ONLINE_SEATS_CAP) {
+    return res.status(409).json({ error: "Fully booked at this time. Please select another slot." });
+  }
+
+  const cancelToken = nanoid(24);
+  const r = await prisma.reservation.create({
+    data: {
+      id: nanoid(16),
+      date,
+      time,
+      firstName,
+      name,
+      email,
+      phone,
+      guests,
+      notes,
+      status: "confirmed",
+      isWalkIn: false,
+      cancelToken,
+    },
+  });
+
+  // Mailversand: hier könntest du deinen mailsender verwenden
+  // (Aus Stabilitätsgründen schicken wir in diesem Minimalserver nichts)
+
+  res.json({ ok: true, id: r.id });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Admin: Reservations Übersicht
+
+app.get("/api/admin/reservations", async (req: Req, res: Res) => {
+  const base = normalizeYmd(toStr(req.query?.date ?? ""));
+  const view = toStr(req.query?.view ?? "week"); // day|week|month
+  if (!base) return res.json([]);
+
+  const start = new Date(`${base}T00:00:00`);
+  let end = addHours(start, 24);
+  if (view === "week") end = addHours(start, 24 * 7);
+  if (view === "month") end = addHours(start, 24 * 31);
+
+  const list = await prisma.reservation.findMany({
+    where: { date: { gte: format(start, "yyyy-MM-dd"), lte: format(end, "yyyy-MM-dd") } },
+    orderBy: [{ date: "asc" }, { time: "asc" }],
+  });
+  res.json(list);
+});
+
+app.delete("/api/admin/reservations/:id", async (req: Req, res: Res) => {
+  const id = toStr(req.params?.id ?? "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  await prisma.reservation.delete({ where: { id } }).catch(() => undefined);
+  res.json({ ok: true });
+});
+
+app.post("/api/admin/reservations/:id/noshow", async (req: Req, res: Res) => {
+  const id = toStr(req.params?.id ?? "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  await prisma.reservation.update({ where: { id }, data: { status: "no-show" } }).catch(() => undefined);
+  res.json({ ok: true });
+});
+
+// Walk-in
+app.post("/api/admin/walkin", async (req: Req, res: Res) => {
+  const b = req.body as any;
+  const date = normalizeYmd(toStr(b?.date ?? ""));
+  const time = toStr(b?.time ?? "");
+  const guests = Math.max(1, toNum(b?.guests ?? 1));
+  const notes = toStr(b?.notes ?? "");
+
+  if (!date || !time) return res.status(400).json({ error: "Missing date/time" });
+
+  const taken = await seatsTakenAt(date, time);
+  if (taken + guests > MAX_SEATS_TOTAL) {
+    return res.status(409).json({ error: "Capacity exceeded" });
+  }
+
+  await prisma.reservation.create({
+    data: {
+      id: nanoid(16),
+      date,
+      time,
+      firstName: "Walk",
+      name: "In",
+      email: "walkin@noxama.local",
+      phone: null,
+      guests,
+      notes,
+      status: "confirmed",
+      isWalkIn: true,
+      cancelToken: nanoid(24),
+    },
+  });
+
+  res.json({ ok: true });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Admin: Closures
+
+app.get("/api/admin/closure", async (_req: Req, res: Res) => {
+  const list = await prisma.closure.findMany({ orderBy: { startTs: "desc" } });
+  res.json(list);
+});
+
+app.post("/api/admin/closure", async (req: Req, res: Res) => {
+  const b = req.body as any;
+  const startTs = new Date(toStr(b?.startTs ?? ""));
+  const endTs = new Date(toStr(b?.endTs ?? ""));
+  const reason = toStr(b?.reason ?? "Closed");
+  if (!(startTs instanceof Date) || isNaN(startTs.getTime()) || !(endTs instanceof Date) || isNaN(endTs.getTime())) {
+    return res.status(400).json({ error: "Invalid datetime" });
+  }
+  await prisma.closure.create({ data: { id: nanoid(12), startTs, endTs, reason } });
+  res.json({ ok: true });
+});
+
+app.delete("/api/admin/closure/:id", async (req: Req, res: Res) => {
+  const id = toStr(req.params?.id ?? "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  await prisma.closure.delete({ where: { id } }).catch(() => undefined);
+  res.json({ ok: true });
+});
+
+app.post("/api/admin/closure/day", async (req: Req, res: Res) => {
+  const b = req.body as any;
+  const day = normalizeYmd(toStr(b?.date ?? ""));
+  const reason = toStr(b?.reason ?? "Closed");
+  if (!day) return res.status(400).json({ error: "Missing day" });
+
+  const startTs = new Date(`${day}T00:00:00`);
+  const endTs = addHours(startTs, 24);
+  await prisma.closure.create({ data: { id: nanoid(12), startTs, endTs, reason } });
+  res.json({ ok: true });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Admin: Notices
+
+app.get("/api/admin/notices", async (_req: Req, res: Res) => {
+  const list = await prisma.notice.findMany({ orderBy: { startTs: "desc" } });
+  res.json(list);
+});
+
+app.post("/api/admin/notices", async (req: Req, res: Res) => {
+  const b = req.body as any;
+  const startTs = new Date(toStr(b?.startTs ?? ""));
+  const endTs = new Date(toStr(b?.endTs ?? ""));
+  const title = toStr(b?.title ?? "");
+  const message = toStr(b?.message ?? "");
+  const active = !!b?.active;
+  const requireAck = !!b?.requireAck;
+
+  if (!(startTs instanceof Date) || isNaN(startTs.getTime()) || !(endTs instanceof Date) || isNaN(endTs.getTime())) {
     return res.status(400).json({ error: "Invalid data" });
   }
   const n = await prisma.notice.create({
-    data: {
-      startDate: s,
-      endDate: e,
-      title: String(title),
-      message: String(message || ""),
-      active: !!active,
-      requireAck: !!requireAck,
-    },
+    data: { id: nanoid(12), startTs, endTs, title, message, active, requireAck },
   });
   res.json(n);
 });
 
-// Admin: Ändern (teilweise)
-app.patch("/api/admin/notices/:id", async (req: Request, res: Response) => {
-  const id = String(req.params.id);
-  const data: any = {};
-  for (const k of ["title", "message", "active", "requireAck"]) {
-    if (k in req.body) data[k] = req.body[k];
-  }
-  if ("startTs" in req.body) data.startDate = new Date(String(req.body.startTs).replace(" ", "T"));
-  if ("endTs" in req.body) data.endDate = new Date(String(req.body.endTs).replace(" ", "T"));
-
-  const n = await prisma.notice.update({ where: { id }, data });
+app.patch("/api/admin/notices/:id", async (req: Req, res: Res) => {
+  const id = toStr(req.params?.id ?? "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  const patch: Record<string, any> = {};
+  const allowed = ["title", "message", "active", "requireAck", "startTs", "endTs"] as const;
+  for (const k of allowed) if (k in (req.body || {})) patch[k] = (req.body as any)[k];
+  if ("startTs" in patch) patch.startTs = new Date(toStr(patch.startTs));
+  if ("endTs" in patch) patch.endTs = new Date(toStr(patch.endTs));
+  const n = await prisma.notice.update({ where: { id }, data: patch });
   res.json(n);
 });
 
-// Admin: Löschen
-app.delete("/api/admin/notices/:id", async (req: Request, res: Response) => {
-  await prisma.notice.delete({ where: { id: String(req.params.id) } });
+app.delete("/api/admin/notices/:id", async (req: Req, res: Res) => {
+  const id = toStr(req.params?.id ?? "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+  await prisma.notice.delete({ where: { id } }).catch(() => undefined);
   res.json({ ok: true });
 });
-/* ─────────────────────────── end Notices API ─────────────────────────── */
 
-/* ───────────────────────────── Slots API ───────────────────────────────── */
-app.get("/api/slots", async (req: Request, res: Response) => {
-  const date = normalizeYmd(String(req.query.date || ""));
-  const guests = Number(req.query.guests || 1);
-  if (!date) return res.json([]);
+// ──────────────────────────────────────────────────────────────────────────────
+// Export (Excel)
 
-  const times = slotListForDay();
-  const out: any[] = [];
+app.get("/api/export", async (req: Req, res: Res) => {
+  const period = toStr(req.query?.period ?? "weekly"); // daily|weekly|monthly|yearly
+  const base = normalizeYmd(toStr(req.query?.date ?? ""));
+  if (!base) return res.status(400).send("Missing date");
 
-  let anyReservable = false;
-  for (const t of times) {
-    const allow = await slotAllowed(date, t);
-    if (!allow.ok) {
-      out.push({ time: t, canReserve: false, allowed: false, reason: allow.reason, left: 0 });
-      continue;
-    }
-    const sums = await sumsForInterval(date, allow.start!, allow.end!);
-    const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
-    const canReserve = leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
-    if (canReserve) anyReservable = true;
-    out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
-  }
+  const start = new Date(`${base}T00:00:00`);
+  let end = addHours(start, 24);
+  if (period === "weekly") end = addHours(start, 24 * 7);
+  if (period === "monthly") end = addHours(start, 24 * 31);
+  if (period === "yearly") end = addHours(start, 24 * 366);
 
-  // Falls komplett geblockt, differenziere Grund
-  if (out.every(s => !s.allowed)) {
-    const sunday = SUNDAY_CLOSED && isSunday(date);
-    if (sunday) {
-      out.forEach(s => s.reason = "Closed on Sunday");
-    } else {
-      out.forEach(s => { if (s.reason === "Blocked" || s.reason == null) s.reason = "Fully booked for this date. Please choose another day."; });
-    }
-  }
+  const rows = await prisma.reservation.findMany({
+    where: { date: { gte: format(start, "yyyy-MM-dd"), lte: format(end, "yyyy-MM-dd") } },
+    orderBy: [{ date: "asc" }, { time: "asc" }],
+  });
 
-  res.json(out);
+  const sheetRows = rows.map((r) => ({
+    Date: r.date,
+    Time: r.time,
+    FirstName: r.firstName,
+    LastName: r.name,
+    Email: r.email,
+    Phone: r.phone || "",
+    Guests: r.guests,
+    Status: r.status,
+    Notes: r.notes || "",
+    WalkIn: r.isWalkIn ? "yes" : "",
+    CreatedAt: r.createdAt ? format(r.createdAt as any, "yyyy-MM-dd HH:mm") : "",
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(sheetRows);
+  XLSX.utils.book_append_sheet(wb, ws, "Reservations");
+
+  const fname = `reservations_${format(start, "yyyyMMdd")}_${period}.xlsx`;
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
+  res.send(buf);
 });
 
-/* ────────────────────────── Online-Reservierung ───────────────────────── */
-app.post("/api/reservations", async (req: Request, res: Response) => {
-  try {
-    const { date, time, firstName, name, email, phone, guests, notes } = req.body;
-    const g = Number(guests || 0);
-    if (!date || !time || !firstName || !name || !email || !g || g < 1)
-      return res.status(400).json({ error: "Missing or invalid fields" });
-    if (g > MAX_ONLINE_GUESTS)
-      return res.status(400).json({ error: `Online bookings are limited to ${MAX_ONLINE_GUESTS} guests. Please contact us directly.` });
-
-    const allow = await slotAllowed(String(date), String(time));
-    if (!allow.ok) return res.status(400).json({ error: allow.reason || "Not available" });
-
-    const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
-    const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
-    if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
-    if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached at this time." });
-
-    // Loyalty: Anzahl bestätigter historischer Buchungen des Gastes (email)
-    const past = await prisma.reservation.count({
-      where: { email: String(email), status: "confirmed" },
-    });
-    const loyaltyCount = past + 1; // inkl. dieser Buchung
-
-    const token = nanoid();
-    const created = await prisma.reservation.create({
-      data: {
-        date: allow.norm!, time,
-        startTs: allow.start!, endTs: allow.end!,
-        firstName, name, email,
-        phone: String(phone || ""), guests: g, notes: String(notes || ""),
-        status: "confirmed", cancelToken: token, isWalkIn: false,
-      },
-    });
-
-    // Guest mail
-    const cancelUrl = `${BASE_URL}/cancel/${token}`;
-    const html = confirmationHtml({
-      firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests, cancelUrl,
-      loyaltyCount,
-    });
-    try { await sendMail(created.email, `${BRAND_NAME} — Reservation #${loyaltyCount}`, html); } catch (e) { console.error("mail guest", e); }
-
-    // Admin notice
-    if (ADMIN_TO) {
-      const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
-        <p><b>New reservation</b></p>
-        <p>${created.date} ${created.time} — ${created.guests}p — ${created.firstName} ${created.name} (${created.email})</p>
-      </div>`;
-      try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
-    }
-
-    res.json({ ok: true, reservation: created });
-  } catch (err) {
-    console.error("reservation error:", err);
-    res.status(500).json({ error: "Failed to create reservation" });
-  }
+// ──────────────────────────────────────────────────────────────────────────────
+// Start
+app.listen(PORT, () => {
+  console.log(`Server running on ${PORT}`);
 });
-
-/* ─────────────────────────────── Cancel ────────────────────────────────── */
-app.get("/cancel/:token", async (req: Request, res: Response) => {
-  const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
-  if (!r) return res.status(404).send("Not found");
-
-  const already = r.status === "canceled";
-  if (!already) {
-    await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
-
-    // guest
-    if (r.email && r.email !== "walkin@noxama.local") {
-      const gHtml = canceledGuestHtml({
-        firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests, rebookUrl: `${BASE_URL}/`,
-      });
-      try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch {}
-    }
-    // admin
-    if (ADMIN_TO) {
-      const aHtml = canceledAdminHtml({
-        firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
-        guests: r.guests, date: r.date, time: r.time, notes: r.notes || "",
-      });
-      try { await sendMail(ADMIN_TO, `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`, aHtml); } catch {}
-    }
-  }
-  res.sendFile(path.join(publicDir, "cancelled.html"));
-});
-
-/* ───────────────────────────── Admin: Liste ────────────────────────────── */
-app.get("/api/admin/reservations", async (req: Request, res: Response) => {
-  const date = normalizeYmd(String(req.query.date || ""));
-  const view = String(req.query.view || "day");
-
-  let list: any[] = [];
-  if (view === "week" && date) {
-    const base = new Date(`${date}T00:00:00`);
-    const from = new Date(base);
-    const to = new Date(base); to.setDate(to.getDate() + 7);
-    list = await prisma.reservation.findMany({
-      where: { startTs: { gte: from, lt: to } },
-      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
-    });
-  } else if (view === "month" && date) {
-    const base = new Date(`${date}T00:00:00`);
-    const from = new Date(base);
-    const to = new Date(base); to.setMonth(to.getMonth() + 1);
-    list = await prisma.reservation.findMany({
-      where: { startTs: { gte: from, lt: to } },
-      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
-    });
-  } else {
-    const where: any = date ? { date } : {};
-    list = await prisma.reservation.findMany({ where, orderBy: [{ date: "asc" }, { time: "asc" }] });
-  }
-  res.json(list);
-});
-app.delete("/api/admin/reservations/:id", async (req: Request, res: Response) => {
-  await prisma.reservation.delete({ where: { id: req.params.id } });
-  res.json({ ok: true });
-});
-app.post("/api/admin/reservations/:id/noshow", async (req: Request, res: Response) => {
-  const r = await prisma.reservation.update({ where: { id: req.params.id }, data: { status: "noshow" } });
-  res.json(r);
-});
-
-/* ───────────────────────────── Admin: Walk-in ──────────────────────────── */
-app.post("/api/admin/walkin", async (req: Request, res: Response) => {
-  try {
-    const { date, time, guests, notes } = req.body;
-    const g = Number(guests || 0);
-    if (!date || !time || !g || g < 1) return res.status(400).json({ error: "Invalid input" });
-
-    const norm = normalizeYmd(String(date));
-    const allow = await slotAllowed(norm, String(time));
-
-    let startTs: Date, endTs: Date, open: Date, close: Date;
-    if (allow.ok) {
-      startTs = allow.start!; endTs = allow.end!; open = allow.open!; close = allow.close!;
-    } else {
-      const start = localDateFrom(norm, String(time));
-      const { y, m, d } = splitYmd(norm);
-      open = localDate(y, m, d, OPEN_HOUR, 0, 0);
-      close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
-      if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
-      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
-      startTs = start; endTs = addMinutes(start, minutes); if (endTs > close) endTs = close;
-    }
-
-    const sums = await sumsForInterval(norm, startTs, endTs);
-    if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached" });
-
-    const r = await prisma.reservation.create({
-      data: {
-        date: norm, time: String(time), startTs, endTs,
-        firstName: "Walk", name: "In", email: "walkin@noxama.local", phone: "",
-        guests: g, notes: String(notes || ""), status: "confirmed", cancelToken: nanoid(), isWalkIn: true,
-      },
-    });
-
-    res.json(r);
-  } catch (err) {
-    console.error("walkin error:", err);
-    res.status(500).json({ error: "Failed to save walk-in" });
-  }
-});
-
-/* ───────────────────────────── Admin: Closures ─────────────────────────── */
-app.post("/api/admin/closure", async (req: Request, res: Response) => {
-  try {
-    const { startTs, endTs, reason } = req.body;
-    const s = new Date(String(startTs).replace(" ", "T"));
-    const e = new Date(String(endTs).replace(" ", "T"));
-    if (isNaN(s.getTime()) || isNaN(e.getTime())) return res.status(400).json({ error: "Invalid time range" });
-    if (e <= s) return res.status(400).json({ error: "End must be after start" });
-    const c = await prisma.closure.create({ data: { startTs: s, endTs: e, reason: String(reason || "Closed") } });
-    res.json(c);
-  } catch (err) {
-    console.error("Create closure error:", err);
-    res.status(500).json({ error: "Failed to create block" });
-  }
-});
-app.post("/api/admin/closure/day", async (req: Request, res: Response) => {
-  try {
-    const date = normalizeYmd(String(req.body.date || ""));
-    if (!date) return res.status(400).json({ error: "Invalid date" });
-    const { y, m, d } = splitYmd(date);
-    const s = localDate(y, m, d, OPEN_HOUR, 0, 0);
-    const e = localDate(y, m, d, CLOSE_HOUR, 0, 0);
-    const reason = String(req.body.reason || "Closed");
-    const c = await prisma.closure.create({ data: { startTs: s, endTs: e, reason } });
-    res.json(c);
-  } catch (err) {
-    console.error("Block day error:", err);
-    res.status(500).json({ error: "Failed to block day" });
-  }
-});
-app.get("/api/admin/closure", async (_req: Request, res: Response) => {
-  try {
-    const list = await prisma.closure.findMany({ orderBy: { startTs: "desc" } });
-    res.json(list);
-  } catch (err) {
-    console.error("List closure error:", err);
-    res.status(500).json({ error: "Failed to load blocks" });
-  }
-});
-app.delete("/api/admin/closure/:id", async (req: Request, res: Response) => {
-  try { await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok: true }); }
-  catch (err) { console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
-});
-
-/* ───────────────────────────── Admin: Reset ────────────────────────────── */
-app.post("/api/admin/reset", async (req: Request, res: Response) => {
-  try {
-    const { key } = req.body || {};
-    if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
-    await prisma.reservation.deleteMany({});
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("reset error:", err);
-    res.status(500).json({ error: "Failed to reset" });
-  }
-});
-
-/* ───────────────────────────────── Export ──────────────────────────────── */
-app.get("/api/export", async (req: Request, res: Response) => {
-  try {
-    const period = String(req.query.period || "weekly");
-    const date = normalizeYmd(String(req.query.date || ""));
-    const base = date ? new Date(date + "T00:00:00") : new Date();
-    const from = new Date(base);
-    const to = new Date(base);
-
-    switch (period) {
-      case "daily": to.setDate(to.getDate() + 1); break;
-      case "weekly": to.setDate(to.getDate() + 7); break;
-      case "monthly": to.setMonth(to.getMonth() + 1); break;
-      case "yearly": to.setFullYear(to.getFullYear() + 1); break;
-      default: to.setDate(to.getDate() + 7); break;
-    }
-
-    const list = await prisma.reservation.findMany({
-      where: { startTs: { gte: from, lt: to } },
-      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
-    });
-
-    const rows = list.map(r => ({
-      Date: r.date, Time: r.time,
-      FirstName: r.firstName, LastName: r.name,
-      Email: r.email, Phone: r.phone || "",
-      Guests: r.guests, Status: r.status,
-      Notes: r.notes || "", WalkIn: r.isWalkIn ? "yes" : "",
-      CreatedAt: r.createdAt ? format(r.createdAt as any, "yyyy-MM-dd HH:mm") : "",
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Reservations");
-
-    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-    const fname = `reservations_${format(from, "yyyyMMdd")}_${period}.xlsx`;
-    res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.send(buf);
-  } catch (err) {
-    console.error("Export error:", err);
-    res.status(500).json({ error: "Export failed" });
-  }
-});
-
-/* ───────────────────────────── Reminder Job ────────────────────────────── */
-setInterval(async () => {
-  try {
-    const now = new Date();
-    const from = addHours(now, 24);
-    const to = addHours(now, 25);
-    const list = await prisma.reservation.findMany({
-      where: { status: "confirmed", isWalkIn: false, reminderSent: false, startTs: { gte: from, lt: to } },
-    });
-    for (const r of list) {
-      const html = confirmationHtml({
-        firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests,
-        cancelUrl: `${BASE_URL}/cancel/${r.cancelToken}`,
-        loyaltyCount: undefined,
-      });
-      try {
-        await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html);
-        await prisma.reservation.update({ where: { id: r.id }, data: { reminderSent: true } });
-      } catch (e) { console.error("reminder mail", e); }
-    }
-  } catch (e) { console.error("reminder job", e); }
-}, 30 * 60 * 1000);
-
-/* ───────────────────────────────── Start ───────────────────────────────── */
-async function start() {
-  await prisma.$connect();
-  try { await transporter.verify(); } catch (e) { console.warn("SMTP verify failed:", (e as Error).message); }
-  app.listen(PORT, "0.0.0.0", () => console.log(`Server running on ${PORT}`));
-}
-start().catch(err => { console.error("Fatal start error", err); process.exit(1); });
