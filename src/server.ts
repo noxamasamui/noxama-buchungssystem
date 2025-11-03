@@ -130,17 +130,14 @@ app.get("/", (_req,res)=>res.sendFile(path.join(publicDir,"index.html")));
 app.get("/admin", (_req,res)=>res.sendFile(path.join(publicDir,"admin.html")));
 
 // ---------------- Public Config ----------------
-app.get("/api/config", (_req,res)=>{
+app.get("/api/config", (_req, res) => {
   res.json({
-    brand: BRAND_NAME,
-    address: process.env.VENUE_ADDRESS || "",
-    phone: process.env.VENUE_PHONE || "",
-    email: process.env.VENUE_EMAIL || "",
-    logo: process.env.MAIL_LOGO_URL || "/logo.png",
-    isSundayClosed: SUNDAY_CLOSED,
-    openHour: OPEN_HOUR,
-    closeHour: CLOSE_HOUR,
-    maxOnlineGuests: MAX_ONLINE_GUESTS,
+    brand: process.env.BRAND_NAME || "RÖSTILAND BY NOXAMA SAMUI",
+    address: process.env.VENUE_ADDRESS || "Moo 4 Lamai Beach, 84310 Suratthani, Thailand",
+    phone: process.env.VENUE_PHONE || "+66 077 270 675",
+    email: process.env.VENUE_EMAIL || "info@noxamasamui.com",
+    maxOnlineGuests: Number(process.env.MAX_ONLINE_GUESTS || 10),
+    mailLogoUrl: process.env.MAIL_LOGO_URL || "/logo-hero.png"
   });
 });
 
