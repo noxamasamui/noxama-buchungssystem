@@ -3,7 +3,7 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import { PrismaClient, type Notice, type Reservation } from "@prisma/client";
+import { PrismaClient, type Reservation, type Notice } from "@prisma/client";
 import { nanoid } from "nanoid";
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
@@ -14,10 +14,11 @@ import {
   differenceInMinutes,
   format
 } from "date-fns";
+import { execSync } from "node:child_process";
 
 dotenv.config();
 
-/* ───────────────────────────── Node __dirname fix (ESM) ─────────────────────────── */
+/* ───────────────────────────── Node ESM __dirname ─────────────────────── */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -40,13 +41,13 @@ const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
 const VENUE_EMAIL = process.env.VENUE_EMAIL || "info@noxamasamui.com";
 
 const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "/logo-hero.png";
-const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || ""; // optional Banner 1200x400
+const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";
 const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
 const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15); // Minuten pro Slot
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
@@ -62,11 +63,7 @@ const ADMIN_TO =
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
 
-/* ────────────────────────────── Mailer (SMTP) ──────────────────────────── */
-type Mailer = {
-  sendMail: (args: { to: string; subject: string; html: string }) => Promise<void>;
-};
-
+/* ────────────────────────────── Mailer ─────────────────────────────────── */
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 465),
@@ -76,30 +73,14 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS
   }
 });
-
-const mailer: Mailer = {
-  async sendMail({ to, subject, html }) {
-    await transporter.sendMail({
-      from: `"${FROM_NAME}" <${FROM_ADDR}>`,
-      to,
-      subject,
-      html
-    });
-  }
-};
+async function sendMail(to: string, subject: string, html: string) {
+  await transporter.sendMail({ from: `"${FROM_NAME}" <${FROM_ADDR}>`, to, subject, html });
+}
 
 /* ───────────────────────────────── Helpers ─────────────────────────────── */
-function num(v: unknown, fb: number): number {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fb;
-}
-function strBool(v: unknown, fb = false): boolean {
-  if (v == null) return fb;
-  return String(v).trim().toLowerCase() === "true";
-}
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
+function num(v: unknown, fb: number) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
+function strBool(v: unknown, fb = false) { if (v==null) return fb; return String(v).trim().toLowerCase()==="true"; }
+function pad2(n: number){ return String(n).padStart(2,"0"); }
 
 function normalizeYmd(input: string): string {
   const s = String(input || "").trim();
@@ -110,43 +91,19 @@ function normalizeYmd(input: string): string {
   }
   const d = new Date(s);
   if (!isNaN(d.getTime()))
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   return "";
 }
-function splitYmd(ymd: string): { y: number; m: number; d: number } {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return { y, m, d };
-}
-function localDate(y: number, m: number, d: number, hh = 0, mm = 0, ss = 0): Date {
-  return new Date(y, m - 1, d, hh, mm, ss);
-}
-function localDateFrom(ymd: string, hhmm: string): Date {
-  const { y, m, d } = splitYmd(ymd);
-  const [hh, mm] = hhmm.split(":").map(Number);
-  return localDate(y, m, d, hh, mm, 0);
-}
-function isSunday(ymd: string): boolean {
-  const { y, m, d } = splitYmd(ymd);
-  return localDate(y, m, d).getDay() === 0;
-}
+function splitYmd(ymd: string){ const [y,m,d] = ymd.split("-").map(Number); return {y,m,d}; }
+function localDate(y:number,m:number,d:number,hh=0,mm=0,ss=0){ return new Date(y, m-1, d, hh, mm, ss); }
+function localDateFrom(ymd:string, hhmm:string){ const {y,m,d}=splitYmd(ymd); const [hh,mm]=hhmm.split(":").map(Number); return localDate(y,m,d,hh,mm,0); }
+function isSunday(ymd:string){ const {y,m,d}=splitYmd(ymd); return localDate(y,m,d).getDay()===0; }
 
-function slotListForDay(): string[] {
-  const out: string[] = [];
-  for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) {
-    for (let m = 0; m < 60; m += SLOT_INTERVAL) {
-      out.push(`${pad2(h)}:${pad2(m)}`);
-    }
-  }
-  return out;
-}
-
-function capacityOnlineLeft(reserved: number, walkins: number): number {
-  const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER);
-  return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
-}
+function slotListForDay(){ const out:string[]=[]; for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++){ for(let m=0;m<60;m+=SLOT_INTERVAL){ out.push(`${pad2(h)}:${pad2(m)}`); } } return out; }
+function capacityOnlineLeft(reserved:number, walkins:number){ const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER); return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins); }
 
 /* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
-async function overlapping(dateYmd: string, start: Date, end: Date): Promise<Reservation[]> {
+async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
     where: {
       date: dateYmd,
@@ -157,43 +114,41 @@ async function overlapping(dateYmd: string, start: Date, end: Date): Promise<Res
 }
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const list = await overlapping(dateYmd, start, end);
-  const reserved = list.filter(r => !r.isWalkIn).reduce((s, r) => s + r.guests, 0);
-  const walkins = list.filter(r => r.isWalkIn).reduce((s, r) => s + r.guests, 0);
+  const reserved = list.filter(r=>!r.isWalkIn).reduce((s,r)=>s+r.guests,0);
+  const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
-function slotDuration(date: string, time: string): number {
-  const t = localDateFrom(date, time);
+function slotDuration(date:string, time:string){
+  const t = localDateFrom(date,time);
   const next = addMinutes(t, SLOT_INTERVAL);
   return differenceInMinutes(next, t);
 }
 
-/* ───────────────────────────── Slot-Erlaubnis ─────────────────────────── */
-async function slotAllowed(date: string, time: string) {
+/* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
+async function slotAllowed(date: string, time: string){
   const norm = normalizeYmd(date);
-  if (!norm) return { ok: false as const, reason: "Invalid date" as const };
-  if (SUNDAY_CLOSED && isSunday(norm)) return { ok: false as const, reason: "Closed on Sunday" as const };
+  if(!norm) return { ok:false as const, reason:"Invalid date" as const };
+  if(SUNDAY_CLOSED && isSunday(norm)) return { ok:false as const, reason:"Closed on Sunday" as const };
 
   const start = localDateFrom(norm, time);
-  if (isNaN(start.getTime())) return { ok: false as const, reason: "Invalid time" as const };
+  if(isNaN(start.getTime())) return { ok:false as const, reason:"Invalid time" as const };
   const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
   const end = addMinutes(start, minutes);
 
-  const { y, m, d } = splitYmd(norm);
-  const open = localDate(y, m, d, OPEN_HOUR, 0, 0);
-  const close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
-  if (start < open) return { ok: false as const, reason: "Before opening" as const };
-  if (end > close) return { ok: false as const, reason: "After closing" as const };
+  const {y,m,d}=splitYmd(norm);
+  const open  = localDate(y,m,d, OPEN_HOUR, 0, 0);
+  const close = localDate(y,m,d, CLOSE_HOUR,0, 0);
+  if(start < open) return { ok:false as const, reason:"Before opening" as const };
+  if(end   > close) return { ok:false as const, reason:"After closing" as const };
 
-  const blocked = await prisma.closure.findFirst({
-    where: { AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }] }
-  });
-  if (blocked) return { ok: false as const, reason: "Blocked" as const };
+  const blocked = await prisma.closure.findFirst({ where: { AND: [{ startTs: { lt:end } }, { endTs: { gt:start } }] } });
+  if(blocked) return { ok:false as const, reason:"Blocked" as const };
 
-  return { ok: true as const, norm, start, end, open, close, minutes };
+  return { ok:true as const, norm, start, end, open, close, minutes };
 }
 
 /* ───────────────────────────── Mail-Templates ─────────────────────────── */
-function emailHeader(logoUrl: string) {
+function emailHeader(logoUrl:string){
   if (MAIL_HEADER_URL) {
     return `
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -211,14 +166,7 @@ function emailHeader(logoUrl: string) {
     </div>`;
 }
 
-function confirmationHtml(p: {
-  firstName: string;
-  name: string;
-  date: string;
-  time: string;
-  guests: number;
-  cancelUrl: string;
-}) {
+function confirmationHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;cancelUrl:string;}){
   const header = emailHeader(MAIL_LOGO_URL);
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
@@ -242,14 +190,7 @@ function confirmationHtml(p: {
   </div>`;
 }
 
-function canceledGuestHtml(p: {
-  firstName: string;
-  name: string;
-  date: string;
-  time: string;
-  guests: number;
-  rebookUrl: string;
-}) {
+function canceledGuestHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;rebookUrl:string;}){
   const header = emailHeader(MAIL_LOGO_URL);
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
@@ -264,16 +205,7 @@ function canceledGuestHtml(p: {
   </div>`;
 }
 
-function canceledAdminHtml(p: {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  guests: number;
-  date: string;
-  time: string;
-  notes: string;
-}) {
+function canceledAdminHtml(p:{ firstName:string; lastName:string; email:string; phone:string; guests:number; date:string; time:string; notes:string; }){
   const header = emailHeader(MAIL_LOGO_URL);
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
@@ -291,15 +223,20 @@ function canceledAdminHtml(p: {
 }
 
 /* ─────────────────────────────── Pages ─────────────────────────────────── */
-app.get("/", (_req: Request, res: Response) =>
-  res.sendFile(path.join(publicDir, "index.html"))
-);
-app.get("/admin", (_req: Request, res: Response) =>
-  res.sendFile(path.join(publicDir, "admin.html"))
-);
+app.get("/health", async (_req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+});
+
+app.get("/", (_req: Request, res: Response)=>res.sendFile(path.join(publicDir,"index.html")));
+app.get("/admin", (_req: Request, res: Response)=>res.sendFile(path.join(publicDir,"admin.html")));
 
 /* ─────────────────────────── Public Config ─────────────────────────────── */
-app.get("/api/config", (_req: Request, res: Response) => {
+app.get("/api/config", (_req: Request, res: Response)=>{
   res.json({
     brand: BRAND_NAME,
     address: VENUE_ADDRESS,
@@ -307,61 +244,37 @@ app.get("/api/config", (_req: Request, res: Response) => {
     email: VENUE_EMAIL,
     maxOnlineGuests: MAX_ONLINE_GUESTS,
     mailLogoUrl: MAIL_LOGO_URL,
-    mailHeaderUrl: MAIL_HEADER_URL
+    mailHeaderUrl: MAIL_HEADER_URL,
   });
 });
 
 /* ───────────────────────────── Slots API ───────────────────────────────── */
-app.get("/api/slots", async (req: Request, res: Response) => {
+app.get("/api/slots", async (req: Request, res: Response)=>{
   const date = normalizeYmd(String(req.query.date || ""));
   const guests = Number(req.query.guests || 1);
   if (!date) return res.json([]);
 
   const times = slotListForDay();
-  const out: Array<{
-    time: string;
-    canReserve: boolean;
-    allowed: boolean;
-    reason: string | null;
-    left: number;
-  }> = [];
+  const out:any[] = [];
 
-  for (const t of times) {
+  for(const t of times){
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
-      out.push({
-        time: t,
-        canReserve: false,
-        allowed: false,
-        reason: allow.reason,
-        left: 0
-      });
+      out.push({ time: t, canReserve: false, allowed: false, reason: allow.reason, left: 0 });
       continue;
     }
     const sums = await sumsForInterval(date, allow.start, allow.end);
     const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
-    const canReserve =
-      leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
-    out.push({
-      time: t,
-      canReserve,
-      allowed: canReserve,
-      reason: canReserve ? null : "Fully booked",
-      left: leftOnline
-    });
+    const canReserve = leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
+    out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
   }
 
-  // Falls komplett geblockt, Grund differenzieren
-  if (out.every(s => !s.allowed)) {
+  if (out.every(s=>!s.allowed)) {
     const sunday = SUNDAY_CLOSED && isSunday(date);
     if (sunday) {
-      out.forEach(s => (s.reason = "Closed on Sunday"));
+      out.forEach(s => s.reason = "Closed on Sunday");
     } else {
-      out.forEach(s => {
-        if (s.reason === "Blocked" || s.reason == null)
-          s.reason =
-            "Fully booked for this date. Please choose another day.";
-      });
+      out.forEach(s => { if (s.reason==="Blocked" || s.reason==null) s.reason = "Fully booked for this date. Please choose another day."; });
     }
   }
 
@@ -369,552 +282,338 @@ app.get("/api/slots", async (req: Request, res: Response) => {
 });
 
 /* ────────────────────────── Online-Reservierung ───────────────────────── */
-interface ReservationBody {
-  date: string;
-  time: string;
-  firstName: string;
-  name: string;
-  email: string;
-  phone?: string;
-  guests: number;
-  notes?: string;
-}
-app.post("/api/reservations", async (req: Request<unknown, unknown, ReservationBody>, res: Response) => {
-  try {
-    const { date, time, firstName, name, email, phone, guests, notes } = req.body;
+app.post("/api/reservations", async (req: Request, res: Response)=>{
+  try{
+    const { date, time, firstName, name, email, phone, guests, notes } = req.body as any;
     const g = Number(guests || 0);
     if (!date || !time || !firstName || !name || !email || !g || g < 1)
       return res.status(400).json({ error: "Missing or invalid fields" });
     if (g > MAX_ONLINE_GUESTS)
-      return res
-        .status(400)
-        .json({
-          error: `Online bookings are limited to ${MAX_ONLINE_GUESTS} guests. Please contact us directly.`
-        });
+      return res.status(400).json({ error: `Online bookings are limited to ${MAX_ONLINE_GUESTS} guests. Please contact us directly.` });
 
     const allow = await slotAllowed(String(date), String(time));
-    if (!allow.ok)
-      return res.status(400).json({ error: allow.reason || "Not available" });
+    if (!allow.ok) return res.status(400).json({ error: allow.reason || "Not available" });
 
-    const sums = await sumsForInterval(allow.norm, allow.start, allow.end);
+    const sums = await sumsForInterval(allow.norm!, allow.start!, allow.end!);
     const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
-    if (g > leftOnline)
-      return res
-        .status(400)
-        .json({ error: "Fully booked at this time. Please select another slot." });
-    if (sums.total + g > MAX_SEATS_TOTAL)
-      return res
-        .status(400)
-        .json({ error: "Total capacity reached at this time." });
+    if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
+    if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached at this time." });
 
     const token = nanoid();
     const created = await prisma.reservation.create({
       data: {
-        date: allow.norm,
-        time,
-        startTs: allow.start,
-        endTs: allow.end,
-        firstName,
-        name,
-        email,
-        phone: String(phone || ""),
-        guests: g,
-        notes: String(notes || ""),
-        status: "confirmed",
-        cancelToken: token,
-        isWalkIn: false
-      }
+        date: allow.norm!, time,
+        startTs: allow.start!, endTs: allow.end!,
+        firstName, name, email,
+        phone: String(phone || ""), guests: g, notes: String(notes || ""),
+        status: "confirmed", cancelToken: token, isWalkIn: false,
+      },
     });
 
-    // Guest mail
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
-      firstName: created.firstName,
-      name: created.name,
-      date: created.date,
-      time: created.time,
-      guests: created.guests,
-      cancelUrl
+      firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests, cancelUrl
     });
-    try {
-      await mailer.sendMail({
-        to: created.email,
-        subject: `${BRAND_NAME} — Reservation`,
-        html
-      });
-    } catch (e) {
-      console.error("mail guest", e);
-    }
+    try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // Admin notice
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
         <p>${created.date} ${created.time} — ${created.guests}p — ${created.firstName} ${created.name} (${created.email})</p>
       </div>`;
-      try {
-        await mailer.sendMail({
-          to: ADMIN_TO,
-          subject: `[NEW] ${created.date} ${created.time} — ${created.guests}p`,
-          html: aHtml
-        });
-      } catch {}
+      try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
     }
 
-    res.json({ ok: true, reservation: created });
-  } catch (err) {
+    res.json({ ok:true, reservation: created });
+  }catch(err){
     console.error("reservation error:", err);
     res.status(500).json({ error: "Failed to create reservation" });
   }
 });
 
 /* ─────────────────────────────── Cancel ────────────────────────────────── */
-app.get("/cancel/:token", async (req: Request, res: Response) => {
-  const r = await prisma.reservation.findUnique({
-    where: { cancelToken: req.params.token }
-  });
+app.get("/cancel/:token", async (req: Request, res: Response)=>{
+  const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
   if (!r) return res.status(404).send("Not found");
 
   const already = r.status === "canceled";
   if (!already) {
-    await prisma.reservation.update({
-      where: { id: r.id },
-      data: { status: "canceled" }
-    });
+    await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
 
-    // guest
     if (r.email && r.email !== "walkin@noxama.local") {
       const gHtml = canceledGuestHtml({
-        firstName: r.firstName,
-        name: r.name,
-        date: r.date,
-        time: r.time,
-        guests: r.guests,
-        rebookUrl: `${BASE_URL}/`
+        firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests, rebookUrl: `${BASE_URL}/`,
       });
-      try {
-        await mailer.sendMail({
-          to: r.email,
-          subject: "We hope this goodbye is only for now 😢",
-          html: gHtml
-        });
-      } catch {}
+      try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch {}
     }
-    // admin
     if (ADMIN_TO) {
       const aHtml = canceledAdminHtml({
-        firstName: r.firstName,
-        lastName: r.name,
-        email: r.email || "",
-        phone: r.phone || "",
-        guests: r.guests,
-        date: r.date,
-        time: r.time,
-        notes: r.notes || ""
+        firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
+        guests: r.guests, date: r.date, time: r.time, notes: r.notes || "",
       });
-      try {
-        await mailer.sendMail({
-          to: ADMIN_TO,
-          subject: `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`,
-          html: aHtml
-        });
-      } catch {}
+      try { await sendMail(ADMIN_TO, `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`, aHtml); } catch {}
     }
   }
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
 /* ───────────────────────────── Admin: Liste ────────────────────────────── */
-app.get("/api/admin/reservations", async (req: Request, res: Response) => {
+app.get("/api/admin/reservations", async (req: Request, res: Response)=>{
   const date = normalizeYmd(String(req.query.date || ""));
   const view = String(req.query.view || "day");
 
-  let list: Reservation[] = [];
+  let list:Reservation[] = [];
   if (view === "week" && date) {
     const base = new Date(`${date}T00:00:00`);
     const from = new Date(base);
-    const to = new Date(base);
-    to.setDate(to.getDate() + 7);
+    const to = new Date(base); to.setDate(to.getDate() + 7);
     list = await prisma.reservation.findMany({
       where: { startTs: { gte: from, lt: to } },
-      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }]
+      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
     });
   } else if (view === "month" && date) {
     const base = new Date(`${date}T00:00:00`);
     const from = new Date(base);
-    const to = new Date(base);
-    to.setMonth(to.getMonth() + 1);
+    const to = new Date(base); to.setMonth(to.getMonth() + 1);
     list = await prisma.reservation.findMany({
       where: { startTs: { gte: from, lt: to } },
-      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }]
+      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
     });
   } else {
-    const where = date ? { date } : {};
-    list = await prisma.reservation.findMany({
-      where,
-      orderBy: [{ date: "asc" }, { time: "asc" }]
-    });
+    const where:any = date ? { date } : {};
+    list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
   }
   res.json(list);
 });
-app.delete("/api/admin/reservations/:id", async (req: Request, res: Response) => {
+app.delete("/api/admin/reservations/:id", async (req: Request, res: Response)=>{
   await prisma.reservation.delete({ where: { id: req.params.id } });
-  res.json({ ok: true });
+  res.json({ ok:true });
 });
-app.post("/api/admin/reservations/:id/noshow", async (req: Request, res: Response) => {
-  const r = await prisma.reservation.update({
-    where: { id: req.params.id },
-    data: { status: "noshow" }
-  });
+app.post("/api/admin/reservations/:id/noshow", async (req: Request, res: Response)=>{
+  const r = await prisma.reservation.update({ where: { id: req.params.id }, data: { status:"noshow" }});
   res.json(r);
 });
 
 /* ───────────────────────────── Admin: Walk-in ──────────────────────────── */
-interface WalkInBody {
-  date: string;
-  time: string;
-  guests: number;
-  notes?: string;
-}
-app.post("/api/admin/walkin", async (req: Request<unknown, unknown, WalkInBody>, res: Response) => {
-  try {
-    const { date, time, guests, notes } = req.body;
+app.post("/api/admin/walkin", async (req: Request, res: Response)=>{
+  try{
+    const { date, time, guests, notes } = req.body as any;
     const g = Number(guests || 0);
-    if (!date || !time || !g || g < 1)
-      return res.status(400).json({ error: "Invalid input" });
+    if (!date || !time || !g || g < 1) return res.status(400).json({ error: "Invalid input" });
 
     const norm = normalizeYmd(String(date));
     const allow = await slotAllowed(norm, String(time));
 
     let startTs: Date, endTs: Date, open: Date, close: Date;
     if (allow.ok) {
-      startTs = allow.start;
-      endTs = allow.end;
-      open = allow.open;
-      close = allow.close;
+      startTs = allow.start!; endTs = allow.end!; open = allow.open!; close = allow.close!;
     } else {
       const start = localDateFrom(norm, String(time));
-      const { y, m, d } = splitYmd(norm);
-      open = localDate(y, m, d, OPEN_HOUR, 0, 0);
-      close = localDate(y, m, d, CLOSE_HOUR, 0, 0);
-      if (isNaN(start.getTime()) || start < open)
-        return res.status(400).json({ error: "Slot not available." });
-      const minutes = Math.max(
-        15,
-        Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start))
-      );
-      startTs = start;
-      endTs = addMinutes(start, minutes);
-      if (endTs > close) endTs = close;
+      const { y,m,d } = splitYmd(norm);
+      open = localDate(y,m,d, OPEN_HOUR,0,0);
+      close = localDate(y,m,d, CLOSE_HOUR,0,0);
+      if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
+      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
+      startTs = start; endTs = addMinutes(start, minutes); if (endTs > close) endTs = close;
     }
 
     const sums = await sumsForInterval(norm, startTs, endTs);
-    if (sums.total + g > MAX_SEATS_TOTAL)
-      return res.status(400).json({ error: "Total capacity reached" });
+    if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached" });
 
     const r = await prisma.reservation.create({
       data: {
-        date: norm,
-        time: String(time),
-        startTs,
-        endTs,
-        firstName: "Walk",
-        name: "In",
-        email: "walkin@noxama.local",
-        phone: "",
-        guests: g,
-        notes: String(notes || ""),
-        status: "confirmed",
-        cancelToken: nanoid(),
-        isWalkIn: true
-      }
+        date: norm, time: String(time), startTs, endTs,
+        firstName:"Walk", name:"In", email:"walkin@noxama.local", phone:"",
+        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:nanoid(), isWalkIn:true,
+      },
     });
 
     res.json(r);
-  } catch (err) {
+  }catch(err){
     console.error("walkin error:", err);
     res.status(500).json({ error: "Failed to save walk-in" });
   }
 });
 
 /* ───────────────────────────── Admin: Closures ─────────────────────────── */
-interface ClosureBody {
-  startTs: string;
-  endTs: string;
-  reason?: string;
-}
-app.post("/api/admin/closure", async (req: Request<unknown, unknown, ClosureBody>, res: Response) => {
-  try {
-    const { startTs, endTs, reason } = req.body;
+app.post("/api/admin/closure", async (req: Request, res: Response)=>{
+  try{
+    const { startTs, endTs, reason } = req.body as any;
     const s = new Date(String(startTs).replace(" ", "T"));
     const e = new Date(String(endTs).replace(" ", "T"));
-    if (isNaN(s.getTime()) || isNaN(e.getTime()))
-      return res.status(400).json({ error: "Invalid time range" });
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return res.status(400).json({ error: "Invalid time range" });
     if (e <= s) return res.status(400).json({ error: "End must be after start" });
-    const c = await prisma.closure.create({
-      data: { startTs: s, endTs: e, reason: String(reason || "Closed") }
-    });
+    const c = await prisma.closure.create({ data: { startTs:s, endTs:e, reason:String(reason || "Closed") } });
     res.json(c);
-  } catch (err) {
+  }catch(err){
     console.error("Create closure error:", err);
     res.status(500).json({ error: "Failed to create block" });
   }
 });
-
-interface BlockDayBody {
-  date: string;
-  reason?: string;
-}
-app.post("/api/admin/closure/day", async (req: Request<unknown, unknown, BlockDayBody>, res: Response) => {
-  try {
-    const date = normalizeYmd(String(req.body.date || ""));
+app.post("/api/admin/closure/day", async (req: Request, res: Response)=>{
+  try{
+    const date = normalizeYmd(String((req.body as any).date || ""));
     if (!date) return res.status(400).json({ error: "Invalid date" });
-    const { y, m, d } = splitYmd(date);
-    const s = localDate(y, m, d, OPEN_HOUR, 0, 0);
-    const e = localDate(y, m, d, CLOSE_HOUR, 0, 0);
-    const reason = String(req.body.reason || "Closed");
-    const c = await prisma.closure.create({ data: { startTs: s, endTs: e, reason } });
+    const { y,m,d } = splitYmd(date);
+    const s = localDate(y,m,d, OPEN_HOUR,0,0);
+    const e = localDate(y,m,d, CLOSE_HOUR,0,0);
+    const reason = String((req.body as any).reason || "Closed");
+    const c = await prisma.closure.create({ data: { startTs:s, endTs:e, reason } });
     res.json(c);
-  } catch (err) {
+  }catch(err){
     console.error("Block day error:", err);
     res.status(500).json({ error: "Failed to block day" });
   }
 });
-
-app.get("/api/admin/closure", async (_req: Request, res: Response) => {
-  try {
-    const list = await prisma.closure.findMany({ orderBy: { startTs: "desc" } });
+app.get("/api/admin/closure", async (_req: Request, res: Response)=>{
+  try{
+    const list = await prisma.closure.findMany({ orderBy: { startTs:"desc" } });
     res.json(list);
-  } catch (err) {
+  }catch(err){
     console.error("List closure error:", err);
     res.status(500).json({ error: "Failed to load blocks" });
   }
 });
-app.delete("/api/admin/closure/:id", async (req: Request, res: Response) => {
-  try {
-    await prisma.closure.delete({ where: { id: req.params.id } });
-    res.json({ ok: true });
-  } catch (err) {
-    console.error("Delete closure error:", err);
-    res.status(500).json({ error: "Failed to delete block" });
-  }
+app.delete("/api/admin/closure/:id", async (req: Request, res: Response)=>{
+  try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
+  catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
 });
 
 /* ───────────────────────────── Admin: Reset ────────────────────────────── */
-interface ResetBody { key: string }
-app.post("/api/admin/reset", async (req: Request<unknown, unknown, ResetBody>, res: Response) => {
-  try {
-    const { key } = req.body || {};
-    if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY)
-      return res.status(403).json({ error: "Forbidden" });
+app.post("/api/admin/reset", async (req: Request, res: Response)=>{
+  try{
+    const { key } = (req.body || {}) as any;
+    if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
     await prisma.reservation.deleteMany({});
-    res.json({ ok: true });
-  } catch (err) {
+    res.json({ ok:true });
+  }catch(err){
     console.error("reset error:", err);
     res.status(500).json({ error: "Failed to reset" });
   }
 });
 
 /* ───────────────────────────────── Export ──────────────────────────────── */
-app.get("/api/export", async (req: Request, res: Response) => {
-  try {
+app.get("/api/export", async (req: Request, res: Response)=>{
+  try{
     const period = String(req.query.period || "weekly");
     const date = normalizeYmd(String(req.query.date || ""));
     const base = date ? new Date(date + "T00:00:00") : new Date();
     const from = new Date(base);
-    const to = new Date(base);
+    const to   = new Date(base);
 
-    switch (period) {
-      case "daily":
-        to.setDate(to.getDate() + 1);
-        break;
-      case "weekly":
-        to.setDate(to.getDate() + 7);
-        break;
-      case "monthly":
-        to.setMonth(to.getMonth() + 1);
-        break;
-      case "yearly":
-        to.setFullYear(to.getFullYear() + 1);
-        break;
-      default:
-        to.setDate(to.getDate() + 7);
-        break;
+    switch(period){
+      case "daily":   to.setDate(to.getDate()+1); break;
+      case "weekly":  to.setDate(to.getDate()+7); break;
+      case "monthly": to.setMonth(to.getMonth()+1); break;
+      case "yearly":  to.setFullYear(to.getFullYear()+1); break;
+      default:        to.setDate(to.getDate()+7); break;
     }
 
     const list = await prisma.reservation.findMany({
       where: { startTs: { gte: from, lt: to } },
-      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }]
+      orderBy: [{ startTs:"asc" }, { date:"asc" }, { time:"asc" }],
     });
 
-    const rows = list.map(r => ({
-      Date: r.date,
-      Time: r.time,
-      FirstName: r.firstName,
-      LastName: r.name,
-      Email: r.email,
-      Phone: r.phone || "",
-      Guests: r.guests,
-      Status: r.status,
-      Notes: r.notes || "",
-      WalkIn: r.isWalkIn ? "yes" : "",
-      CreatedAt: r.createdAt ? format(r.createdAt, "yyyy-MM-dd HH:mm") : ""
+    const rows = list.map(r=>({
+      Date: r.date, Time: r.time,
+      FirstName: r.firstName, LastName: r.name,
+      Email: r.email, Phone: r.phone || "",
+      Guests: r.guests, Status: r.status,
+      Notes: r.notes || "", WalkIn: r.isWalkIn ? "yes" : "",
+      CreatedAt: r.createdAt ? format(r.createdAt, "yyyy-MM-dd HH:mm") : "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Reservations");
 
-    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-    const fname = `reservations_${format(from, "yyyyMMdd")}_${period}.xlsx`;
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${fname}"`
-    );
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
+    const buf = XLSX.write(wb, { type:"buffer", bookType:"xlsx" });
+    const fname = `reservations_${format(from,"yyyyMMdd")}_${period}.xlsx`;
+    res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
+    res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.send(buf);
-  } catch (err) {
+  }catch(err){
     console.error("Export error:", err);
     res.status(500).json({ error: "Export failed" });
   }
 });
 
-/* ───────────────────────────── Notices: Admin + Public ─────────────────── */
-function ymdInRange(ymd: string, from: string, to: string) {
-  return ymd >= from && ymd <= to;
-}
+/* ───────────────────────────── Notices (optional) ──────────────────────── */
+function ymdInRange(ymd: string, from: string, to: string){ return ymd >= from && ymd <= to; }
 
 app.get("/api/admin/notices", async (_req: Request, res: Response) => {
-  const list = await prisma.notice.findMany({
-    orderBy: [{ startDate: "asc" }, { endDate: "asc" }]
-  });
+  const list = await prisma.notice.findMany({ orderBy: [{ startDate: "asc" }, { endDate: "asc" }] });
   res.json(list);
 });
-
-interface NoticeBody {
-  id?: string;
-  startDate: string;
-  endDate: string;
-  title: string;
-  message: string;
-  requireAck?: boolean;
-  active?: boolean;
-}
-app.post("/api/admin/notices", async (req: Request<unknown, unknown, NoticeBody>, res: Response) => {
-  try {
-    const { id, startDate, endDate, title, message, requireAck, active } = req.body || {};
-    const s = normalizeYmd(String(startDate || ""));
-    const e = normalizeYmd(String(endDate || ""));
+app.post("/api/admin/notices", async (req: Request, res: Response) => {
+  try{
+    const { id, startDate, endDate, title, message, requireAck, active } = (req.body || {}) as any;
+    const s = normalizeYmd(String(startDate || "")); const e = normalizeYmd(String(endDate || ""));
     if (!s || !e) return res.status(400).json({ error: "Invalid date range" });
     if (e < s) return res.status(400).json({ error: "End must be after start" });
     if (!title || !message) return res.status(400).json({ error: "Title and message required" });
 
     let rec: Notice;
     if (id) {
-      rec = await prisma.notice.update({
-        where: { id: String(id) },
-        data: {
-          startDate: s,
-          endDate: e,
-          title: String(title),
-          message: String(message),
-          requireAck: !!requireAck,
-          active: !!active
-        }
-      });
+      rec = await prisma.notice.update({ where: { id:String(id) }, data: { startDate:s, endDate:e, title:String(title), message:String(message), requireAck:!!requireAck, active:!!active } });
     } else {
-      rec = await prisma.notice.create({
-        data: {
-          startDate: s,
-          endDate: e,
-          title: String(title),
-          message: String(message),
-          requireAck: !!requireAck,
-          active: active == null ? true : !!active
-        }
-      });
+      rec = await prisma.notice.create({ data: { startDate:s, endDate:e, title:String(title), message:String(message), requireAck:!!requireAck, active: active==null ? true : !!active } });
     }
     res.json(rec);
-  } catch (e) {
+  }catch(e){
     console.error("Notice save error:", e);
     res.status(500).json({ error: "Failed to save notice" });
   }
 });
-
 app.delete("/api/admin/notices/:id", async (req: Request, res: Response) => {
-  try {
-    await prisma.notice.delete({ where: { id: req.params.id } });
-    res.json({ ok: true });
-  } catch (e) {
-    console.error("Notice delete error:", e);
-    res.status(500).json({ error: "Failed to delete notice" });
-  }
+  try{ await prisma.notice.delete({ where: { id: req.params.id } }); res.json({ ok: true }); }
+  catch(e){ console.error("Notice delete error:", e); res.status(500).json({ error: "Failed to delete notice" }); }
 });
-
 app.get("/api/notices", async (req: Request, res: Response) => {
   const date = normalizeYmd(String(req.query.date || ""));
   if (!date) return res.json([]);
   const all = await prisma.notice.findMany({ where: { active: true } });
-  const hit = all.filter((n: Notice) => ymdInRange(date, n.startDate, n.endDate));
-  res.json(hit);
+  res.json(all.filter(n => ymdInRange(date, n.startDate, n.endDate)));
 });
 
 /* ───────────────────────────── Reminder Job ────────────────────────────── */
-setInterval(async () => {
-  try {
+setInterval(async ()=>{
+  try{
     const now = new Date();
     const from = addHours(now, 24);
-    const to = addHours(now, 25);
+    const to   = addHours(now, 25);
     const list = await prisma.reservation.findMany({
-      where: {
-        status: "confirmed",
-        isWalkIn: false,
-        reminderSent: false,
-        startTs: { gte: from, lt: to }
-      }
+      where: { status:"confirmed", isWalkIn:false, reminderSent:false, startTs: { gte: from, lt: to } },
     });
-    for (const r of list) {
+    for(const r of list){
       const html = confirmationHtml({
-        firstName: r.firstName,
-        name: r.name,
-        date: r.date,
-        time: r.time,
-        guests: r.guests,
-        cancelUrl: `${BASE_URL}/cancel/${r.cancelToken}`
+        firstName:r.firstName, name:r.name, date:r.date, time:r.time, guests:r.guests,
+        cancelUrl: `${BASE_URL}/cancel/${r.cancelToken}`,
       });
-      try {
-        await mailer.sendMail({
-          to: r.email,
-          subject: `Reminder — ${BRAND_NAME}`,
-          html
-        });
-        await prisma.reservation.update({
-          where: { id: r.id },
-          data: { reminderSent: true }
-        });
-      } catch (e) {
-        console.error("reminder mail", e);
-      }
+      try{
+        await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html);
+        await prisma.reservation.update({ where: { id: r.id }, data: { reminderSent:true } });
+      }catch(e){ console.error("reminder mail", e); }
     }
-  } catch (e) {
-    console.error("reminder job", e);
-  }
-}, 30 * 60 * 1000);
+  }catch(e){ console.error("reminder job", e); }
+}, 30*60*1000);
 
 /* ───────────────────────────────── Start ───────────────────────────────── */
-async function start() {
-  await prisma.$connect();
+function ensureSchema() {
   try {
-    await transporter.verify();
+    console.log("Sync DB schema with Prisma (db push)...");
+    // Akzeptiert Schema-Änderungen ohne Migrationen; perfekt für Render
+    execSync("npx prisma db push --accept-data-loss", { stdio: "inherit" });
+    console.log("DB schema synced.");
   } catch (e) {
-    console.warn("SMTP verify failed:", (e as Error).message);
+    console.warn("DB push failed:", (e as Error).message);
   }
-  app.listen(PORT, "0.0.0.0", () => console.log(`Server running on ${PORT}`));
 }
-start().catch(err => {
-  console.error("Fatal start error", err);
-  process.exit(1);
-});
+
+async function start(){
+  ensureSchema();                 // <<<<<< WICHTIG: DB immer passend machen
+  await prisma.$connect();
+  try{ await transporter.verify(); }catch(e){ console.warn("SMTP verify failed:", (e as Error).message); }
+  app.listen(PORT, "0.0.0.0", ()=>console.log(`Server running on ${PORT}`));
+}
+start().catch(err=>{ console.error("Fatal start error", err); process.exit(1); });
