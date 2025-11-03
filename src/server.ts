@@ -8,7 +8,7 @@ import { nanoid } from "nanoid";
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
-import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
+import { addMinutes, differenceInMinutes, format } from "date-fns";
 import { execSync } from "node:child_process";
 
 dotenv.config();
@@ -41,9 +41,9 @@ const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
 const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
-const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);       // Minuten zwischen auswählbaren Slots
-const RES_DURATION_MIN = num(process.env.RES_DURATION_MIN, 90); // Sitzdauer in Minuten
+the CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);       // Auswahl-Intervall
+const RES_DURATION_MIN = num(process.env.RES_DURATION_MIN, 90); // Sitzdauer
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
@@ -58,6 +58,9 @@ const ADMIN_TO =
   FROM_ADDR;
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
+
+/* Loyalty Schwellen – falls du sie mal ändern willst */
+const L5 = 5, L10 = 10, L15 = 15;
 
 /* Mailer */
 const transporter = nodemailer.createTransport({
@@ -147,6 +150,20 @@ async function slotAllowed(date: string, time: string){
   return { ok:true as const, norm, start, end, open, close, minutes };
 }
 
+/* Loyalty helpers */
+function loyaltyDiscountFor(nthBooking: number): number {
+  if (nthBooking >= L15) return 15;
+  if (nthBooking >= L10) return 10;
+  if (nthBooking >= L5)  return 5;
+  return 0;
+}
+function loyaltyTeaserFor(nthBooking: number): { nextAt: number; nextDiscount: number } | null {
+  if (nthBooking === L5 - 1)  return { nextAt: L5,  nextDiscount: 5 };
+  if (nthBooking === L10 - 1) return { nextAt: L10, nextDiscount: 10 };
+  if (nthBooking === L15 - 1) return { nextAt: L15, nextDiscount: 15 };
+  return null;
+}
+
 /* Mail-Templates */
 function emailHeader(logoUrl:string){
   if (MAIL_HEADER_URL) {
@@ -165,14 +182,56 @@ function emailHeader(logoUrl:string){
       <img src="${logoUrl}" alt="${BRAND_NAME}" style="width:190px;height:auto;border:0;outline:none;" />
     </div>`;
 }
-function confirmationHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;cancelUrl:string;}){
+function loyaltyBlockHTML(params: {
+  nth: number;
+  discount: number;                 // 0, 5, 10, 15
+  teaser?: { nextAt: number; nextDiscount: number } | null;
+}){
+  const { nth, discount, teaser } = params;
+
+  const badge = (text:string)=>`
+    <div style="display:inline-block;padding:10px 14px;border-radius:999px;
+      background:linear-gradient(90deg,#f4e3c8,#ecd1a0);color:#5b431a;font-weight:700;border:1px solid #e1c79a;">
+      ${text}
+    </div>`;
+
+  if (discount > 0) {
+    return `
+      <div style="margin:14px 0;padding:14px 18px;border-radius:14px;background:#fff7eb;border:1px solid #edd9b9;">
+        <p style="margin:0 0 6px 0;">${badge(`Booking #${nth}`)}</p>
+        <h3 style="margin:6px 0 8px 0;">Thank you for your loyalty!</h3>
+        <p style="margin:0;">You now enjoy a <b>${discount}% Loyalty Discount</b> for this and all future visits.</p>
+      </div>`;
+  }
+  if (teaser) {
+    return `
+      <div style="margin:14px 0;padding:14px 18px;border-radius:14px;background:#eef7ec;border:1px solid #cfe5c9;">
+        <p style="margin:0 0 6px 0;">${badge(`Booking #${nth}`)}</p>
+        <h3 style="margin:6px 0 8px 0;">Almost there 🎉</h3>
+        <p style="margin:0;">From your <b>${teaser.nextAt}. booking</b> onwards you will get a
+          <b>${teaser.nextDiscount}% Loyalty Discount</b>. Thanks for being with us!</p>
+      </div>`;
+  }
+  return `
+    <div style="margin:14px 0;padding:12px 16px;border-radius:12px;background:#f3efe9;border:1px solid #e5dccf;">
+      <p style="margin:0;">${badge(`Booking #${nth}`)} — we appreciate you!</p>
+    </div>`;
+}
+function confirmationHtml(p:{
+  firstName:string; name:string; date:string; time:string; guests:number; cancelUrl:string;
+  nth:number; discount:number; teaser: {nextAt:number; nextDiscount:number} | null;
+}){
   const header = emailHeader(MAIL_LOGO_URL);
+  const loyalty = loyaltyBlockHTML({ nth: p.nth, discount: p.discount, teaser: p.teaser });
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
     ${header}
     <h2 style="text-align:center;margin:6px 0 14px 0;">Your Reservation at ${BRAND_NAME}</h2>
     <p>Hi ${p.firstName} ${p.name},</p>
     <p>Thank you for your reservation. We look forward to welcoming you.</p>
+
+    ${loyalty}
+
     <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
       <p style="margin:0;"><b>Date</b> ${p.date}</p>
       <p style="margin:0;"><b>Time</b> ${p.time}</p>
@@ -255,7 +314,7 @@ app.get("/api/slots", async (req, res)=>{
       out.push({ time: t, canReserve: false, allowed: false, reason: allow.reason, left: 0 });
       continue;
     }
-    const sums = await sumsForInterval(date, allow.start, allow.end);
+    const sums = await sumsForInterval(date, allow.start!, allow.end!);
     const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
     const canReserve = leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
     out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
@@ -288,6 +347,14 @@ app.post("/api/reservations", async (req, res)=>{
     if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached at this time." });
 
+    // ---- Loyalty: bisherige bestätigte Buchungen (gleiche Mail, case-insensitiv)
+    const previousConfirmed = await prisma.reservation.count({
+      where: { email: { equals: String(email), mode: "insensitive" }, status: "confirmed" }
+    });
+    const nth = previousConfirmed + 1;
+    const discount = loyaltyDiscountFor(nth);
+    const teaser = loyaltyTeaserFor(nth);
+
     const token = nanoid();
     const created = await prisma.reservation.create({
       data: {
@@ -301,19 +368,20 @@ app.post("/api/reservations", async (req, res)=>{
 
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
-      firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests, cancelUrl
+      firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests,
+      cancelUrl, nth, discount, teaser
     });
-    try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
+    try { await sendMail(created.email, `${BRAND_NAME} — Reservation #${nth}`, html); } catch (e) { console.error("mail guest", e); }
 
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
-        <p>${created.date} ${created.time} — ${created.guests}p — ${created.firstName} ${created.name} (${created.email})</p>
+        <p>${created.date} ${created.time} — ${created.guests}p — ${created.firstName} ${created.name} (${created.email}) — Booking #${nth}${discount?` — ${discount}% loyalty`:``}</p>
       </div>`;
       try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
     }
 
-    res.json({ ok:true, reservation: created });
+    res.json({ ok:true, reservation: created, loyalty: { nth, discount } });
   }catch(err){
     console.error("reservation error:", err);
     res.status(500).json({ error: "Failed to create reservation" });
