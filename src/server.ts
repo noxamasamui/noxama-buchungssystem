@@ -1,4 +1,3 @@
-// src/server.ts
 import express, { Request, Response } from "express";
 import cors from "cors";
 import path from "path";
@@ -41,7 +40,7 @@ const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
 const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
-the CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
+const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
 const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);       // Auswahl-Intervall
 const RES_DURATION_MIN = num(process.env.RES_DURATION_MIN, 90); // Sitzdauer
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
@@ -59,7 +58,7 @@ const ADMIN_TO =
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
 
-/* Loyalty Schwellen – falls du sie mal ändern willst */
+/* Loyalty Schwellen */
 const L5 = 5, L10 = 10, L15 = 15;
 
 /* Mailer */
@@ -108,7 +107,7 @@ function capacityOnlineLeft(reserved:number, walkins:number){
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
 }
 
-/* DB helpers: overlaps / sums / duration per slot */
+/* DB helpers */
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
     where: {
@@ -126,7 +125,7 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
 }
 function slotDurationMinutes(){ return RES_DURATION_MIN; }
 
-/* Slot-Erlaubnis (inkl. Sitzdauer-Fenster) */
+/* Slot-Erlaubnis */
 async function slotAllowed(date: string, time: string){
   const norm = normalizeYmd(date);
   if(!norm) return { ok:false as const, reason:"Invalid date" as const };
@@ -184,7 +183,7 @@ function emailHeader(logoUrl:string){
 }
 function loyaltyBlockHTML(params: {
   nth: number;
-  discount: number;                 // 0, 5, 10, 15
+  discount: number;
   teaser?: { nextAt: number; nextDiscount: number } | null;
 }){
   const { nth, discount, teaser } = params;
@@ -283,8 +282,8 @@ app.get("/health", async (_req, res) => {
   try { await prisma.$queryRaw`SELECT 1`; res.json({ ok:true }); }
   catch(e){ res.status(500).json({ ok:false, error:String(e) }); }
 });
-app.get("/", (_req, res)=>res.sendFile(path.join(publicDir,"index.html")));
-app.get("/admin", (_req, res)=>res.sendFile(path.join(publicDir,"admin.html")));
+app.get("/", (_req: Request, res: Response)=>res.sendFile(path.join(publicDir,"index.html")));
+app.get("/admin", (_req: Request, res: Response)=>res.sendFile(path.join(publicDir,"admin.html")));
 
 /* Public Config */
 app.get("/api/config", (_req, res)=>{
@@ -347,7 +346,7 @@ app.post("/api/reservations", async (req, res)=>{
     if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached at this time." });
 
-    // ---- Loyalty: bisherige bestätigte Buchungen (gleiche Mail, case-insensitiv)
+    // Loyalty
     const previousConfirmed = await prisma.reservation.count({
       where: { email: { equals: String(email), mode: "insensitive" }, status: "confirmed" }
     });
@@ -633,7 +632,7 @@ app.get("/api/notices", async (req, res) => {
   res.json(all.filter(n => ymdInRange(date, n.startDate, n.endDate)));
 });
 
-/* Start (mit Selbstheilung der DB) */
+/* Start */
 function ensureSchema() {
   try {
     console.log("Sync DB schema with Prisma (db push)...");
