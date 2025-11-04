@@ -1,164 +1,170 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Admin — Reservations</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-  <main class="container">
+  <div class="header">
+    <img src="/logo.png" alt="">
+  </div>
+  <div class="container">
     <h1>Admin</h1>
 
-    <section class="card">
-      <div class="grid">
-        <label class="field">
-          <span>Key</span>
-          <input id="key" placeholder="x-admin-key" />
-        </label>
-        <label class="field">
-          <span>From</span>
-          <input id="from" type="date" />
-        </label>
-        <label class="field">
-          <span>To</span>
-          <input id="to" type="date" />
-        </label>
-      </div>
-      <div class="actions">
-        <button id="btnLoad" class="btn">Load</button>
-        <button id="btnExport" class="btn outline">Export CSV</button>
+    <div class="card">
+      <div class="admin-grid">
+        <div>
+          <label>Key</label>
+          <input id="admKey" placeholder="x-admin-key">
+        </div>
+        <div>
+          <label>From</label>
+          <input id="from" type="date">
+        </div>
+        <div>
+          <label>To</label>
+          <input id="to" type="date">
+        </div>
+        <div>
+          <button id="load" class="btn">Load</button>
+        </div>
+        <div>
+          <button id="export" class="btn">Export CSV</button>
+        </div>
       </div>
 
-      <div class="table-wrap">
-        <table class="table" id="tbl">
-          <thead>
-            <tr>
-              <th>Date</th><th>Time</th><th>Name</th><th>Email</th>
-              <th>Guests</th><th>Status</th><th>Walk-in</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
+      <table class="table" style="margin-top:12px">
+        <thead>
+          <tr>
+            <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Guests</th><th>Status</th><th>Walk-in</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="small" id="sum"></div>
+    </div>
 
-    <section class="card">
-      <h3>Add walk-in</h3>
-      <div class="grid">
-        <label class="field">
-          <span>Date</span><input id="wDate" type="date" />
-        </label>
-        <label class="field">
-          <span>Time</span><input id="wTime" placeholder="HH:MM" />
-        </label>
-        <label class="field">
-          <span>Guests</span><input id="wGuests" type="number" min="1" max="10" value="2" />
-        </label>
+    <div class="card" style="margin-top:16px">
+      <h2>Add walk-in</h2>
+      <div class="row">
+        <div>
+          <label>Date</label>
+          <input id="wiDate" type="date">
+        </div>
+        <div>
+          <label>Time (HH:MM)</label>
+          <input id="wiTime" placeholder="HH:MM">
+        </div>
       </div>
-      <label class="field">
-        <span>Notes</span><input id="wNotes" />
-      </label>
-      <div class="actions">
-        <button id="btnWalk" class="btn">Save walk-in</button>
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label>Guests</label>
+          <input id="wiGuests" type="number" value="2" min="1" max="10">
+        </div>
+        <div>
+          <label>Notes</label>
+          <input id="wiNotes" placeholder="">
+        </div>
       </div>
-    </section>
+      <div style="margin-top:10px">
+        <button id="saveWI" class="btn">Save walk-in</button>
+      </div>
+    </div>
 
-    <section class="card">
-      <h3>Block day (quick)</h3>
-      <div class="grid">
-        <label class="field"><span>Day</span><input id="bDay" type="date" /></label>
-        <label class="field"><span>Reason</span><input id="bReason" value="Closed / Private event" /></label>
+    <div class="card" style="margin-top:16px">
+      <h2>Block day (quick)</h2>
+      <div class="row">
+        <div>
+          <label>Day</label>
+          <input id="bdDay" type="date">
+        </div>
+        <div>
+          <label>Reason</label>
+          <input id="bdReason" value="Closed / Private event">
+        </div>
       </div>
-      <div class="actions">
-        <button id="btnBlock" class="btn danger">Block whole day</button>
+      <div style="margin-top:10px">
+        <button id="bdCreate" class="btn">Block whole day</button>
+        <button id="bdRemove" class="btn" style="margin-left:6px;background:#8b6b3d">Remove block</button>
       </div>
-    </section>
-  </main>
+    </div>
+  </div>
+
+  <div id="modal" class="modal-mask"><div class="modal"><h3 id="mTitle"></h3><div id="mText"></div></div></div>
 
   <script>
-    const $ = s => document.querySelector(s);
-    const key = $("#key"), from = $("#from"), to = $("#to");
-    const tbl = $("#tbl tbody");
+    const qs = s=>document.querySelector(s);
+    const modal=qs("#modal"), mt=qs("#mTitle"), mx=qs("#mText"); function note(t,d){mt.textContent=t;mx.textContent=d;modal.style.display="flex"}; modal.addEventListener("click",e=>{if(e.target===modal) modal.style.display="none"});
 
-    function ymd(d){
-      const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), da = String(d.getDate()).padStart(2,"0");
-      return `${y}-${m}-${da}`;
+    const key = qs("#admKey");
+    const from = qs("#from");
+    const to = qs("#to");
+    const rows = qs("#rows");
+    const sum = qs("#sum");
+
+    // defaults
+    const t = new Date(); const y=t.getFullYear(); const m=String(t.getMonth()+1).padStart(2,"0"); const d=String(t.getDate()).padStart(2,"0");
+    from.value = `${y}-${m}-${d}`; to.value = `${y}-${m}-${d}`;
+    qs("#wiDate").value = `${y}-${m}-${d}`;
+    qs("#bdDay").value = `${y}-${m}-${d}`;
+
+    qs("#load").addEventListener("click", load);
+    qs("#export").addEventListener("click", exportCsv);
+    qs("#saveWI").addEventListener("click", saveWI);
+    qs("#bdCreate").addEventListener("click", ()=>blockDay(true));
+    qs("#bdRemove").addEventListener("click", ()=>blockDay(false));
+
+    async function load(){
+      try{
+        rows.innerHTML="";
+        const r = await fetch(`/api/admin/reservations?from=${from.value}&to=${to.value}`,{headers:{"x-admin-key":key.value}});
+        const j = await r.json();
+        if(!r.ok) throw new Error(j?.error||"Auth or range error");
+        j.rows.forEach(x=>{
+          const tr=document.createElement("tr");
+          tr.innerHTML=`<td>${x.date}</td><td>${x.time}</td><td>${x.firstName} ${x.name}</td><td>${x.email}</td><td>${x.guests}</td><td>${x.status}</td><td>${x.isWalkIn?"yes":""}</td>`;
+          rows.appendChild(tr);
+        });
+        sum.textContent=`Total rows: ${j.count} — Total guests: ${j.totalGuests}`;
+      }catch(e){ note("Error", String(e.message||e)); }
+    }
+    async function exportCsv(){
+      window.location.href = `/api/admin/export.csv?from=${from.value}&to=${to.value}&key=${encodeURIComponent(key.value)}`;
+    }
+    async function saveWI(){
+      try{
+        const body={
+          date: qs("#wiDate").value,
+          time: qs("#wiTime").value,
+          guests: Number(qs("#wiGuests").value||2),
+          notes: qs("#wiNotes").value||""
+        };
+        const r=await fetch("/api/admin/walkin",{method:"POST",headers:{"Content-Type":"application/json","x-admin-key":key.value},body:JSON.stringify(body)});
+        const j=await r.json();
+        if(!r.ok) throw new Error(j?.error||"Error");
+        note("Saved","Walk-in created.");
+        load();
+      }catch(e){ note("Error", String(e.message||e)); }
+    }
+    async function blockDay(create){
+      try{
+        if(create){
+          const r=await fetch("/api/admin/block-day",{method:"POST",headers:{"Content-Type":"application/json","x-admin-key":key.value},body:JSON.stringify({day:qs("#bdDay").value,reason:qs("#bdReason").value})});
+          const j=await r.json(); if(!r.ok) throw new Error(j?.error||"Error");
+          note("Blocked", `Created ${j.created} placeholders.`);
+        }else{
+          const r=await fetch(`/api/admin/block-day?day=${qs("#bdDay").value}`,{method:"DELETE",headers:{"x-admin-key":key.value}});
+          const j=await r.json(); if(!r.ok) throw new Error(j?.error||"Error");
+          note("Removed", `Deleted ${j.deleted} placeholders.`);
+        }
+        load();
+      }catch(e){ note("Error", String(e.message||e)); }
     }
 
-    async function loadList() {
-      tbl.innerHTML = "";
-      const qs = new URLSearchParams({ from: from.value, to: to.value });
-      const r = await fetch(`/api/admin/reservations?${qs}`, {
-        headers: { "x-admin-key": key.value }
-      });
-      if (!r.ok) { alert("Auth or range error"); return; }
-      const data = await r.json();
-      data.rows.forEach(r => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.date}</td>
-          <td>${r.time}</td>
-          <td>${r.firstName} ${r.name}</td>
-          <td>${r.email}</td>
-          <td>${r.guests}</td>
-          <td>${r.status}</td>
-          <td>${r.isWalkIn ? "yes" : ""}</td>`;
-        tbl.appendChild(tr);
-      });
-    }
-
-    async function exportCsv() {
-      const qs = new URLSearchParams({ from: from.value, to: to.value });
-      const r = await fetch(`/api/admin/export.csv?${qs}`, { headers: { "x-admin-key": key.value } });
-      if (!r.ok) { alert("Auth or range error"); return; }
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = `export_${from.value}_${to.value}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    async function saveWalkin() {
-      const payload = {
-        date: $("#wDate").value, time: $("#wTime").value,
-        guests: Number($("#wGuests").value), notes: $("#wNotes").value || null
-      };
-      const r = await fetch(`/api/admin/walkin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-key": key.value },
-        body: JSON.stringify(payload)
-      });
-      if (!r.ok) { const d = await r.json(); alert(d.error || "Error"); return; }
-      await loadList();
-      alert("Saved");
-    }
-
-    async function blockDay() {
-      const payload = { day: $("#bDay").value, reason: $("#bReason").value };
-      const r = await fetch(`/api/admin/block-day`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-key": key.value },
-        body: JSON.stringify(payload)
-      });
-      if (!r.ok) { const d = await r.json(); alert(d.error || "Error"); return; }
-      await loadList();
-      alert("Blocked");
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const t = new Date();
-      from.value = ymd(t);
-      to.value = ymd(t);
-      $("#wDate").value = ymd(t);
-      $("#bDay").value = ymd(t);
-
-      $("#btnLoad").onclick = loadList;
-      $("#btnExport").onclick = exportCsv;
-      $("#btnWalk").onclick = saveWalkin;
-      $("#btnBlock").onclick = blockDay;
-    });
+    // auto-load on open
+    load();
   </script>
 </body>
 </html>
