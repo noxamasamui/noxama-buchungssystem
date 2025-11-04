@@ -1,305 +1,81 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>Admin — RÖSTILAND Reservations</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="/style.css"/>
+  <meta charset="utf-8">
+  <title>Admin — Reservations</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding:16px; background:#efe7dc; color:#2b1a12; }
+    .box { background:#fff; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.12); padding:16px; }
+    input, select, button { padding:8px 10px; border-radius:8px; border:1px solid #d7d2cc; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+    button.btn{ background:#b6802a; color:#fff; border:0; padding:10px 12px; border-radius:10px; font-weight:700; cursor:pointer }
+    table { width:100%; border-collapse: collapse; margin-top:12px; }
+    th, td { border-bottom:1px solid #eee; padding:8px; text-align:left; }
+    th { background:#faf6f1; }
+  </style>
 </head>
 <body>
-<header class="hero">
-  <img id="heroLogo" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI"/>
-</header>
-
-<main class="container">
-  <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
-  <h1>Admin</h1>
-
-  <section class="card">
-    <h2>All reservations</h2>
-    <div class="toolbar">
-      <div class="row">
-        <div><label>Date filter</label><input id="fltDate" type="date" class="input"/></div>
-        <div><label>View</label>
-          <select id="view" class="input">
-            <option value="day">day</option>
-            <option value="week">week</option>
-            <option value="month" selected>month</option>
-          </select>
-        </div>
-        <button class="btn" id="btnLoad" type="button">Load</button>
-        <div class="spacer"></div>
-        <div>
-          <label>Export</label>
-          <select id="period" class="input">
-            <option value="daily">daily</option>
-            <option value="weekly">weekly</option>
-            <option value="monthly" selected>monthly</option>
-            <option value="yearly">yearly</option>
-          </select>
-          <button class="btn" id="btnExport" type="button">Excel</button>
-        </div>
-      </div>
+  <h2>Admin</h2>
+  <div class="box">
+    <div class="row">
+      <label>Key <input id="admKey" type="password" placeholder="x-admin-key"></label>
+      <label>From <input id="from" type="date"></label>
+      <label>To <input id="to" type="date"></label>
+      <button class="btn" id="load">Load</button>
+      <button class="btn" id="csv">Export CSV</button>
     </div>
 
-    <div class="table-wrap">
-      <table id="tbl">
-        <thead>
+    <table id="tbl">
+      <thead>
         <tr>
-          <th class="col-date">Date</th>
-          <th class="col-time">Time</th>
-          <th>Name</th>
-          <th>Email</th>
-          <th class="col-phone">Phone</th>
-          <th class="col-guests">Guests</th>
-          <th>Status</th>
-          <th>Notes</th>
-          <th class="col-walkin">Walk in</th>
-          <th class="col-actions">Action</th>
+          <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Guests</th><th>Status</th><th>Walk-in</th>
         </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div id="sum" class="badge" style="margin-top:10px;"></div>
-  </section>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-  <section class="card">
-    <h2>Add walk in</h2>
-    <div class="row">
-      <div><label>Date</label><input id="wDate" type="date" class="input"/></div>
-      <div><label>Time</label><select id="wTime" class="input"></select></div>
-      <div><label>Guests</label><input id="wGuests" class="input" type="number" min="1" max="48" value="2"/></div>
-    </div>
-    <label>Notes</label><input id="wNotes" class="input"/>
-    <div class="row">
-      <button id="btnWalk" class="btn" type="button">Save walk in</button>
-      <span id="wMsg" class="badge"></span>
-    </div>
-  </section>
+  <script>
+    const $ = s => document.querySelector(s);
+    function ymd(d){ return d.toISOString().slice(0,10); }
+    $('#from').value = ymd(new Date());
+    $('#to').value = ymd(new Date());
 
-  <section class="card">
-    <h2>Date notices</h2>
-    <div class="row">
-      <div><label>Start</label><input id="nStart" type="date" class="input"/></div>
-      <div><label>End</label><input id="nEnd" type="date" class="input"/></div>
-      <div style="flex:1"><label>Title</label><input id="nTitle" class="input" placeholder="Christmas Menu"/></div>
-    </div>
-    <label>Message</label>
-    <textarea id="nMsg" class="input" rows="3" placeholder="Course menu, price, details…"></textarea>
-    <div class="row">
-      <label><input id="nAck" type="checkbox"/> Require acknowledgment</label>
-      <label><input id="nActive" type="checkbox" checked/> Active</label>
-      <button id="btnNotice" class="btn" type="button">Save notice</button>
-      <span id="nMsgOut" class="badge"></span>
-    </div>
-    <div id="noticeList" class="muted">No notices</div>
-  </section>
+    async function req(url,key){
+      const r = await fetch(url, { headers:{'x-admin-key': key}});
+      if(!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
 
-  <section class="card">
-    <h2>Closed / Blocks</h2>
-    <div class="row">
-      <div><label>Start</label><input id="cStart" type="datetime-local" class="input"/></div>
-      <div><label>End</label><input id="cEnd" type="datetime-local" class="input"/></div>
-      <div style="flex:1"><label>Reason</label><input id="cReason" class="input" placeholder="Closed / Private event"/></div>
-      <button id="btnBlock" class="btn" type="button">Create block</button>
-      <span id="cMsg" class="badge"></span>
-    </div>
-    <div class="row">
-      <div><label>Block whole day</label><input id="cDay" type="date" class="input"/></div>
-      <div style="flex:1"><label>Reason</label><input id="cDayReason" class="input" placeholder="Closed"/></div>
-      <button id="btnBlockDay" class="btn" type="button">Block day</button>
-      <span id="cDayMsg" class="badge"></span>
-    </div>
-    <div id="closureList" style="margin-top:10px"></div>
-  </section>
+    $('#load').addEventListener('click', async ()=>{
+      try{
+        const key = $('#admKey').value.trim();
+        const from = $('#from').value, to = $('#to').value;
+        const j = await req(`/api/admin/reservations?from=${from}&to=${to}`, key);
+        const tb = $('#tbl tbody'); tb.innerHTML = '';
+        j.rows.forEach(r=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${r.date}</td><td>${r.time}</td><td>${r.firstName} ${r.name}</td>
+                          <td>${r.email}</td><td>${r.guests}</td><td>${r.status}</td><td>${r.isWalkIn?'yes':''}</td>`;
+          tb.appendChild(tr);
+        });
+      }catch(e){ alert('Error: '+e.message); }
+    });
 
-  <section class="card">
-    <h2>Danger zone</h2>
-    <div class="row">
-      <div><label>Reset key</label><input id="resetKey" class="input" type="password" placeholder="ADMIN_RESET_KEY"/></div>
-      <button id="btnReset" class="btn-danger" type="button">Reset all reservations</button>
-      <span id="rMsg" class="badge"></span>
-    </div>
-  </section>
-</main>
-
-<script>
-const $ = s => document.querySelector(s);
-const $$ = s => Array.from(document.querySelectorAll(s));
-
-function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-
-document.addEventListener("DOMContentLoaded", async ()=>{
-  try{
-    const r = await fetch("/api/config"); const c = await r.json();
-    if (c.mailHeaderUrl) $("#heroLogo").src = c.mailHeaderUrl;
-    else if (c.mailLogoUrl) $("#heroLogo").src = c.mailLogoUrl;
-  }catch{}
-
-  $("#fltDate").value = todayISO();
-  $("#wDate").value = todayISO();
-  fillWalkInTimes();
-
-  $("#btnLoad").onclick = loadList;
-  $("#view").onchange = loadList;
-  $("#btnExport").onclick = ()=> {
-    const p = $("#period").value; const d = $("#fltDate").value || todayISO();
-    window.location.href = `/api/export?period=${p}&date=${encodeURIComponent(d)}`;
-  };
-
-  $("#btnWalk").onclick = saveWalkIn;
-  $("#btnBlock").onclick = createBlock;
-  $("#btnBlockDay").onclick = blockDay;
-  $("#btnReset").onclick = resetAll;
-
-  $("#btnNotice").onclick = saveNotice;
-
-  await loadList();
-  await loadClosures();
-  await loadNotices();
-});
-
-function fillWalkInTimes(){
-  const sel = $("#wTime"); sel.innerHTML = "";
-  const from = 10*60, to = 22*60;
-  for(let m=from;m<=to;m+=15){
-    const hh=String(Math.floor(m/60)).padStart(2,"0");
-    const mm=String(m%60).padStart(2,"0");
-    const opt=document.createElement("option");
-    opt.value=`${hh}:${mm}`; opt.textContent=opt.value;
-    sel.appendChild(opt);
-  }
-}
-
-async function loadList(){
-  const d = $("#fltDate").value || todayISO();
-  const v = $("#view").value || "month";
-  const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${v}`);
-  const data = await r.json();
-  const tb = document.querySelector("#tbl tbody"); tb.innerHTML = "";
-  let total=0, pax=0;
-
-  data.forEach(row=>{
-    pax += row.guests; total++;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td class="col-date">${row.date}</td>
-      <td class="col-time">${row.time}</td>
-      <td>${row.firstName} ${row.name}</td>
-      <td>${row.email || ""}</td>
-      <td class="col-phone">${row.phone || ""}</td>
-      <td class="col-guests">${row.guests}</td>
-      <td>${row.status}</td>
-      <td>${row.notes || ""}</td>
-      <td class="col-walkin">${row.isWalkIn ? "yes" : ""}</td>
-      <td class="col-actions actions-cell">
-        <span class="btn-group">
-          <button class="btn-danger btn-sm" data-del="${row.id}" type="button">Delete</button>
-          <button class="btn btn-sm" data-ns="${row.id}" type="button">No show</button>
-        </span>
-      </td>`;
-    tb.appendChild(tr);
-  });
-
-  $("#sum").textContent = `Total bookings: ${total}   Total guests: ${pax}`;
-
-  tb.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", async ()=>{
-    await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"}); loadList();
-  }));
-  tb.querySelectorAll("[data-ns]").forEach(b=>b.addEventListener("click", async ()=>{
-    await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"}); loadList();
-  }));
-}
-
-async function saveWalkIn(){
-  const d = $("#wDate").value || todayISO();
-  const t = $("#wTime").value;
-  const payload = { date:d, time:t, guests:Number($("#wGuests").value), notes:$("#wNotes").value };
-  const r = await fetch("/api/admin/walkin", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-  const m = $("#wMsg");
-  if (r.ok){ m.textContent="Saved"; loadList(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
-}
-
-async function createBlock(){
-  const payload = {
-    startTs: $("#cStart").value,
-    endTs: $("#cEnd").value,
-    reason: $("#cReason").value
-  };
-  const r = await fetch("/api/admin/closure", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-  const m = $("#cMsg");
-  if (r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
-}
-
-async function blockDay(){
-  const val = $("#cDay").value;
-  if(!val){ alert("Set day first"); return; }
-  const reason = $("#cDayReason").value || "Closed";
-  const r = await fetch("/api/admin/closure/day", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ date: val, reason }) });
-  const m = $("#cDayMsg");
-  if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
-}
-
-async function loadClosures(){
-  const r = await fetch("/api/admin/closure"); const list = await r.json();
-  const box = $("#closureList"); box.innerHTML = "";
-  if(!list.length){ box.textContent = "No blocks"; return; }
-  list.forEach(x=>{
-    const d = document.createElement("div");
-    d.className = "badge";
-    const s = new Date(x.startTs).toLocaleString();
-    const e = new Date(x.endTs).toLocaleString();
-    d.innerHTML = `${s} — ${e} <i>(${x.reason})</i> `;
-    const btn = document.createElement("button");
-    btn.textContent = "remove"; btn.className = "btn-plain btn-sm"; btn.type="button";
-    btn.onclick = async ()=>{ await fetch(`/api/admin/closure/${x.id}`, {method:"DELETE"}); loadClosures(); };
-    d.appendChild(btn);
-    box.appendChild(d);
-  });
-}
-
-/* ----- Notices API ----- */
-async function saveNotice(){
-  const payload = {
-    startDate: $("#nStart").value,
-    endDate: $("#nEnd").value,
-    title: $("#nTitle").value.trim(),
-    message: $("#nMsg").value.trim(),
-    requireAck: $("#nAck").checked,
-    active: $("#nActive").checked
-  };
-  const r = await fetch("/api/admin/notices", {
-    method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload)
-  });
-  const m = $("#nMsgOut");
-  if (r.ok){ m.textContent="Saved"; loadNotices(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
-}
-async function loadNotices(){
-  const r = await fetch("/api/admin/notices"); const list = await r.json();
-  const box = $("#noticeList"); box.innerHTML = "";
-  if (!list.length){ box.textContent = "No notices"; return; }
-  list.forEach(n=>{
-    const d = document.createElement("div");
-    d.className="badge";
-    d.innerHTML = `<b>${n.title}</b> — ${n.startDate} … ${n.endDate} ${n.active ? "" : "(inactive)"} `;
-    const rm = document.createElement("button");
-    rm.textContent="remove"; rm.className="btn-plain btn-sm"; rm.onclick=async()=>{
-      await fetch(`/api/admin/notices/${n.id}`, {method:"DELETE"}); loadNotices();
-    };
-    d.appendChild(rm);
-    box.appendChild(d);
-  });
-}
-
-async function resetAll(){
-  const key = $("#resetKey").value.trim();
-  if(!key){ alert("Enter reset key"); return; }
-  if(!confirm("Delete ALL reservations? This cannot be undone.")) return;
-  const r = await fetch("/api/admin/reset", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ key }) });
-  const m = $("#rMsg");
-  if (r.ok){ m.textContent="Reset done"; loadList(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
-}
-</script>
+    $('#csv').addEventListener('click', ()=>{
+      const key = $('#admKey').value.trim();
+      const from = $('#from').value, to = $('#to').value;
+      fetch(`/api/admin/export.csv?from=${from}&to=${to}`, { headers:{'x-admin-key': key}})
+        .then(r=>r.blob())
+        .then(b=>{
+          const url = URL.createObjectURL(b);
+          const a=document.createElement('a'); a.href=url; a.download=`export_${from}_${to}.csv`;
+          document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        })
+        .catch(e=>alert('CSV error: '+e.message));
+    });
+  </script>
 </body>
 </html>
