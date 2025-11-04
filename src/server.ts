@@ -7,8 +7,8 @@ import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { customAlphabet } from "nanoid";
 
-// <- WICHTIG: aus DEINEM mailsender.ts importieren
-import { mailer, fromAddress } from "./mailsender";
+// <- WICHTIG: aus DEINEM mailsender.js importieren
+import { mailer, fromAddress } from "./mailsender.js";
 
 dotenv.config();
 
