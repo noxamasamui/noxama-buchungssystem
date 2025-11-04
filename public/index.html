@@ -1,30 +1,29 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Contact and Table Booking</title>
-  <link rel="stylesheet" href="/style.css"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Contact and Table Booking</title>
+<link rel="stylesheet" href="/style.css"/>
+<link rel="icon" href="/logo.png"/>
 </head>
 <body>
-  <div class="header">
-    <img src="/logo.png" alt="RÖSTILAND">
-  </div>
-
   <div class="container">
-    <div class="topbar">
-      <a id="btnPhone" href="#">Phone</a>
-      <a id="btnEmail" href="#">Email</a>
+    <div class="header"><img class="logo" src="/logo.png" alt="Röstiland"/></div>
+
+    <div class="toolbar">
+      <a class="btn-ghost" href="tel:+66800000000">Phone</a>
+      <a class="btn-ghost" href="mailto:info@noxamasamui.com">Email</a>
     </div>
 
     <h1>Contact and Table Booking</h1>
-    <div id="venue-line" class="small"></div>
+    <div class="sub">Moo 4 Lamai Beach, 84310 Suratthani, Thailand</div>
 
     <div class="card">
       <div class="row">
         <div>
           <label>Date</label>
-          <input id="date" type="date">
+          <input id="date" type="date"/>
         </div>
         <div>
           <label>Guests (max 10 online)</label>
@@ -32,183 +31,158 @@
         </div>
       </div>
 
-      <div style="margin-top:14px">
-        <label>Choose a time slot</label>
-        <div id="slots" class="pills"></div>
-      </div>
+      <label class="full" style="margin-top:10px">Choose a time slot</label>
+      <div id="slots" class="slot-grid" aria-live="polite"></div>
 
-      <div class="row" style="margin-top:14px">
+      <div class="row full" style="margin-top:12px">
         <div>
           <label>First name*</label>
-          <input id="firstName" type="text" placeholder="First name">
+          <input id="firstName" type="text" placeholder="First name"/>
         </div>
         <div>
           <label>Name*</label>
-          <input id="name" type="text" placeholder="Name">
+          <input id="name" type="text" placeholder="Name"/>
         </div>
       </div>
 
-      <div class="row" style="margin-top:8px">
+      <div class="row full">
         <div>
           <label>Email*</label>
-          <input id="email" type="email" placeholder="you@email.com">
+          <input id="email" type="email" placeholder="you@email.com"/>
         </div>
         <div>
           <label>Phone (optional)</label>
-          <input id="phone" type="text" placeholder="">
+          <input id="phone" type="tel" placeholder=""/>
         </div>
       </div>
 
-      <div style="margin-top:8px">
+      <div class="full">
         <label>Notes</label>
         <textarea id="notes" placeholder="Allergies, seating request, occasion"></textarea>
       </div>
 
-      <div id="groupHint" class="callout hidden" style="margin-top:12px">
-        For <b>11+ guests</b> please contact us directly.
-        <div class="topbar" style="margin-top:6px">
-          <a id="bigPhone" href="#">Call us</a>
-          <a id="bigEmail" href="#">Send email</a>
-        </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px">
+        <button id="book" class="btn">Book now</button>
       </div>
 
-      <div style="margin-top:16px;text-align:right">
-        <button id="bookBtn" class="btn">Book now</button>
+      <div class="notice" style="margin-top:10px">
+        11+ guests? Please <a href="tel:+66800000000">call us</a> or <a href="mailto:info@noxamasamui.com">send an email</a>.
       </div>
     </div>
 
-    <div class="footer small">
-      <span id="addr"></span>
+    <div class="footer">Moo 4 Lamai Beach, 84310 Suratthani, Thailand</div>
+  </div>
+
+  <div id="toast" class="toast" style="display:none">
+    <div>
+      <h3 id="toastTitle">Thank you!</h3>
+      <p id="toastText">Your reservation has been received.</p>
+      <button id="toastBtn" class="btn">OK</button>
     </div>
   </div>
 
-  <!-- Modal -->
-  <div id="modal" class="modal-mask">
-    <div class="modal">
-      <h3 id="mTitle">Thank you!</h3>
-      <div id="mText">Your reservation has been received.</div>
-    </div>
-  </div>
+<script>
+const $ = sel => document.querySelector(sel);
+const T = (id, html) => { const el = document.createElement('div'); el.innerHTML = html; return el.firstElementChild; };
 
-  <script>
-    const cfg = { baseUrl:"", venuePhone:"", venueEmail:"", venueAddress:"", slots:[] };
+const params = new URLSearchParams(location.search);
+const todayISO = new Date().toISOString().slice(0,10);
+$("#date").value = params.get("date") || todayISO;
 
-    // Helpers
-    const qs = s => document.querySelector(s);
-    const elDate = qs("#date");
-    const elGuests = qs("#guests");
-    const elSlots = qs("#slots");
-    const elFirst = qs("#firstName");
-    const elName = qs("#name");
-    const elEmail = qs("#email");
-    const elPhone = qs("#phone");
-    const elNotes = qs("#notes");
-    const elGroup = qs("#groupHint");
-    const elBook = qs("#bookBtn");
-    const modal = qs("#modal");
-    const mTitle = qs("#mTitle");
-    const mText = qs("#mText");
+const guestsSel = $("#guests");
+for (let i=1;i<=10;i++){ const o=document.createElement("option"); o.value=String(i); o.textContent=String(i); guestsSel.appendChild(o); }
+const plus = document.createElement("option"); plus.value="11+"; plus.textContent="11+"; guestsSel.appendChild(plus);
+guestsSel.value = params.get("guests") || "2";
+guestsSel.addEventListener("change", () => {
+  if (guestsSel.value === "11+") {
+    showToast("Groups",
+      'For 11+ guests please call us or write an email.<br><br><a class="btn" href="tel:+66800000000">Call</a> &nbsp; <a class="btn" href="mailto:info@noxamasamui.com">Email</a>',
+      "Close",
+      false
+    );
+    guestsSel.value = "10";
+  }
+});
 
-    function showModal(t, d){ mTitle.textContent=t; mText.innerHTML=d; modal.style.display="flex"; }
-    function hideModal(){ modal.style.display="none"; }
+let selectedTime = params.get("time") || "";
+const slotsEl = $("#slots");
 
-    modal.addEventListener("click", e => { if(e.target===modal) hideModal(); });
+async function loadSlots(){
+  const date = $("#date").value;
+  const guests = Number($("#guests").value || 2);
+  const res = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${guests}`);
+  const list = await res.json();
 
-    // Load Config
-    fetch("/api/config").then(r=>r.json()).then(c=>{
-      Object.assign(cfg,c);
-      qs("#btnPhone").href = `tel:${cfg.venuePhone}`;
-      qs("#btnEmail").href = `mailto:${cfg.venueEmail}`;
-      qs("#bigPhone").href = `tel:${cfg.venuePhone}`;
-      qs("#bigEmail").href = `mailto:${cfg.venueEmail}`;
-      qs("#venue-line").textContent = cfg.venueAddress;
-      qs("#addr").textContent = cfg.venueAddress;
-
-      // guests 1..10 plus extra "11+"
-      for(let i=1;i<=10;i++){
-        const o=document.createElement("option"); o.value=String(i); o.textContent=String(i);
-        elGuests.appendChild(o);
-      }
-      const extra=document.createElement("option");
-      extra.value="11+";
-      extra.textContent="11+ (call or email)";
-      elGuests.appendChild(extra);
-
-      // date default = today
-      const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth()+1).padStart(2,"0");
-      const d = String(today.getDate()).padStart(2,"0");
-      elDate.value = `${y}-${m}-${d}`;
-
-      refreshSlots();
+  slotsEl.innerHTML = "";
+  list.forEach(s=>{
+    const b = T("div", `<button type="button" class="slot ${s.disabled?'disabled':''}" data-time="${s.time}">${s.time}</button>`);
+    if (s.time===selectedTime) b.classList.add("active");
+    b.addEventListener("click", ()=> {
+      [...slotsEl.querySelectorAll(".slot")].forEach(x=>x.classList.remove("active"));
+      b.classList.add("active"); selectedTime = s.time;
     });
+    slotsEl.appendChild(b);
+  });
+}
+$("#date").addEventListener("change", loadSlots);
+$("#guests").addEventListener("change", loadSlots);
+loadSlots();
 
-    function renderSlots(list){
-      elSlots.innerHTML="";
-      list.forEach(s=>{
-        const b=document.createElement("button");
-        b.type="button"; b.className="pill"; b.textContent=s.time;
-        if(s.disabled){ b.disabled=true; b.style.opacity=.5; }
-        b.addEventListener("click", ()=>{
-          document.querySelectorAll(".pill").forEach(p=>p.classList.remove("active"));
-          b.classList.add("active");
-        });
-        elSlots.appendChild(b);
-      });
+function showToast(title, text, btnText="OK", autoRedirect=true, loyalty=null){
+  $("#toastTitle").innerHTML = title;
+  $("#toastText").innerHTML = text;
+  $("#toast").style.display="flex";
+  $("#toastBtn").textContent = btnText;
+  $("#toastBtn").onclick = () => {
+    $("#toast").style.display="none";
+    if(autoRedirect) location.href = "https://noxamasamui.com";
+  };
+  // Mini Konfetti bei Loyalty-Stufen
+  if (loyalty && (loyalty.level===5 || loyalty.level===10 || loyalty.level===15)) {
+    try{ import('https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.module.mjs')
+      .then(m=>m.default({particleCount:200,spread:120,origin:{y:.6}})); }catch{}
+  }
+}
+
+$("#book").addEventListener("click", async ()=>{
+  const date = $("#date").value;
+  const body = {
+    date,
+    time: selectedTime,
+    guests: Number($("#guests").value||2),
+    firstName: $("#firstName").value.trim(),
+    name: $("#name").value.trim(),
+    email: $("#email").value.trim(),
+    phone: $("#phone").value.trim(),
+    notes: $("#notes").value.trim()
+  };
+  if(!body.date || !body.time || !body.firstName || !body.name || !body.email){
+    showToast("Missing data","Please fill date, time, first name, name and email.","OK", false); return;
+  }
+  const res = await fetch("/api/book",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const j = await res.json().catch(()=>({}));
+  if(j && j.ok){
+    const L = j.loyalty || null;
+    if(L && L.level>0){
+      showToast("Thank you for your loyalty!",
+        `You now enjoy a <b>${L.level}% Loyalty Discount</b> for this and all future visits.`,
+        "Great!", true, L);
+    }else if(L && L.nextAt){
+      showToast("Thank you!","After <b>"+L.nextAt+"</b> bookings you’ll enjoy a loyalty discount.","OK");
+    }else{
+      showToast("Thank you!","Your reservation has been received.","OK");
     }
-    function activeTime(){
-      const a = elSlots.querySelector(".pill.active");
-      return a ? a.textContent : "";
-    }
-    function refreshSlots(){
-      const date = elDate.value;
-      const guests = elGuests.value==="11+" ? 10 : Number(elGuests.value||2);
-      fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${guests}`)
-        .then(r=>r.json()).then(renderSlots);
-      elGroup.classList.toggle("hidden", elGuests.value!=="11+");
-    }
+  }else{
+    showToast("Error", (j && j.error) ? j.error : "Unknown error","Close", false);
+  }
+});
 
-    elDate.addEventListener("change",refreshSlots);
-    elGuests.addEventListener("change",refreshSlots);
-
-    // Book
-    elBook.addEventListener("click", async ()=>{
-      if(elGuests.value==="11+"){
-        showModal("Group booking", `For 11+ guests please contact us directly.<br><br>
-        <a class="btn" href="tel:${cfg.venuePhone}">Call</a> &nbsp;
-        <a class="btn" href="mailto:${cfg.venueEmail}">Email</a>`);
-        return;
-      }
-      const payload = {
-        date: elDate.value,
-        time: activeTime(),
-        guests: Number(elGuests.value||2),
-        firstName: elFirst.value.trim(),
-        name: elName.value.trim(),
-        email: elEmail.value.trim(),
-        phone: elPhone.value.trim(),
-        notes: elNotes.value.trim(),
-      };
-      if(!payload.date || !payload.time || !payload.firstName || !payload.name || !payload.email){
-        showModal("Missing data","Please fill all required fields and select a time.");
-        return;
-      }
-      const r = await fetch("/api/book", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      const j = await r.json();
-      if(!r.ok){ showModal("Sorry", j?.error||"Error"); return; }
-
-      // Fireworks at 5/10/15
-      let extra="";
-      if([5,10,15].includes(j.nth)){
-        const pct = j.loyalty.level;
-        extra = `<div style="margin-top:10px;font-weight:700">🎆 Congratulations! You now enjoy <span style="color:#b6802a">${pct}%</span> loyalty discount.</div>`;
-      }
-      showModal("Thank you!", `Your reservation has been received.${extra}<br><br>We redirect you to our website...`);
-
-      // redirect
-      setTimeout(()=>{ window.location.href = "https://noxamasamui.com"; }, 2200);
-    });
-  </script>
+// Prefill from query
+if (params.get("firstName")) $("#firstName").value = params.get("firstName");
+if (params.get("name")) $("#name").value = params.get("name");
+if (params.get("email")) $("#email").value = params.get("email");
+if (params.get("phone")) $("#phone").value = params.get("phone");
+if (params.get("notes")) $("#notes").value = decodeURIComponent(params.get("notes"));
+</script>
 </body>
 </html>
