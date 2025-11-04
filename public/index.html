@@ -1,229 +1,317 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Contact and Table Booking</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- deine bestehende CSS -->
-  <link rel="stylesheet" href="/style.css">
-  <style>
-    /* sanftes Card-Layout, Modal und Feuerwerk – lokal hier, damit keine weitere Datei noetig ist */
-    body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#efe7dc;color:#2b1a12;margin:0}
-    .wrap{max-width:980px;margin:0 auto;padding:24px}
-    .card{background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.12);padding:18px}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    label{display:block;font-weight:600;margin:12px 0 6px}
-    input,select,textarea,button{padding:10px 12px;border:1px solid #d7d2cc;border-radius:10px;font:inherit}
-    button.btn{background:#b6802a;color:#fff;border:0;font-weight:700;cursor:pointer}
-    .times{display:flex;gap:8px;flex-wrap:wrap}
-    .timebtn{padding:8px 10px;border-radius:16px;border:1px solid #d7d2cc;background:#f5efe9;cursor:pointer}
-    .timebtn.active{background:#b6802a;color:#fff;border-color:#b6802a}
-    .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media (max-width:720px){ .cols{grid-template-columns:1fr} }
-
-    /* Modal */
-    .modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:9999; }
-    .modal { width:min(92vw,520px); border-radius:16px; background:#fff; box-shadow:0 20px 60px rgba(0,0,0,.35); overflow:hidden; }
-    .modal-header { background:#f6efe8; padding:14px 18px; border-bottom:1px solid #eadfd4; font-weight:700; color:#3b2a1f; }
-    .modal-body { padding:18px; color:#3b2a1f; }
-    .modal-actions { display:flex; gap:10px; justify-content:flex-end; padding:16px 18px; border-top:1px solid #eee; }
-    .btn.secondary { background:#e8e1da; color:#412; }
-
-    /* Feuerwerk */
-    #fxCanvas { position:fixed; inset:0; pointer-events:none; z-index:10000; display:none; }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <canvas id="fxCanvas"></canvas>
+  <header class="site-header">
+    <div class="brand">
+      <img src="logo.png" alt="RÖSTILAND" class="logo" />
+    </div>
+    <div class="contact-chips">
+      <a id="chip-phone" class="chip" href="#">Phone</a>
+      <a id="chip-email" class="chip" href="#">Email</a>
+    </div>
+  </header>
 
-  <div class="wrap">
+  <main class="container">
     <h1>Contact and Table Booking</h1>
-    <div class="card">
-      <form data-booking="true" id="bookingForm">
-        <div class="row">
-          <div>
-            <label>Date</label>
-            <input type="date" name="date" id="date" required>
-          </div>
-          <div>
-            <label>Guests (max 10 online)</label>
-            <select name="guests" id="guests">
-              <option>2</option><option>3</option><option>4</option><option>5</option>
-              <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
-            </select>
+    <p id="venueAddress" class="muted"></p>
+
+    <form id="bookForm" class="card" autocomplete="on">
+      <div class="grid">
+        <label class="field">
+          <span>Date</span>
+          <input id="date" type="date" required />
+        </label>
+
+        <label class="field">
+          <span>Guests (max 10 online)</span>
+          <select id="guests" required>
+            <!-- 1..10 gefüllt via JS -->
+          </select>
+        </label>
+      </div>
+
+      <div class="field">
+        <span>Choose a time slot</span>
+        <div id="slots" class="slots"></div>
+        <div id="plus11" class="plus11 hidden">
+          <p>Party of <b>11+ guests</b> or special request?</p>
+          <div class="row">
+            <a id="ctaPhone" class="btn outline" href="#">Call us</a>
+            <a id="ctaEmail" class="btn outline" href="#">Write us</a>
           </div>
         </div>
+      </div>
 
-        <label>Choose a time slot</label>
-        <div class="times" id="times"></div>
-        <input type="hidden" name="time" id="time" required>
+      <div class="grid">
+        <label class="field">
+          <span>First name*</span>
+          <input id="firstName" required />
+        </label>
 
-        <div class="cols">
-          <div>
-            <label>First name*</label>
-            <input name="firstName" required>
-          </div>
-          <div>
-            <label>Name*</label>
-            <input name="name" required>
-          </div>
-          <div>
-            <label>Email*</label>
-            <input type="email" name="email" required>
-          </div>
-          <div>
-            <label>Phone (optional)</label>
-            <input name="phone">
-          </div>
-        </div>
+        <label class="field">
+          <span>Name*</span>
+          <input id="name" required />
+        </label>
+      </div>
 
-        <label>Notes</label>
-        <textarea name="notes" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
+      <div class="grid">
+        <label class="field">
+          <span>Email*</span>
+          <input id="email" type="email" required />
+        </label>
 
-        <div style="margin-top:12px">
-          <button class="btn" type="submit">Book now</button>
-        </div>
-      </form>
+        <label class="field">
+          <span>Phone (optional)</span>
+          <input id="phone" />
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Notes</span>
+        <textarea id="notes" placeholder="Allergies, seating request, occasion"></textarea>
+      </label>
+
+      <div class="actions">
+        <button id="bookBtn" class="btn">Book now</button>
+      </div>
+    </form>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <canvas id="fireworks" class="hidden"></canvas>
+      <h3 id="modalTitle">Thank you!</h3>
+      <p id="modalText">Your reservation has been received.</p>
+      <div class="actions">
+        <a id="modalOk" class="btn">OK</a>
+      </div>
     </div>
   </div>
 
   <script>
-    // ===== Modal =====
-    function showModal({title, message, buttonText="Continue", onClose}={}){
-      let backdrop = document.querySelector('.modal-backdrop');
-      if(!backdrop){
-        backdrop = document.createElement('div');
-        backdrop.className = 'modal-backdrop';
-        backdrop.innerHTML = \`
-          <div class="modal" role="dialog" aria-modal="true">
-            <div class="modal-header"></div>
-            <div class="modal-body"></div>
-            <div class="modal-actions">
-              <button class="btn js-ok">OK</button>
-            </div>
-          </div>\`;
-        document.body.appendChild(backdrop);
-      }
-      backdrop.querySelector('.modal-header').textContent = title || "Reservation";
-      backdrop.querySelector('.modal-body').innerHTML = message || "";
-      backdrop.querySelector('.js-ok').textContent = buttonText;
+    // ----- helpers
+    const $ = (sel) => document.querySelector(sel);
+    const slotsEl = $("#slots");
+    const plus11El = $("#plus11");
+    const btnPhone = $("#ctaPhone");
+    const btnEmail = $("#ctaEmail");
+    const chipPhone = $("#chip-phone");
+    const chipEmail = $("#chip-email");
+    const venueAddress = $("#venueAddress");
+    const guestsSel = $("#guests");
+    const dateEl = $("#date");
+    const modal = $("#modal");
+    const modalTitle = $("#modalTitle");
+    const modalText = $("#modalText");
+    const modalOk = $("#modalOk");
+    const fwCanvas = $("#fireworks");
 
-      function close(){
-        backdrop.style.display = 'none';
-        backdrop.removeEventListener('click', onBack);
-        backdrop.querySelector('.js-ok').removeEventListener('click', onBtn);
-        onClose && onClose();
-      }
-      function onBack(e){ if(e.target === backdrop) close(); }
-      function onBtn(){ close(); }
+    let CFG = null;
+    let selectedTime = null;
 
-      backdrop.addEventListener('click', onBack);
-      backdrop.querySelector('.js-ok').addEventListener('click', onBtn);
-      backdrop.style.display = 'flex';
+    function ymd(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const da = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${da}`;
     }
 
-    // ===== Feuerwerk (leichtgewichtiges Confetti) =====
-    const FX = (() => {
-      let cvs, ctx, parts=[], raf=null;
-      function ensure(){
-        cvs = document.getElementById('fxCanvas');
-        ctx = cvs.getContext('2d');
-        resize();
-        window.addEventListener('resize', resize);
+    function showModal(title, text, firework = false, redirectUrl = "/") {
+      modalTitle.textContent = title;
+      modalText.textContent = text;
+      modal.classList.remove("hidden");
+
+      if (firework) {
+        startFireworks();
+        fwCanvas.classList.remove("hidden");
+      } else {
+        fwCanvas.classList.add("hidden");
       }
-      function resize(){ cvs.width = innerWidth; cvs.height = innerHeight; }
-      function launch(ms=2200){
-        if(!cvs) ensure();
-        cvs.style.display = 'block';
-        parts = [];
-        for(let i=0;i<220;i++){
-          parts.push({
-            x:Math.random()*cvs.width, y:-20-Math.random()*cvs.height*.4,
-            vx:(Math.random()-0.5)*4, vy:Math.random()*3+2, g:.08+Math.random()*0.12,
-            w:6+Math.random()*6, h:8+Math.random()*10, a:Math.random()*Math.PI, va:(Math.random()-0.5)*.2,
-            c:\`hsl(\${Math.random()*360},90%,60%)\`
-          });
+
+      modalOk.onclick = () => {
+        stopFireworks();
+        modal.classList.add("hidden");
+        window.location.href = redirectUrl;
+      };
+
+      // Auto-redirect nach 4s
+      setTimeout(() => {
+        if (!modal.classList.contains("hidden")) {
+          stopFireworks();
+          modal.classList.add("hidden");
+          window.location.href = redirectUrl;
         }
-        const t0 = performance.now();
-        cancelAnimationFrame(raf);
-        (function tick(t){
-          ctx.clearRect(0,0,cvs.width,cvs.height);
-          parts.forEach(p=>{
-            p.x+=p.vx; p.y+=p.vy; p.vy+=p.g; p.a+=p.va;
-            ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a);
-            ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
-          });
-          parts = parts.filter(p=>p.y<cvs.height+30);
-          if(t-t0<ms){ raf=requestAnimationFrame(tick); }
-          else { cvs.style.display='none'; }
-        })(t0);
-      }
-      return { launch };
-    })();
+      }, 4000);
+    }
 
-    // ===== Slots laden =====
-    async function loadSlots(){
-      const date = document.getElementById('date').value;
-      const guests = document.getElementById('guests').value;
-      const times = document.getElementById('times');
-      const hidden = document.getElementById('time');
-      times.innerHTML = "";
-      if(!date) return;
-
-      const res = await fetch(\`/api/slots?date=\${encodeURIComponent(date)}&guests=\${guests}\`);
-      const slots = await res.json();
-
-      slots.forEach(s=>{
-        const b=document.createElement('button');
-        b.type='button'; b.className='timebtn'; b.textContent=s.time; b.disabled=s.disabled;
-        b.addEventListener('click', ()=>{
-          document.querySelectorAll('.timebtn').forEach(x=>x.classList.remove('active'));
-          b.classList.add('active'); hidden.value=s.time;
+    // simple fireworks (leichtgewichtig)
+    let fwRAF = null, fwCtx = null, fwParticles = [];
+    function startFireworks() {
+      const c = fwCanvas;
+      c.width = 480; c.height = 200;
+      fwCtx = c.getContext("2d");
+      fwParticles = [];
+      spawnFW();
+      const loop = () => {
+        fwCtx.fillStyle = "rgba(0,0,0,0.08)";
+        fwCtx.fillRect(0,0,c.width,c.height);
+        fwParticles.forEach(p => {
+          p.vy += 0.05; p.x += p.vx; p.y += p.vy; p.life -= 1;
+          fwCtx.fillStyle = `hsl(${p.h},100%,${50+Math.random()*20}%)`;
+          fwCtx.fillRect(p.x, p.y, 2, 2);
         });
-        times.appendChild(b);
-      });
-      const first = Array.from(document.querySelectorAll('.timebtn')).find(x=>!x.disabled);
-      if(first) first.click();
+        fwParticles = fwParticles.filter(p => p.life > 0);
+        if (fwParticles.length < 60) spawnFW();
+        fwRAF = requestAnimationFrame(loop);
+      };
+      loop();
     }
-
-    // ===== Formular =====
-    async function init(){
-      const form = document.getElementById('bookingForm');
-      // Standard: heute
-      const d=new Date(); document.getElementById('date').value = d.toISOString().slice(0,10);
-      await loadSlots();
-      document.getElementById('date').addEventListener('change', loadSlots);
-      document.getElementById('guests').addEventListener('change', loadSlots);
-
-      form.addEventListener('submit', async (e)=>{
-        e.preventDefault();
-        const data = Object.fromEntries(new FormData(form).entries());
-        data.guests = Number(data.guests||2);
-
-        const r = await fetch('/api/book', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify(data)
+    function spawnFW() {
+      const cx = 60 + Math.random() * 360;
+      const cy = 60 + Math.random() * 60;
+      for (let i=0;i<90;i++){
+        fwParticles.push({
+          x: cx, y: cy,
+          vx: (Math.random()-0.5)*3.5,
+          vy: (Math.random()-0.5)*3.5,
+          h: Math.floor(Math.random()*360),
+          life: 60 + Math.random()*30
         });
+      }
+    }
+    function stopFireworks() {
+      if (fwRAF) cancelAnimationFrame(fwRAF);
+      fwRAF = null; fwParticles = [];
+    }
 
-        if(!r.ok){
-          const j = await r.json().catch(()=>({}));
-          showModal({ title:"We are sorry", message: j && j.error ? j.error : "Unexpected error", buttonText:"Close" });
-          return;
-        }
+    async function loadConfig() {
+      const r = await fetch("/api/config");
+      CFG = await r.json();
+      venueAddress.textContent = CFG.venueAddress;
 
-        const j = await r.json();
-        let title="Thank you!", message="Your reservation has been received.";
-        if(j.milestoneReached){
-          FX.launch(2400);
-          title="Congratulations!";
-          message = \`<p>You have just unlocked your <b>\${j.loyaltyLevel}% Loyalty Discount</b>.</p>
-                     <p>It applies from now on to all future visits.</p>\`;
-        }
-        showModal({ title, message, onClose:()=>{ if(j.redirect) location.href=j.redirect; } });
+      if (CFG.venuePhone) {
+        chipPhone.href = `tel:${CFG.venuePhone}`;
+        btnPhone.href = `tel:${CFG.venuePhone}`;
+      } else {
+        chipPhone.classList.add("disabled");
+      }
+      if (CFG.venueEmail) {
+        chipEmail.href = `mailto:${CFG.venueEmail}`;
+        btnEmail.href = `mailto:${CFG.venueEmail}`;
+      } else {
+        chipEmail.classList.add("disabled");
+      }
+
+      // Guests 1..10 + "11+"
+      guestsSel.innerHTML = "";
+      for (let i=1;i<=10;i++){
+        const o = document.createElement("option");
+        o.value = String(i);
+        o.textContent = String(i);
+        guestsSel.appendChild(o);
+      }
+      const today = new Date();
+      dateEl.value = ymd(today);
+      refreshSlots();
+    }
+
+    async function refreshSlots() {
+      selectedTime = null;
+      const g = Number(guestsSel.value || 2);
+      if (g >= 11) {
+        slotsEl.innerHTML = "";
+        plus11El.classList.remove("hidden");
+        return;
+      }
+      plus11El.classList.add("hidden");
+
+      const qs = new URLSearchParams({ date: dateEl.value, guests: String(g) });
+      const r = await fetch(`/api/slots?${qs}`);
+      const list = await r.json();
+
+      slotsEl.innerHTML = "";
+      list.forEach(s => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "slot" + (s.disabled ? " disabled" : "");
+        b.textContent = s.time;
+        b.disabled = !!s.disabled;
+        b.onclick = () => {
+          slotsEl.querySelectorAll(".slot.selected").forEach(e => e.classList.remove("selected"));
+          b.classList.add("selected");
+          selectedTime = s.time;
+        };
+        slotsEl.appendChild(b);
       });
     }
-    document.addEventListener('DOMContentLoaded', init);
+
+    async function submitForm(ev) {
+      ev.preventDefault();
+      if (!selectedTime) {
+        showModal("Choose a time", "Please tap one of the available times.");
+        return;
+      }
+      const payload = {
+        date: dateEl.value,
+        time: selectedTime,
+        guests: Number(guestsSel.value),
+        firstName: $("#firstName").value.trim(),
+        name: $("#name").value.trim(),
+        email: $("#email").value.trim(),
+        phone: $("#phone").value.trim() || null,
+        notes: $("#notes").value.trim() || null
+      };
+      const r = await fetch("/api/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+
+      if (!r.ok) {
+        const msg = data?.error || "Booking failed.";
+        showModal("Sorry", msg);
+        return;
+      }
+
+      const lw = data.loyalty || { level:0, firework:false, pastCount:0 };
+      const title = lw.firework
+        ? `🎉 Congrats! ${lw.level}% Loyalty`
+        : "Thank you!";
+      const txt = lw.firework
+        ? `You just unlocked a ${lw.level}% Loyalty Discount. It applies from now on.`
+        : "Your reservation has been received.";
+
+      // Redirect-Ziel: deine Hauptseite / oder noxamasamui.com
+      const redirect = "https://noxamasamui.com/";
+
+      showModal(title, txt, lw.firework, redirect);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadConfig();
+      for (let i=1;i<=10;i++){
+        const o = document.createElement("option");
+        o.value = String(i); o.textContent = String(i);
+      }
+      guestsSel.addEventListener("change", refreshSlots);
+      dateEl.addEventListener("change", refreshSlots);
+      $("#bookForm").addEventListener("submit", submitForm);
+
+      // 11+ Gäste – per Klick per Hand aktivieren
+      const opt11 = document.createElement("option");
+      opt11.value = "11";
+      opt11.textContent = "11+";
+      guestsSel.appendChild(opt11);
+    });
   </script>
 </body>
 </html>
