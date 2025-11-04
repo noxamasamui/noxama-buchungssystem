@@ -1,41 +1,44 @@
-// SMTP-basierter Ersatz für das frühere MailerSend-API.
+// src/mailer.ts
+import nodemailer, { Transporter } from "nodemailer";
 
-import { mailer, fromAddress, verifyMailer } from "./mailer";
+const SMTP_HOST = process.env.SMTP_HOST || process.env.MAIL_HOST || "";
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_USER = process.env.SMTP_USER || process.env.MAIL_USER || "";
+const SMTP_PASS = process.env.SMTP_PASS || process.env.MAIL_PASS || "";
+const SMTP_SECURE = String(process.env.SMTP_SECURE || "").toLowerCase() === "true";
 
-export type SendOptions = {
-  fromName?: string;
-  fromEmail?: string;
-  to: string;
-  subject: string;
-  html: string;
-};
+const FROM_EMAIL = process.env.FROM_EMAIL || process.env.VENUE_EMAIL || "no-reply@noxama.local";
+const FROM_NAME  = process.env.FROM_NAME  || process.env.BRAND_NAME  || "RÖSTILAND BY NOXAMA SAMUI";
 
-// Kompatibilitäts-Helper – immer false.
-export function isTrial422(_err: unknown): boolean {
-  return false;
-}
+// Singleton Transporter
+let transporter: Transporter | null = null;
 
-// Healthcheck: prüft den Transport
-export async function healthMailMS(): Promise<boolean> {
-  try {
-    await verifyMailer();
-    return true;
-  } catch {
-    return false;
+function createTransport(): Transporter {
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    throw new Error("SMTP config missing: set SMTP_HOST/SMTP_USER/SMTP_PASS");
   }
+  return nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_SECURE, // true=465, false=587/25
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
 }
 
-// Senden per Nodemailer (SMTP)
-export async function sendMailMS(opts: SendOptions): Promise<void> {
-  const from =
-    opts.fromName && opts.fromEmail
-      ? `"${opts.fromName}" <${opts.fromEmail}>`
-      : fromAddress; // <- fromAddress ist eine Zeichenkette, kein Aufruf!
+export function mailer(): Transporter {
+  if (!transporter) transporter = createTransport();
+  return transporter;
+}
 
-  await mailer.sendMail({
-    from,
-    to: opts.to,
-    subject: opts.subject,
-    html: opts.html,
-  });
+export function fromAddress(): string {
+  return `${FROM_NAME} <${FROM_EMAIL}>`;
+}
+
+export async function verifyMailer(): Promise<void> {
+  try {
+    await mailer().verify();
+  } catch (err) {
+    // ins Log, aber Build nicht abbrechen
+    console.warn("SMTP verify failed:", (err as Error).message);
+  }
 }
