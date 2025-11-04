@@ -7,14 +7,18 @@ import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import { customAlphabet } from "nanoid";
 
-import { mailer, fromAddress } from "./mailer";
-import { renderReservationEmail, calcLoyalty } from "./email";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// <- WICHTIG: aus DEINEM mailsender.ts importieren
+import { mailer, fromAddress } from "./mailsender";
 
 dotenv.config();
 
+/* ----------------------------------------------------------- */
+/* ESM __dirname */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/* ----------------------------------------------------------- */
+/* App / Prisma / Static */
 const app = express();
 const prisma = new PrismaClient();
 
@@ -22,7 +26,8 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.static(path.resolve(__dirname, "../public")));
 
-/** ----------------------- Konfiguration ----------------------- */
+/* ----------------------------------------------------------- */
+/* Config aus ENV */
 const PORT = Number(process.env.PORT ?? 4020);
 const BASE_URL =
   process.env.PUBLIC_BASE_URL || process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -54,7 +59,8 @@ const ADMIN_KEY =
 
 const nanoid = customAlphabet("abcdefghijkmnpqrstuvwxyz123456789", 21);
 
-/** ----------------------- Helpers ----------------------- */
+/* ----------------------------------------------------------- */
+/* Helpers (Zeit, Slots, Admin) */
 
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!ADMIN_KEY) return res.status(500).json({ error: "Admin key not set" });
@@ -63,47 +69,129 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// "HH:mm" -> Minuten
-function hmToMinutes(hm: string): number {
+function hmToMin(hm: string): number {
   const [h, m] = hm.split(":").map((s) => Number(s));
   return h * 60 + m;
 }
-// Minuten -> "HH:mm"
-function minutesToHm(min: number): string {
+function minToHm(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
-// Slots zwischen start..end in 15-Minuten-Raster, solange die Sitzdauer noch bis end passt
-function buildSlotsWindow(startHm: string, endHm: string, durationMin: number): string[] {
-  const start = hmToMinutes(startHm);
-  const end = hmToMinutes(endHm);
+function windowSlots(startHm: string, endHm: string, duration: number): string[] {
+  const s = hmToMin(startHm);
+  const e = hmToMin(endHm);
   const out: string[] = [];
-  for (let t = start; t + durationMin <= end; t += 15) {
-    out.push(minutesToHm(t));
-  }
+  for (let t = s; t + duration <= e; t += 15) out.push(minToHm(t));
   return out;
 }
 function dailySlots(): string[] {
-  const lunch = buildSlotsWindow(
-    OPEN_LUNCH_START,
-    OPEN_LUNCH_END,
-    OPEN_LUNCH_DURATION_MIN
-  );
-  const dinner = buildSlotsWindow(
-    OPEN_DINNER_START,
-    OPEN_DINNER_END,
-    OPEN_DINNER_DURATION_MIN
-  );
-  return [...lunch, ...dinner];
+  return [
+    ...windowSlots(OPEN_LUNCH_START, OPEN_LUNCH_END, OPEN_LUNCH_DURATION_MIN),
+    ...windowSlots(OPEN_DINNER_START, OPEN_DINNER_END, OPEN_DINNER_DURATION_MIN),
+  ];
 }
 function isYmd(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
+function pickDurationMin(time: string): number {
+  const t = hmToMin(time);
+  const lunch = [hmToMin(OPEN_LUNCH_START), hmToMin(OPEN_LUNCH_END)];
+  if (t >= lunch[0] && t + OPEN_LUNCH_DURATION_MIN <= lunch[1]) {
+    return OPEN_LUNCH_DURATION_MIN;
+  }
+  return OPEN_DINNER_DURATION_MIN;
+}
+// startTs / endTs passend zum Slot
+function buildStartEnd(date: string, time: string): { startTs: Date; endTs: Date } {
+  const startTs = new Date(`${date}T${time}:00`);
+  const endTs = new Date(startTs.getTime() + pickDurationMin(time) * 60_000);
+  return { startTs, endTs };
+}
 
-/** ----------------------- Public: Config ----------------------- */
+function csv(s: string): string {
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
 
-app.get("/api/config", (_req: Request, res: Response) => {
+/* Minimaler Mail-Renderer (kein extra Modul nötig) */
+type Loyalty = { level: 0 | 5 | 10 | 15; nextAt?: number; pastCount: number };
+
+function calcLoyalty(pastCount: number): Loyalty {
+  let level: 0 | 5 | 10 | 15 = 0;
+  if (pastCount + 1 >= 15) level = 15;
+  else if (pastCount + 1 >= 10) level = 10;
+  else if (pastCount + 1 >= 5) level = 5;
+  const nextAt = level === 15 ? undefined : level === 10 ? 15 : level === 5 ? 10 : 5;
+  return { level, nextAt, pastCount };
+}
+
+function renderReservationEmail(
+  meta: {
+    brandName: string;
+    baseUrl: string;
+    cancelUrl: string;
+    mailHeaderUrl: string | null;
+    mailLogoUrl: string | null;
+    venueAddress: string;
+  },
+  r: {
+    id: string;
+    date: string;
+    time: string;
+    guests: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    cancelToken: string;
+  },
+  loyalty: Loyalty
+): { subject: string; html: string } {
+  const subject = `Your Reservation at ${meta.brandName}`;
+  const loyaltyBlock =
+    loyalty.level > 0
+      ? `<p><strong>Thank you for your loyalty!</strong><br/>You now enjoy a <strong>${loyalty.level}% Loyalty Discount</strong> for this and all future visits.</p>`
+      : loyalty.nextAt
+      ? `<p><strong>Thank you for your loyalty!</strong><br/>After <strong>${loyalty.nextAt}</strong> bookings you’ll enjoy a loyalty discount.</p>`
+      : "";
+
+  const cancelLink = `${meta.baseUrl}/cancel?token=${encodeURIComponent(r.cancelToken)}`;
+
+  const html = `
+  <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b1a12">
+    ${meta.mailHeaderUrl ? `<img src="${meta.mailHeaderUrl}" style="max-width:100%;display:block;margin:0 auto 16px"/>` : ""}
+    ${meta.mailLogoUrl ? `<div style="text-align:center;margin:8px 0"><img src="${meta.mailLogoUrl}" height="56"/></div>` : ""}
+    <h2 style="text-align:center;margin:16px 0 8px">Your Reservation at ${meta.brandName}</h2>
+
+    <p>Hi ${csv(r.firstName)} ${csv(r.lastName)},</p>
+    <p>Thank you for your reservation. We look forward to welcoming you.</p>
+
+    <div style="background:#faefe6;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #ead7c7">
+      <div><b>Date</b> ${r.date}</div>
+      <div><b>Time</b> ${r.time}</div>
+      <div><b>Guests</b> ${r.guests}</div>
+      <div><b>Address</b> ${VENUE_ADDRESS}</div>
+    </div>
+
+    ${loyaltyBlock}
+
+    <div style="background:#fdeeea;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #f4d6ce">
+      <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
+    </div>
+
+    <div style="text-align:center;margin:20px 0">
+      <a href="${cancelLink}" style="background:#b6802a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;display:inline-block">Cancel reservation</a>
+    </div>
+
+    <p style="text-align:center">Warm regards from <b>${BRAND_NAME}</b></p>
+  </div>
+  `;
+  return { subject, html };
+}
+
+/* ----------------------------------------------------------- */
+/* Public: Config */
+app.get("/api/config", (_req, res) => {
   res.json({
     brandName: BRAND_NAME,
     baseUrl: BASE_URL,
@@ -117,9 +205,9 @@ app.get("/api/config", (_req: Request, res: Response) => {
   });
 });
 
-/** ----------------------- Public: Slots ----------------------- */
-
-app.get("/api/slots", async (req: Request, res: Response) => {
+/* ----------------------------------------------------------- */
+/* Public: Slots */
+app.get("/api/slots", async (req, res) => {
   const date = String(req.query.date || "");
   const guests = Number(req.query.guests || 2);
 
@@ -128,7 +216,6 @@ app.get("/api/slots", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Invalid guests" });
 
   const all = dailySlots();
-
   const list = await Promise.all(
     all.map(async (time) => {
       const agg = await prisma.reservation.aggregate({
@@ -139,55 +226,35 @@ app.get("/api/slots", async (req: Request, res: Response) => {
       return { time, disabled: taken >= ONLINE_SEATS_CAP, taken, cap: ONLINE_SEATS_CAP };
     })
   );
-
   res.json(list);
 });
 
-/** ----------------------- Public: Book ----------------------- */
-
-app.post("/api/book", async (req: Request, res: Response) => {
+/* ----------------------------------------------------------- */
+/* Public: Book */
+app.post("/api/book", async (req, res) => {
   try {
-    const {
-      date,
-      time,
-      guests,
-      firstName,
-      name,
-      email,
-      phone,
-      notes,
-    }: {
-      date: string;
-      time: string;
-      guests: number;
-      firstName: string;
-      name: string;
-      email: string;
-      phone?: string | null;
-      notes?: string | null;
-    } = req.body || {};
+    const { date, time, guests, firstName, name, email, phone, notes } = req.body || {};
 
     if (!isYmd(String(date))) return res.status(400).json({ error: "Invalid date" });
-
     const slots = dailySlots();
     if (!slots.includes(String(time)))
       return res.status(400).json({ error: "Invalid time" });
 
-    if (!Number.isFinite(guests) || guests < 1 || guests > 10)
+    const g = Number(guests);
+    if (!Number.isFinite(g) || g < 1 || g > 10)
       return res.status(400).json({ error: "Invalid guests" });
 
     if (!firstName || !name || !email)
       return res.status(400).json({ error: "Missing fields" });
 
-    // Kapazität
     const agg = await prisma.reservation.aggregate({
       _sum: { guests: true },
       where: { date, time, status: { not: "canceled" } },
     });
     const already = agg._sum.guests ?? 0;
-    if (already + guests > ONLINE_SEATS_CAP) {
-      return res.status(409).json({ error: "Fully booked" });
-    }
+    if (already + g > ONLINE_SEATS_CAP) return res.status(409).json({ error: "Fully booked" });
+
+    const { startTs, endTs } = buildStartEnd(String(date), String(time));
 
     const newRes = await prisma.reservation.create({
       data: {
@@ -198,13 +265,15 @@ app.post("/api/book", async (req: Request, res: Response) => {
         phone: phone ?? null,
         date: String(date),
         time: String(time),
-        guests: Number(guests),
+        guests: g,
         notes: notes ?? null,
         status: "confirmed",
         isWalkIn: false,
         createdAt: new Date(),
         cancelToken: nanoid(),
         reminderSent: false,
+        startTs,
+        endTs,
       },
     });
 
@@ -240,23 +309,18 @@ app.post("/api/book", async (req: Request, res: Response) => {
       loyalty
     );
 
-    await mailer().sendMail({
-      from: fromAddress(),
-      to: newRes.email,
-      subject,
-      html,
-    });
+    await mailer().sendMail({ from: fromAddress(), to: newRes.email, subject, html });
 
     res.json({ ok: true, id: newRes.id });
-  } catch (err) {
-    console.error("book error", err);
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/** ----------------------- Public: Cancel ----------------------- */
-
-app.get("/cancel", async (req: Request, res: Response) => {
+/* ----------------------------------------------------------- */
+/* Public: Cancel */
+app.get("/cancel", async (req, res) => {
   const token = String(req.query.token || "");
   if (!token) return res.status(400).send("Missing token");
 
@@ -264,21 +328,18 @@ app.get("/cancel", async (req: Request, res: Response) => {
   if (!r) return res.status(404).send("Not found");
 
   if (r.status !== "canceled") {
-    await prisma.reservation.update({
-      where: { id: r.id },
-      data: { status: "canceled" },
-    });
+    await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
   }
   res.redirect("/cancelled.html");
 });
 
-/** ======================= ADMIN API ======================= */
+/* ========================= ADMIN ========================= */
 
-// Walk-in anlegen
-app.post("/api/admin/walkin", requireAdmin, async (req: Request, res: Response) => {
+/* Walk-in */
+app.post("/api/admin/walkin", requireAdmin, async (req, res) => {
   const { date, time, guests, notes } = req.body || {};
-  if (!isYmd(String(date))) return res.status(400).json({ error: "Invalid date" });
 
+  if (!isYmd(String(date))) return res.status(400).json({ error: "Invalid date" });
   const slots = dailySlots();
   if (!slots.includes(String(time)))
     return res.status(400).json({ error: "Invalid time" });
@@ -287,15 +348,14 @@ app.post("/api/admin/walkin", requireAdmin, async (req: Request, res: Response) 
   if (!Number.isFinite(g) || g < 1 || g > 10)
     return res.status(400).json({ error: "Invalid guests" });
 
-  // Kapazität
   const agg = await prisma.reservation.aggregate({
     _sum: { guests: true },
     where: { date, time, status: { not: "canceled" } },
   });
   const already = agg._sum.guests ?? 0;
-  if (already + g > ONLINE_SEATS_CAP) {
-    return res.status(409).json({ error: "Fully booked" });
-  }
+  if (already + g > ONLINE_SEATS_CAP) return res.status(409).json({ error: "Fully booked" });
+
+  const { startTs, endTs } = buildStartEnd(String(date), String(time));
 
   const r = await prisma.reservation.create({
     data: {
@@ -313,40 +373,33 @@ app.post("/api/admin/walkin", requireAdmin, async (req: Request, res: Response) 
       createdAt: new Date(),
       cancelToken: nanoid(),
       reminderSent: false,
+      startTs,
+      endTs,
     },
   });
 
   res.json({ ok: true, id: r.id });
 });
 
-// Reservierungen auflisten (von/bis)
-app.get(
-  "/api/admin/reservations",
-  requireAdmin,
-  async (req: Request, res: Response) => {
-    const from = String(req.query.from || "");
-    const to = String(req.query.to || "");
-    if (!isYmd(from) || !isYmd(to))
-      return res.status(400).json({ error: "Invalid range" });
-
-    const rows = await prisma.reservation.findMany({
-      where: {
-        date: { gte: from, lte: to },
-      },
-      orderBy: [{ date: "asc" }, { time: "asc" }, { createdAt: "asc" }],
-    });
-
-    const totalGuests = rows.reduce((s, r) => (r.status === "canceled" ? s : s + r.guests), 0);
-    res.json({ rows, totalGuests, count: rows.length });
-  }
-);
-
-// CSV-Export (von/bis)
-app.get("/api/admin/export.csv", requireAdmin, async (req: Request, res: Response) => {
+/* Liste / Export */
+app.get("/api/admin/reservations", requireAdmin, async (req, res) => {
   const from = String(req.query.from || "");
   const to = String(req.query.to || "");
-  if (!isYmd(from) || !isYmd(to))
-    return res.status(400).send("Invalid range");
+  if (!isYmd(from) || !isYmd(to)) return res.status(400).json({ error: "Invalid range" });
+
+  const rows = await prisma.reservation.findMany({
+    where: { date: { gte: from, lte: to } },
+    orderBy: [{ date: "asc" }, { time: "asc" }, { createdAt: "asc" }],
+  });
+
+  const totalGuests = rows.reduce((s, r) => (r.status === "canceled" ? s : s + r.guests), 0);
+  res.json({ rows, totalGuests, count: rows.length });
+});
+
+app.get("/api/admin/export.csv", requireAdmin, async (req, res) => {
+  const from = String(req.query.from || "");
+  const to = String(req.query.to || "");
+  if (!isYmd(from) || !isYmd(to)) return res.status(400).send("Invalid range");
 
   const rows = await prisma.reservation.findMany({
     where: { date: { gte: from, lte: to } },
@@ -390,49 +443,50 @@ app.get("/api/admin/export.csv", requireAdmin, async (req: Request, res: Respons
   res.send([header, body].join("\n"));
 });
 
-// Tag sperren: erzeugt Block-Platzhalter je Slot
-app.post("/api/admin/block-day", requireAdmin, async (req: Request, res: Response) => {
+/* Day blocken/entsperren via Platzhalter-Reservierungen */
+app.post("/api/admin/block-day", requireAdmin, async (req, res) => {
   const { day, reason } = req.body || {};
   if (!isYmd(String(day))) return res.status(400).json({ error: "Invalid day" });
 
   const slots = dailySlots();
-  const createdIds: string[] = [];
+  let created = 0;
 
   for (const time of slots) {
-    // Prüfen, ob Slot bereits „blockiert“ ist
-    const hasBlock = await prisma.reservation.findFirst({
+    const exists = await prisma.reservation.findFirst({
       where: { date: day, time, email: "block@noxama.local", status: { not: "canceled" } },
       select: { id: true },
     });
-    if (hasBlock) continue;
+    if (exists) continue;
 
-    const id = nanoid();
+    const { startTs, endTs } = buildStartEnd(day, time);
+
     await prisma.reservation.create({
       data: {
-        id,
+        id: nanoid(),
         firstName: "Closed",
         name: String(reason || "Closed / Private event"),
         email: "block@noxama.local",
         phone: null,
-        date: String(day),
-        time: String(time),
-        guests: ONLINE_SEATS_CAP, // macht den Slot sofort voll
+        date: day,
+        time,
+        guests: ONLINE_SEATS_CAP,
         notes: "BLOCK_PLACEHOLDER",
         status: "confirmed",
         isWalkIn: true,
         createdAt: new Date(),
         cancelToken: nanoid(),
         reminderSent: false,
+        startTs,
+        endTs,
       },
     });
-    createdIds.push(id);
+    created++;
   }
 
-  res.json({ ok: true, created: createdIds.length });
+  res.json({ ok: true, created });
 });
 
-// Tag entsperren: löscht alle Block-Platzhalter
-app.delete("/api/admin/block-day", requireAdmin, async (req: Request, res: Response) => {
+app.delete("/api/admin/block-day", requireAdmin, async (req, res) => {
   const day = String(req.query.day || "");
   if (!isYmd(day)) return res.status(400).json({ error: "Invalid day" });
 
@@ -443,8 +497,8 @@ app.delete("/api/admin/block-day", requireAdmin, async (req: Request, res: Respo
   res.json({ ok: true, deleted: del.count });
 });
 
-/** ----------------------- Fallback / Start ----------------------- */
-
+/* ----------------------------------------------------------- */
+/* Fallback + Start */
 app.get("/", (_req, res) => {
   res.sendFile(path.resolve(__dirname, "../public/index.html"));
 });
@@ -452,9 +506,3 @@ app.get("/", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on ${PORT}`);
 });
-
-/* ===== CSV Helper ===== */
-function csv(s: string): string {
-  const needs = /[",\n]/.test(s);
-  return needs ? `"${s.replace(/"/g, '""')}"` : s;
-}
