@@ -148,58 +148,43 @@ function renderReservationEmail(
   loyalty: Loyalty
 ): { subject: string; html: string } {
   const subject = `Your Reservation at ${meta.brandName}`;
+
   const loyaltyBlock =
     loyalty.level > 0
       ? `<p><strong>Thank you for your loyalty!</strong><br/>You now enjoy a <strong>${loyalty.level}% Loyalty Discount</strong> for this and all future visits.</p>`
-      : loyalty.nextAt
-      ? `<p><strong>Thank you for your loyalty!</strong><br/>After <strong>${loyalty.nextAt}</strong> bookings you’ll enjoy a loyalty discount.</p>`
-      : "";
+      : (loyalty.nextAt
+          ? `<p><strong>Thank you for your loyalty!</strong><br/>After <strong>${loyalty.nextAt}</strong> bookings you’ll enjoy a loyalty discount.</p>`
+          : "");
 
   const cancelLink = `${meta.baseUrl}/cancel?token=${encodeURIComponent(r.cancelToken)}`;
 
-  const html = `
-  <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b1a12">
-   // genau EIN Branding-Element anzeigen: Header > sonst Logo > sonst nichts
-const branding = meta.mailHeaderUrl
-  ? `<img src="${meta.mailHeaderUrl}" style="max-width:100%;display:block;margin:0 auto 16px"/>`
-  : (meta.mailLogoUrl
-      ? `<div style="text-align:center;margin:8px 0"><img src="${meta.mailLogoUrl}" height="56"/></div>`
-      : "");
+  // Genau EIN Branding-Element: Header > sonst Logo > sonst leer
+  const branding = meta.mailHeaderUrl
+    ? '<img src="' + meta.mailHeaderUrl + '" style="max-width:100%;display:block;margin:0 auto 16px"/>'
+    : (meta.mailLogoUrl
+        ? '<div style="text-align:center;margin:8px 0"><img src="' + meta.mailLogoUrl + '" height="56"/></div>'
+        : '');
 
-const html = `
-  <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b1a12">
-    ${branding}
-    <h2 style="text-align:center;margin:16px 0 8px">Your Reservation at ${meta.brandName}</h2>
-    ...
-  </div>
-`;
+  const parts: string[] = [
+    '<div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b1a12">',
+    branding,
+    `<h2 style="text-align:center;margin:16px 0 8px">Your Reservation at ${meta.brandName}</h2>`,
+    `<p>Hi ${csv(r.firstName)} ${csv(r.lastName)},</p>`,
+    '<p>Thank you for your reservation. We look forward to welcoming you.</p>',
+    '<div style="background:#faefe6;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #ead7c7">',
+    `<div><b>Date</b> ${r.date}</div>`,
+    `<div><b>Time</b> ${r.time}</div>`,
+    `<div><b>Guests</b> ${r.guests}</div>`,
+    `<div><b>Address</b> ${VENUE_ADDRESS}</div>`,
+    '</div>',
+    loyaltyBlock,
+    '<div style="background:#fdeeea;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #f4d6ce"><b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.</div>',
+    `<div style="text-align:center;margin:20px 0"><a href="${cancelLink}" style="background:#b6802a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;display:inline-block">Cancel reservation</a></div>`,
+    `<p style="text-align:center">Warm regards from <b>${BRAND_NAME}</b></p>`,
+    '</div>',
+  ];
 
-    <h2 style="text-align:center;margin:16px 0 8px">Your Reservation at ${meta.brandName}</h2>
-
-    <p>Hi ${csv(r.firstName)} ${csv(r.lastName)},</p>
-    <p>Thank you for your reservation. We look forward to welcoming you.</p>
-
-    <div style="background:#faefe6;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #ead7c7">
-      <div><b>Date</b> ${r.date}</div>
-      <div><b>Time</b> ${r.time}</div>
-      <div><b>Guests</b> ${r.guests}</div>
-      <div><b>Address</b> ${VENUE_ADDRESS}</div>
-    </div>
-
-    ${loyaltyBlock}
-
-    <div style="background:#fdeeea;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #f4d6ce">
-      <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
-    </div>
-
-    <div style="text-align:center;margin:20px 0">
-      <a href="${cancelLink}" style="background:#b6802a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;display:inline-block">Cancel reservation</a>
-    </div>
-
-    <p style="text-align:center">Warm regards from <b>${BRAND_NAME}</b></p>
-  </div>
-  `;
-  return { subject, html };
+  return { subject, html: parts.join('') };
 }
 
 /* ----------------------------------------------------------- */
