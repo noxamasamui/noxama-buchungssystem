@@ -1,148 +1,199 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Admin — Reservations</title>
-<link rel="stylesheet" href="/style.css"/>
-<link rel="icon" href="/logo.png"/>
+  <meta charset="utf-8" />
+  <title>Admin — Reservations</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .toolbar{display:grid;grid-template-columns:1.2fr 1fr 1fr auto auto;gap:10px;align-items:end;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+    th,td{border-bottom:1px solid var(--border);padding:8px 10px;font-size:14px}
+    th{background:#faf5ef;text-align:left}
+    tr:last-child td{border-bottom:none}
+    .sec{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin:14px 0}
+    .toast{position:fixed;left:50%;top:30px;transform:translateX(-50%);background:#fff;border:1px solid var(--border);padding:12px 16px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.08);display:none}
+    .mini-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    .mini-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  </style>
 </head>
 <body>
-<div class="container">
-  <div class="header"><img class="logo" src="/logo.png" alt="Röstiland"/></div>
-  <h1>Admin</h1>
+  <header class="brand">
+    <img src="/logo.png" alt="RÖSTILAND" />
+  </header>
 
-  <div class="card">
-    <div class="row-3">
-      <div>
-        <label>Key</label>
-        <input id="admKey" type="text" placeholder="x-admin-key"/>
-      </div>
-      <div>
-        <label>From</label>
-        <input id="from" type="date"/>
-      </div>
-      <div>
-        <label>To</label>
-        <input id="to" type="date"/>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button id="load" class="btn">Load</button>
-      <button id="export" class="btn-ghost">Export CSV</button>
+  <main class="container">
+    <h1 style="margin-bottom:12px;text-align:center">Admin</h1>
+
+    <div class="toolbar">
+      <label>Key
+        <input id="admin-key" placeholder="x-admin-key" />
+      </label>
+      <label>From
+        <input type="date" id="from" />
+      </label>
+      <label>To
+        <input type="date" id="to" />
+      </label>
+      <button class="btn" id="load">Load</button>
+      <button class="btn" id="export">Export CSV</button>
     </div>
 
-    <table class="table" style="margin-top:12px">
-      <thead><tr>
-        <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Guests</th><th>Status</th><th>Walk-in</th>
-      </tr></thead>
-      <tbody id="rows"></tbody>
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Guests</th><th>Status</th><th>Walk-in</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
     </table>
-  </div>
 
-  <div class="card" style="margin-top:16px">
-    <h3 style="margin:0 0 10px">Add walk-in</h3>
-    <div class="row">
-      <div>
-        <label>Date</label>
-        <input id="wDate" type="date"/>
+    <div class="sec">
+      <h3>Add walk-in</h3>
+      <div class="mini-grid2">
+        <label>Date
+          <input type="date" id="wDate" />
+        </label>
+        <label>Time (HH:MM)
+          <input type="time" id="wTime" />
+        </label>
       </div>
-      <div>
-        <label>Time (HH:MM)</label>
-        <input id="wTime" type="text" placeholder="HH:MM" pattern="^[0-2][0-9]:[0-5][0-9]$"/>
+      <div class="mini-grid2" style="margin-top:10px">
+        <label>Guests
+          <input type="number" id="wGuests" min="1" max="10" value="2" />
+        </label>
+        <label>Notes
+          <input id="wNotes" />
+        </label>
+      </div>
+      <div class="actions"><button class="btn" id="saveWalkin">Save walk-in</button></div>
+    </div>
+
+    <div class="sec">
+      <h3>Block day (quick)</h3>
+      <div class="mini-grid2">
+        <label>Day
+          <input type="date" id="bDay" />
+        </label>
+        <label>Reason
+          <input id="bReason" value="Closed / Private event" />
+        </label>
+      </div>
+      <div class="actions" style="gap:8px">
+        <button class="btn" id="blockDay">Block whole day</button>
+        <button class="btn" id="unblockDay">Remove block</button>
       </div>
     </div>
-    <div class="row" style="margin-top:8px">
-      <div>
-        <label>Guests</label>
-        <input id="wGuests" type="number" min="1" max="10" value="2"/>
-      </div>
-      <div class="full">
-        <label>Notes</label>
-        <input id="wNotes" type="text" placeholder=""/>
-      </div>
-    </div>
-    <div style="margin-top:12px"><button id="saveWalk" class="btn">Save walk-in</button></div>
-  </div>
 
-  <div class="card" style="margin-top:16px">
-    <h3 style="margin:0 0 10px">Block day (quick)</h3>
-    <div class="row">
-      <div>
-        <label>Day</label>
-        <input id="bDay" type="date"/>
-      </div>
-      <div class="full">
-        <label>Reason</label>
-        <input id="bReason" type="text" value="Closed / Private event"/>
+    <div class="sec">
+      <h3>Danger zone</h3>
+      <div class="mini-grid">
+        <label>From
+          <input type="date" id="delFrom" />
+        </label>
+        <label>To
+          <input type="date" id="delTo" />
+        </label>
+        <div class="actions">
+          <button class="btn" id="delRange">Delete ALL reservations in range</button>
+        </div>
       </div>
     </div>
-    <div style="margin-top:12px;display:flex;gap:8px">
-      <button id="block" class="btn">Block whole day</button>
-      <button id="unblock" class="btn-ghost">Remove block</button>
-    </div>
-  </div>
-</div>
+  </main>
 
-<div id="toast" class="toast" style="display:none">
-  <div>
-    <h3 id="tTitle">Error</h3>
-    <p id="tText">Unauthorized</p>
-    <button id="tBtn" class="btn">OK</button>
-  </div>
-</div>
+  <div class="toast" id="toast"></div>
 
-<script>
-const $=s=>document.querySelector(s);
-const show=(ttl,txt)=>{ $("#tTitle").textContent=ttl; $("#tText").textContent=txt; $("#toast").style.display="flex"; $("#tBtn").onclick=()=>$("#toast").style.display="none"; };
+  <script>
+    const $ = (s)=>document.querySelector(s);
+    const showToast = (msg)=>{ const t=$("#toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none",1800); };
+    const today=()=>{ const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), dd=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${dd}`; };
 
-const today = new Date().toISOString().slice(0,10);
-$("#from").value=today; $("#to").value=today; $("#wDate").value=today; $("#bDay").value=today;
+    function headersWithKey(){
+      const key = $("#admin-key").value.trim();
+      return { "Content-Type":"application/json", "x-admin-key": key };
+    }
+    function qsWithKey(obj){
+      const key = $("#admin-key").value.trim();
+      const u = new URLSearchParams(obj);
+      u.set("key", key);
+      return "?" + u.toString();
+    }
 
-async function adminFetch(path, opts={}){
-  const key = $("#admKey").value.trim();
-  const headers = Object.assign({"x-admin-key": key}, (opts.headers||{}));
-  const r = await fetch(path, Object.assign({}, opts, {headers}));
-  if (r.status===401){ show("Error","Unauthorized"); throw new Error("unauthorized"); }
-  return r;
-}
+    async function load(){
+      const from = $("#from").value;
+      const to = $("#to").value;
+      const r = await fetch(`/api/admin/reservations${qsWithKey({from,to})}`, { headers: headersWithKey() });
+      if(!r.ok){ showToast("Auth or range error"); return; }
+      const rows = await r.json();
+      const tb = $("#tbl tbody");
+      tb.innerHTML = "";
+      rows.forEach(r=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${r.date}</td><td>${r.time}</td><td>${r.firstName} ${r.name}</td><td>${r.email}</td><td>${r.guests}</td><td>${r.status}</td><td>${r.isWalkIn?"yes":""}</td>`;
+        tb.appendChild(tr);
+      });
+    }
 
-$("#load").onclick=async()=>{
-  const q = `?from=${$("#from").value}&to=${$("#to").value}`;
-  const r = await adminFetch(`/api/admin/reservations${q}`);
-  const j = await r.json();
-  const tb = $("#rows"); tb.innerHTML="";
-  j.rows.forEach(row=>{
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${row.date}</td><td>${row.time}</td><td>${row.firstName} ${row.name}</td><td>${row.email}</td><td>${row.guests}</td><td>${row.status}</td><td>${row.isWalkIn?'yes':''}</td>`;
-    tb.appendChild(tr);
-  });
-};
+    async function exportCsv(){
+      const from = $("#from").value;
+      const to = $("#to").value;
+      const url = `/api/admin/export.csv${qsWithKey({from,to})}`;
+      window.open(url, "_blank");
+    }
 
-$("#export").onclick=()=>{ const q=`?from=${$("#from").value}&to=${$("#to").value}`; window.open(`/api/admin/export.csv${q}`,'_blank'); };
+    async function saveWalkin(){
+      const payload = {
+        date: $("#wDate").value,
+        time: $("#wTime").value,
+        guests: Number($("#wGuests").value),
+        notes: $("#wNotes").value.trim()
+      };
+      const r = await fetch(`/api/admin/walkin${qsWithKey({})}`, {
+        method:"POST", headers: headersWithKey(), body: JSON.stringify(payload)
+      });
+      if(!r.ok){ const j=await r.json().catch(()=>({})); showToast(j.error||"Error"); return; }
+      showToast("Saved"); load();
+    }
 
-$("#saveWalk").onclick=async()=>{
-  const body = {date:$("#wDate").value, time:$("#wTime").value, guests:Number($("#wGuests").value||2), notes:$("#wNotes").value};
-  try{
-    const r = await adminFetch("/api/admin/walkin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    const j = await r.json();
-    if(j.ok) { show("Saved","Walk-in created."); $("#load").click(); }
-    else show("Error", j.error||"Failed");
-  }catch(e){}
-};
+    async function blockDay(){
+      const payload = { day: $("#bDay").value, reason: $("#bReason").value };
+      const r = await fetch(`/api/admin/block-day${qsWithKey({})}`, {
+        method:"POST", headers: headersWithKey(), body: JSON.stringify(payload)
+      });
+      if(!r.ok){ const j=await r.json().catch(()=>({})); showToast(j.error||"Error"); return; }
+      showToast("Blocked"); load();
+    }
+    async function unblockDay(){
+      const day = $("#bDay").value;
+      const r = await fetch(`/api/admin/block-day${qsWithKey({day})}`, {
+        method:"DELETE", headers: headersWithKey()
+      });
+      if(!r.ok){ const j=await r.json().catch(()=>({})); showToast(j.error||"Error"); return; }
+      showToast("Removed"); load();
+    }
 
-$("#block").onclick=async()=>{
-  try{
-    const r=await adminFetch("/api/admin/block-day",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({day:$("#bDay").value,reason:$("#bReason").value})});
-    const j=await r.json(); if(j.ok) show("Blocked", `Created ${j.created} placeholders.`);
-  }catch(e){}
-};
-$("#unblock").onclick=async()=>{
-  try{
-    const r=await adminFetch(`/api/admin/block-day?day=${$("#bDay").value}`,{method:"DELETE"});
-    const j=await r.json(); if(j.ok) show("Removed", `Deleted ${j.deleted} placeholders.`);
-  }catch(e){}
-};
-</script>
+    async function delRange(){
+      if(!confirm("Delete ALL reservations in range?")) return;
+      const from = $("#delFrom").value, to = $("#delTo").value;
+      const r = await fetch(`/api/admin/reservations${qsWithKey({from,to})}`, { method:"DELETE", headers: headersWithKey() });
+      if(!r.ok){ const j=await r.json().catch(()=>({})); showToast(j.error||"Error"); return; }
+      showToast("Deleted"); load();
+    }
+
+    (function init(){
+      const t = today();
+      $("#from").value = t; $("#to").value = t;
+      $("#wDate").value = t; $("#bDay").value = t; $("#delFrom").value = t; $("#delTo").value = t;
+
+      $("#load").addEventListener("click", load);
+      $("#export").addEventListener("click", exportCsv);
+      $("#saveWalkin").addEventListener("click", saveWalkin);
+      $("#blockDay").addEventListener("click", blockDay);
+      $("#unblockDay").addEventListener("click", unblockDay);
+      $("#delRange").addEventListener("click", delRange);
+
+      load();
+    })();
+  </script>
 </body>
 </html>
