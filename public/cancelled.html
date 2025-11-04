@@ -2,34 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Reservation canceled</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-<header class="hero">
-  <img id="heroLogo" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI"/>
-</header>
-
-<main class="container">
-  <div class="card" style="max-width:560px;margin-left:auto;margin-right:auto">
-    <h2>Reservation canceled</h2>
-    <p>Your reservation has been canceled. We hope this goodbye is only for now.</p>
-    <div class="actions" style="justify-content:center">
-      <a class="btn outline" id="phoneBtn" href="#">Call us</a>
-      <a class="btn outline" id="mailBtn" href="#">Email us</a>
-      <a class="btn primary" href="/">Back to booking</a>
+  <div class="header"><img src="/logo.png" alt=""></div>
+  <div class="container">
+    <div class="card" style="text-align:center">
+      <h2>Your reservation has been canceled.</h2>
+      <p>We hope to see you another time.</p>
+      <p><a class="btn" href="/">Back to booking</a></p>
     </div>
   </div>
-</main>
-
-<script>
-fetch("/api/config").then(r=>r.json()).then(c=>{
-  if (c.mailHeaderUrl) document.getElementById("heroLogo").src = c.mailHeaderUrl;
-  else if (c.mailLogoUrl) document.getElementById("heroLogo").src = c.mailLogoUrl;
-  if (c.phone) { document.getElementById("phoneBtn").href = "tel:" + String(c.phone).replace(/\s+/g,""); }
-  if (c.email) { document.getElementById("mailBtn").href = "mailto:"+c.email; }
-}).catch(()=>{});
-</script>
 </body>
 </html>
