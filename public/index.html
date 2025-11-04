@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <title>Contact and Table Booking</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/app.css">
+  <!-- deine bestehende CSS -->
+  <link rel="stylesheet" href="/style.css">
   <style>
+    /* sanftes Card-Layout, Modal und Feuerwerk – lokal hier, damit keine weitere Datei noetig ist */
     body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#efe7dc;color:#2b1a12;margin:0}
     .wrap{max-width:980px;margin:0 auto;padding:24px}
-    h1{font-weight:800;margin:12px 0 18px}
-    .card{background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.12);padding:18px 18px}
+    .card{background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.12);padding:18px}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     label{display:block;font-weight:600;margin:12px 0 6px}
     input,select,textarea,button{padding:10px 12px;border:1px solid #d7d2cc;border-radius:10px;font:inherit}
@@ -19,6 +20,17 @@
     .timebtn.active{background:#b6802a;color:#fff;border-color:#b6802a}
     .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media (max-width:720px){ .cols{grid-template-columns:1fr} }
+
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:9999; }
+    .modal { width:min(92vw,520px); border-radius:16px; background:#fff; box-shadow:0 20px 60px rgba(0,0,0,.35); overflow:hidden; }
+    .modal-header { background:#f6efe8; padding:14px 18px; border-bottom:1px solid #eadfd4; font-weight:700; color:#3b2a1f; }
+    .modal-body { padding:18px; color:#3b2a1f; }
+    .modal-actions { display:flex; gap:10px; justify-content:flex-end; padding:16px 18px; border-top:1px solid #eee; }
+    .btn.secondary { background:#e8e1da; color:#412; }
+
+    /* Feuerwerk */
+    #fxCanvas { position:fixed; inset:0; pointer-events:none; z-index:10000; display:none; }
   </style>
 </head>
 <body>
@@ -75,6 +87,143 @@
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script>
+    // ===== Modal =====
+    function showModal({title, message, buttonText="Continue", onClose}={}){
+      let backdrop = document.querySelector('.modal-backdrop');
+      if(!backdrop){
+        backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
+        backdrop.innerHTML = \`
+          <div class="modal" role="dialog" aria-modal="true">
+            <div class="modal-header"></div>
+            <div class="modal-body"></div>
+            <div class="modal-actions">
+              <button class="btn js-ok">OK</button>
+            </div>
+          </div>\`;
+        document.body.appendChild(backdrop);
+      }
+      backdrop.querySelector('.modal-header').textContent = title || "Reservation";
+      backdrop.querySelector('.modal-body').innerHTML = message || "";
+      backdrop.querySelector('.js-ok').textContent = buttonText;
+
+      function close(){
+        backdrop.style.display = 'none';
+        backdrop.removeEventListener('click', onBack);
+        backdrop.querySelector('.js-ok').removeEventListener('click', onBtn);
+        onClose && onClose();
+      }
+      function onBack(e){ if(e.target === backdrop) close(); }
+      function onBtn(){ close(); }
+
+      backdrop.addEventListener('click', onBack);
+      backdrop.querySelector('.js-ok').addEventListener('click', onBtn);
+      backdrop.style.display = 'flex';
+    }
+
+    // ===== Feuerwerk (leichtgewichtiges Confetti) =====
+    const FX = (() => {
+      let cvs, ctx, parts=[], raf=null;
+      function ensure(){
+        cvs = document.getElementById('fxCanvas');
+        ctx = cvs.getContext('2d');
+        resize();
+        window.addEventListener('resize', resize);
+      }
+      function resize(){ cvs.width = innerWidth; cvs.height = innerHeight; }
+      function launch(ms=2200){
+        if(!cvs) ensure();
+        cvs.style.display = 'block';
+        parts = [];
+        for(let i=0;i<220;i++){
+          parts.push({
+            x:Math.random()*cvs.width, y:-20-Math.random()*cvs.height*.4,
+            vx:(Math.random()-0.5)*4, vy:Math.random()*3+2, g:.08+Math.random()*0.12,
+            w:6+Math.random()*6, h:8+Math.random()*10, a:Math.random()*Math.PI, va:(Math.random()-0.5)*.2,
+            c:\`hsl(\${Math.random()*360},90%,60%)\`
+          });
+        }
+        const t0 = performance.now();
+        cancelAnimationFrame(raf);
+        (function tick(t){
+          ctx.clearRect(0,0,cvs.width,cvs.height);
+          parts.forEach(p=>{
+            p.x+=p.vx; p.y+=p.vy; p.vy+=p.g; p.a+=p.va;
+            ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a);
+            ctx.fillStyle=p.c; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+          });
+          parts = parts.filter(p=>p.y<cvs.height+30);
+          if(t-t0<ms){ raf=requestAnimationFrame(tick); }
+          else { cvs.style.display='none'; }
+        })(t0);
+      }
+      return { launch };
+    })();
+
+    // ===== Slots laden =====
+    async function loadSlots(){
+      const date = document.getElementById('date').value;
+      const guests = document.getElementById('guests').value;
+      const times = document.getElementById('times');
+      const hidden = document.getElementById('time');
+      times.innerHTML = "";
+      if(!date) return;
+
+      const res = await fetch(\`/api/slots?date=\${encodeURIComponent(date)}&guests=\${guests}\`);
+      const slots = await res.json();
+
+      slots.forEach(s=>{
+        const b=document.createElement('button');
+        b.type='button'; b.className='timebtn'; b.textContent=s.time; b.disabled=s.disabled;
+        b.addEventListener('click', ()=>{
+          document.querySelectorAll('.timebtn').forEach(x=>x.classList.remove('active'));
+          b.classList.add('active'); hidden.value=s.time;
+        });
+        times.appendChild(b);
+      });
+      const first = Array.from(document.querySelectorAll('.timebtn')).find(x=>!x.disabled);
+      if(first) first.click();
+    }
+
+    // ===== Formular =====
+    async function init(){
+      const form = document.getElementById('bookingForm');
+      // Standard: heute
+      const d=new Date(); document.getElementById('date').value = d.toISOString().slice(0,10);
+      await loadSlots();
+      document.getElementById('date').addEventListener('change', loadSlots);
+      document.getElementById('guests').addEventListener('change', loadSlots);
+
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(form).entries());
+        data.guests = Number(data.guests||2);
+
+        const r = await fetch('/api/book', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(data)
+        });
+
+        if(!r.ok){
+          const j = await r.json().catch(()=>({}));
+          showModal({ title:"We are sorry", message: j && j.error ? j.error : "Unexpected error", buttonText:"Close" });
+          return;
+        }
+
+        const j = await r.json();
+        let title="Thank you!", message="Your reservation has been received.";
+        if(j.milestoneReached){
+          FX.launch(2400);
+          title="Congratulations!";
+          message = \`<p>You have just unlocked your <b>\${j.loyaltyLevel}% Loyalty Discount</b>.</p>
+                     <p>It applies from now on to all future visits.</p>\`;
+        }
+        showModal({ title, message, onClose:()=>{ if(j.redirect) location.href=j.redirect; } });
+      });
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
 </body>
 </html>
