@@ -6,6 +6,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
 </head>
+  <!-- Success modal -->
+<div id="successModal" class="modal hidden">
+  <div class="modal-card">
+    <h3>Thank you!</h3>
+    <p>Your reservation has been received.</p>
+    <button id="successOk">OK</button>
+  </div>
+</div>
+<style>
+  .modal.hidden { display: none; }
+  .modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: grid; place-items: center; z-index: 9999;
+  }
+  .modal-card {
+    width: min(92vw, 420px);
+    background: #fff; border-radius: 12px;
+    padding: 20px; text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+  .modal-card h3 { margin: 0 0 8px; font-size: 20px; }
+  .modal-card p { margin: 0 0 16px; color: #5a463a; }
+  #successOk {
+    appearance: none; border: 0; border-radius: 10px;
+    background: #b6802a; color: #fff; padding: 10px 16px;
+    cursor: pointer; font-weight: 600;
+  }
+</style>
+
 <body>
 <header class="hero">
   <img id="heroLogo" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI"/>
