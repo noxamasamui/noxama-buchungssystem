@@ -1,257 +1,109 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <title>Contact and Table Booking</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="/style.css"/>
-</head>
-<body>
-<header class="hero">
-  <img id="heroLogo" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI"/>
-</header>
-
-<main class="container">
-  <h1>Contact and Table Booking</h1>
-
-  <section class="card">
-    <h2>Address</h2>
-    <a id="venueAddressLink" class="address-link" target="_blank" rel="noopener noreferrer"
-       href="https://maps.google.com/?q=Moo+4+Lamai+Beach,+84310+Suratthani,+Thailand">
-      <span id="venueAddressText">Moo 4 Lamai Beach, 84310 Suratthani, Thailand</span>
-    </a>
-    <div class="flex">
-      <a id="phoneBtn" class="btn outline" href="tel:+660000000">Phone</a>
-      <a id="emailBtn" class="btn outline" href="mailto:info@noxamasamui.com">Email</a>
-    </div>
-  </section>
-
-  <section class="card">
-    <div id="dateNotice" class="notice"></div>
-
-    <h2>Date</h2>
-    <input id="date" type="date" class="input"/>
-
-    <h2>Guests (max 10 online)</h2>
-    <select id="guests" class="input"></select>
-    <div class="help" id="guestsHelp"></div>
-
-    <h2>Choose a time slot</h2>
-    <div id="slotsWrap" class="slots"></div>
-    <div id="slotInfo" class="muted"></div>
-  </section>
-
-  <section class="card">
-    <div class="grid2">
-      <div><label class="label">First name*</label><input id="firstName" class="input"/></div>
-      <div><label class="label">Name*</label><input id="name" class="input"/></div>
-    </div>
-    <div class="grid2">
-      <div><label class="label">Email*</label><input id="email" type="email" class="input"/></div>
-      <div><label class="label">Phone (optional)</label><input id="phone" type="tel" class="input"/></div>
-    </div>
-    <label class="label">Notes</label>
-    <textarea id="notes" class="input" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
-
-    <div class="actions">
-      <button id="bookBtn" class="btn primary">Book now</button>
-    </div>
-  </section>
-</main>
-
-<!-- Generic OK dialog -->
-<dialog id="okDlg" class="dlg">
-  <div class="dlg-card">
-    <h3 class="modal-title">Thank you for your booking</h3>
-    <p>
-      We have received your reservation. You will receive a confirmation email shortly.<br/>
-      Please also check your spam folder.
-    </p>
-    <div class="modal-actions">
-      <button id="okDlgBtn" class="btn primary">OK</button>
-    </div>
-  </div>
-</dialog>
-
-<!-- Info dialog (slot full, closed, 11+ guests, special notices) -->
-<dialog id="infoDlg" class="dlg">
-  <div class="dlg-card">
-    <h3 id="infoTitle" class="modal-title">Info</h3>
-    <div id="infoBody"></div>
-    <div class="modal-actions" id="infoActions">
-      <button class="btn primary" id="infoOk">OK</button>
-    </div>
-  </div>
-</dialog>
-
-<script>
-const $ = s => document.querySelector(s);
-const $$ = s => Array.from(document.querySelectorAll(s));
-let SELECTED_TIME = "";
-let PUBLIC_CFG = {};
-let ACTIVE_NOTICE = null; // from /api/admin/notices (server liefert)
-
-/* ---------- UI helpers ---------- */
-function showInfo(title, html, actions = []){
-  $("#infoTitle").textContent = title;
-  $("#infoBody").innerHTML = html;
-  const a = $("#infoActions"); a.innerHTML = "";
-  if (!actions.length){
-    const ok = document.createElement("button");
-    ok.className="btn primary"; ok.textContent="OK"; ok.onclick=()=>$("#infoDlg").close();
-    a.appendChild(ok);
-  } else {
-    actions.forEach(x=>a.appendChild(x));
-  }
-  $("#infoDlg").showModal();
-}
-function banner(text){
-  const el = $("#dateNotice");
-  if (!text){ el.classList.remove("active"); el.innerHTML=""; return; }
-  el.innerHTML = text;
-  el.classList.add("active");
+:root{
+  --bg:#d6c7b2;
+  --card:#f3e7d7;
+  --ink:#3a2f28;
+  --muted:#7b6b5f;
+  --brand:#b3822f;
+  --brand-ink:#5b431a;
+  --white:#fff;
+  --ring:rgba(0,0,0,.07);
 }
 
-/* ---------- Load config ---------- */
-async function loadConfig(){
-  const r = await fetch("/api/config"); const c = await r.json();
-  PUBLIC_CFG = c;
-  if (c.mailHeaderUrl) $("#heroLogo").src = c.mailHeaderUrl;
-  else if (c.mailLogoUrl) $("#heroLogo").src = c.mailLogoUrl;
-
-  $("#venueAddressText").textContent = c.address || "";
-  $("#venueAddressLink").href = "https://maps.google.com/?q=" + encodeURIComponent(c.address || "");
-
-  if (c.phone) $("#phoneBtn").href = "tel:" + String(c.phone).replace(/\s+/g,"");
-  if (c.email) $("#emailBtn").href = "mailto:" + c.email;
-
-  const gsel = $("#guests"); gsel.innerHTML = "";
-  const max = Number(c.maxOnlineGuests || 10);
-  for (let i=1;i<=max;i++){ const o=document.createElement("option"); o.value=String(i); o.textContent=String(i); gsel.appendChild(o); }
-  // add 11+ option for CTA
-  const more = document.createElement("option"); more.value="11+"; more.textContent="11+";
-  gsel.appendChild(more);
-  gsel.value = "2";
-  $("#guestsHelp").textContent = `For groups over ${max} guests please contact us.`;
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
 }
 
-/* ---------- Notices for dates ---------- */
-/* Server liefert GET /api/notices?date=YYYY-MM-DD -> {title, message, requireAck} oder null */
-async function loadNotice(){
-  const d = $("#date").value;
-  if (!d){ banner(""); ACTIVE_NOTICE=null; return; }
-  try{
-    const r = await fetch("/api/notices?date="+encodeURIComponent(d));
-    if (!r.ok) { banner(""); ACTIVE_NOTICE=null; return; }
-    const n = await r.json();
-    ACTIVE_NOTICE = n;
-    if (n && n.active){
-      banner(`<b>${n.title}</b><br>${n.message}`);
-      if (n.requireAck){
-        const btn = document.createElement("button");
-        btn.className="btn outline btn-sm"; btn.textContent="Read more";
-        btn.onclick = ()=>{
-          const ok = document.createElement("button");
-          ok.className="btn primary"; ok.textContent="OK"; ok.onclick=()=>$("#infoDlg").close();
-          showInfo(n.title, `<p>${n.message}</p>`, [ok]);
-        };
-        $("#dateNotice").appendChild(document.createTextNode(" "));
-        $("#dateNotice").appendChild(btn);
-      }
-    } else { banner(""); }
-  }catch{ banner(""); ACTIVE_NOTICE=null; }
+/* hero */
+.hero{
+  display:flex;align-items:center;justify-content:center;
+  padding:10px 12px 0;
+}
+.hero img{
+  width:100%; max-width:620px; height:auto; display:block;
+  border-radius:16px;
+  box-shadow:0 10px 28px rgba(0,0,0,.18);
 }
 
-/* ---------- Slots ---------- */
-async function loadSlots(){
-  $("#slotsWrap").innerHTML = ""; $("#slotInfo").textContent = ""; SELECTED_TIME = "";
-  const d = $("#date").value; const g = $("#guests").value || "1";
-  if (!d) return;
-  const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${encodeURIComponent(g === "11+" ? 11 : g)}`);
-  const list = await r.json();
+.container{
+  max-width:980px;
+  margin:18px auto 80px;
+  padding:0 16px;
+}
+h1{
+  font-size:28px; line-height:1.25; margin:8px 0 12px;
+}
+h2{ font-size:22px; margin:14px 0 10px }
+h3{ font-size:18px; margin:8px 0 8px }
 
-  let any = false;
-  for (const s of list){
-    // hide totally invalid slots to reduce Frust
-    if (!s.allowed && s.reason && s.reason!=="Fully booked" && s.reason!=="Fully booked for this date. Please choose another day." && s.reason!=="Closed on Sunday") continue;
-
-    const b = document.createElement("button");
-    b.type="button"; b.className="slot"; b.textContent=s.time;
-    if (s.canReserve){
-      b.onclick = ()=>{ SELECTED_TIME=s.time; $$(".slot").forEach(x=>x.classList.remove("active")); b.classList.add("active"); };
-      any = true;
-    } else {
-      b.disabled = true; b.classList.add("disabled");
-      b.onclick = ()=>{
-        showInfo("We’re sorry",
-          `<p>${s.reason || "Fully booked at this time."}</p>`);
-      };
-      b.title = s.reason || "Not available";
-    }
-    $("#slotsWrap").appendChild(b);
-  }
-
-  if (!any){
-    const hasSunday = list.some(x=>x.reason==="Closed on Sunday");
-    if (hasSunday){
-      showInfo("Closed on Sunday",
-        `<p>We are closed on Sundays. Please choose another day.</p>`);
-    } else {
-      $("#slotInfo").textContent = "We are fully booked for this date. Please choose another day.";
-    }
-  }
+.card{
+  background:var(--card);
+  border-radius:16px;
+  box-shadow:0 8px 18px rgba(0,0,0,.12);
+  padding:16px;
+  margin:16px 0;
 }
 
-/* ---------- Booking ---------- */
-async function book(){
-  const gSel = $("#guests").value;
-  if (gSel === "11+"){
-    const call = document.createElement("a");
-    call.className="btn outline"; call.textContent="Call us"; call.href=$("#phoneBtn").href;
-    const mail = document.createElement("a");
-    mail.className="btn primary"; mail.textContent="Send email"; mail.href=$("#emailBtn").href;
-    showInfo("Groups of 11+",
-      `<p>For large groups please contact us so we can arrange the perfect setup for you.</p>`,
-      [call, mail]);
-    return;
-  }
-
-  const payload = {
-    date: $("#date").value, time: SELECTED_TIME,
-    firstName: $("#firstName").value.trim(),
-    name: $("#name").value.trim(),
-    email: $("#email").value.trim(),
-    phone: $("#phone").value.trim(),
-    guests: Number(gSel || 1),
-    notes: $("#notes").value.trim()
-  };
-  if (!payload.date || !payload.time || !payload.firstName || !payload.name || !payload.email){
-    showInfo("Missing information", "<p>Please complete all required fields and choose a time slot.</p>");
-    return;
-  }
-  const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-  if (!r.ok){
-    const e = await r.json().catch(()=>({error:"Error"}));
-    showInfo("We’re sorry", `<p>${e.error || "Reservation failed"}</p>`);
-    return;
-  }
-  $("#okDlg").showModal();
+/* inputs */
+.input, select.input, textarea.input{
+  width:100%; padding:12px; border-radius:12px;
+  border:1px solid #e4d6c2; background:#fff; color:var(--ink);
+  outline:0; font-size:15px;
 }
+.input:focus{ border-color:#dfc9a7; box-shadow:0 0 0 3px rgba(179,130,47,.12) inset }
+.label{ display:block; margin:8px 0 6px; font-weight:700 }
+.muted{ color:var(--muted); margin-top:8px }
 
-/* ---------- Events ---------- */
-document.addEventListener("DOMContentLoaded", async ()=>{
-  await loadConfig();
-  const today = new Date(); const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
-  $("#date").value = iso;
-  await loadNotice();
-  await loadSlots();
+/* buttons */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  height:42px; padding:0 16px; border-radius:12px;
+  font-weight:700; border:1px solid transparent; cursor:pointer;
+  text-decoration:none;
+}
+.btn.primary{ background:var(--brand); color:#fff }
+.btn.primary:hover{ background:#a07122 }
+.btn.outline{ background:#fff; color:var(--brand-ink); border-color:#e6d7bf }
+.btn.outline:hover{ border-color:#d9c4a3 }
+.btn-sm{ height:34px; padding:0 10px; border-radius:8px; font-size:14px }
 
-  $("#date").addEventListener("change", async ()=>{ await loadNotice(); await loadSlots(); });
-  $("#guests").addEventListener("change", loadSlots);
-  $("#bookBtn").addEventListener("click", book);
-  $("#okDlgBtn").addEventListener("click", ()=>$("#okDlg").close());
-  $("#infoOk").addEventListener("click", ()=>$("#infoDlg").close());
-});
-</script>
-</body>
-</html>
+/* layout helpers */
+.actions{ margin-top:14px; display:flex; gap:10px; justify-content:flex-end }
+.grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px }
+@media (max-width:720px){ .grid2{ grid-template-columns:1fr } }
+
+/* slots */
+.slots{ display:flex; flex-wrap:wrap; gap:8px }
+.slot{
+  min-width:72px; padding:9px 12px; border-radius:999px;
+  border:1px solid #e5d7c3; background:#fff; color:var(--ink); font-weight:700; cursor:pointer;
+}
+.slot:hover{ border-color:#dbc6a7 }
+.slot.active{ background:var(--brand); color:#fff; border-color:transparent }
+.slot.disabled{ opacity:.45; cursor:not-allowed; background:#fbf7f1 }
+
+/* address link */
+.address-link{
+  display:inline-block; margin:6px 0 12px;
+  font-weight:700; color:var(--brand); text-decoration:none;
+}
+.address-link:hover{ text-decoration:underline }
+
+/* badges / misc */
+.badge{ display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid #e6d7bf; border-radius:12px; padding:8px 10px; color:var(--brand-ink) }
+
+/* dialog */
+.dlg{ border:0; padding:0; background:transparent }
+.dlg::backdrop{ background:rgba(0,0,0,.45) }
+.dlg-card{
+  background:#fff; color:var(--ink);
+  border-radius:16px; padding:18px;
+  width:min(520px, calc(100vw - 32px));
+  margin:auto; box-shadow:0 20px 48px rgba(0,0,0,.25);
+}
