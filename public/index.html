@@ -1,316 +1,213 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Contact and Table Booking</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-  <header class="site-header">
-    <div class="brand">
-      <img src="logo.png" alt="RÖSTILAND" class="logo" />
-    </div>
-    <div class="contact-chips">
-      <a id="chip-phone" class="chip" href="#">Phone</a>
-      <a id="chip-email" class="chip" href="#">Email</a>
-    </div>
-  </header>
+  <div class="header">
+    <img src="/logo.png" alt="RÖSTILAND">
+  </div>
 
-  <main class="container">
+  <div class="container">
+    <div class="topbar">
+      <a id="btnPhone" href="#">Phone</a>
+      <a id="btnEmail" href="#">Email</a>
+    </div>
+
     <h1>Contact and Table Booking</h1>
-    <p id="venueAddress" class="muted"></p>
+    <div id="venue-line" class="small"></div>
 
-    <form id="bookForm" class="card" autocomplete="on">
-      <div class="grid">
-        <label class="field">
-          <span>Date</span>
-          <input id="date" type="date" required />
-        </label>
-
-        <label class="field">
-          <span>Guests (max 10 online)</span>
-          <select id="guests" required>
-            <!-- 1..10 gefüllt via JS -->
-          </select>
-        </label>
-      </div>
-
-      <div class="field">
-        <span>Choose a time slot</span>
-        <div id="slots" class="slots"></div>
-        <div id="plus11" class="plus11 hidden">
-          <p>Party of <b>11+ guests</b> or special request?</p>
-          <div class="row">
-            <a id="ctaPhone" class="btn outline" href="#">Call us</a>
-            <a id="ctaEmail" class="btn outline" href="#">Write us</a>
-          </div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>Date</label>
+          <input id="date" type="date">
+        </div>
+        <div>
+          <label>Guests (max 10 online)</label>
+          <select id="guests"></select>
         </div>
       </div>
 
-      <div class="grid">
-        <label class="field">
-          <span>First name*</span>
-          <input id="firstName" required />
-        </label>
-
-        <label class="field">
-          <span>Name*</span>
-          <input id="name" required />
-        </label>
+      <div style="margin-top:14px">
+        <label>Choose a time slot</label>
+        <div id="slots" class="pills"></div>
       </div>
 
-      <div class="grid">
-        <label class="field">
-          <span>Email*</span>
-          <input id="email" type="email" required />
-        </label>
-
-        <label class="field">
-          <span>Phone (optional)</span>
-          <input id="phone" />
-        </label>
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label>First name*</label>
+          <input id="firstName" type="text" placeholder="First name">
+        </div>
+        <div>
+          <label>Name*</label>
+          <input id="name" type="text" placeholder="Name">
+        </div>
       </div>
 
-      <label class="field">
-        <span>Notes</span>
+      <div class="row" style="margin-top:8px">
+        <div>
+          <label>Email*</label>
+          <input id="email" type="email" placeholder="you@email.com">
+        </div>
+        <div>
+          <label>Phone (optional)</label>
+          <input id="phone" type="text" placeholder="">
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <label>Notes</label>
         <textarea id="notes" placeholder="Allergies, seating request, occasion"></textarea>
-      </label>
+      </div>
 
-      <div class="actions">
+      <div id="groupHint" class="callout hidden" style="margin-top:12px">
+        For <b>11+ guests</b> please contact us directly.
+        <div class="topbar" style="margin-top:6px">
+          <a id="bigPhone" href="#">Call us</a>
+          <a id="bigEmail" href="#">Send email</a>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;text-align:right">
         <button id="bookBtn" class="btn">Book now</button>
       </div>
-    </form>
-  </main>
+    </div>
+
+    <div class="footer small">
+      <span id="addr"></span>
+    </div>
+  </div>
 
   <!-- Modal -->
-  <div id="modal" class="modal hidden">
-    <div class="modal-backdrop"></div>
-    <div class="modal-card">
-      <canvas id="fireworks" class="hidden"></canvas>
-      <h3 id="modalTitle">Thank you!</h3>
-      <p id="modalText">Your reservation has been received.</p>
-      <div class="actions">
-        <a id="modalOk" class="btn">OK</a>
-      </div>
+  <div id="modal" class="modal-mask">
+    <div class="modal">
+      <h3 id="mTitle">Thank you!</h3>
+      <div id="mText">Your reservation has been received.</div>
     </div>
   </div>
 
   <script>
-    // ----- helpers
-    const $ = (sel) => document.querySelector(sel);
-    const slotsEl = $("#slots");
-    const plus11El = $("#plus11");
-    const btnPhone = $("#ctaPhone");
-    const btnEmail = $("#ctaEmail");
-    const chipPhone = $("#chip-phone");
-    const chipEmail = $("#chip-email");
-    const venueAddress = $("#venueAddress");
-    const guestsSel = $("#guests");
-    const dateEl = $("#date");
-    const modal = $("#modal");
-    const modalTitle = $("#modalTitle");
-    const modalText = $("#modalText");
-    const modalOk = $("#modalOk");
-    const fwCanvas = $("#fireworks");
+    const cfg = { baseUrl:"", venuePhone:"", venueEmail:"", venueAddress:"", slots:[] };
 
-    let CFG = null;
-    let selectedTime = null;
+    // Helpers
+    const qs = s => document.querySelector(s);
+    const elDate = qs("#date");
+    const elGuests = qs("#guests");
+    const elSlots = qs("#slots");
+    const elFirst = qs("#firstName");
+    const elName = qs("#name");
+    const elEmail = qs("#email");
+    const elPhone = qs("#phone");
+    const elNotes = qs("#notes");
+    const elGroup = qs("#groupHint");
+    const elBook = qs("#bookBtn");
+    const modal = qs("#modal");
+    const mTitle = qs("#mTitle");
+    const mText = qs("#mText");
 
-    function ymd(d) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const da = String(d.getDate()).padStart(2, "0");
-      return `${y}-${m}-${da}`;
-    }
+    function showModal(t, d){ mTitle.textContent=t; mText.innerHTML=d; modal.style.display="flex"; }
+    function hideModal(){ modal.style.display="none"; }
 
-    function showModal(title, text, firework = false, redirectUrl = "/") {
-      modalTitle.textContent = title;
-      modalText.textContent = text;
-      modal.classList.remove("hidden");
+    modal.addEventListener("click", e => { if(e.target===modal) hideModal(); });
 
-      if (firework) {
-        startFireworks();
-        fwCanvas.classList.remove("hidden");
-      } else {
-        fwCanvas.classList.add("hidden");
+    // Load Config
+    fetch("/api/config").then(r=>r.json()).then(c=>{
+      Object.assign(cfg,c);
+      qs("#btnPhone").href = `tel:${cfg.venuePhone}`;
+      qs("#btnEmail").href = `mailto:${cfg.venueEmail}`;
+      qs("#bigPhone").href = `tel:${cfg.venuePhone}`;
+      qs("#bigEmail").href = `mailto:${cfg.venueEmail}`;
+      qs("#venue-line").textContent = cfg.venueAddress;
+      qs("#addr").textContent = cfg.venueAddress;
+
+      // guests 1..10 plus extra "11+"
+      for(let i=1;i<=10;i++){
+        const o=document.createElement("option"); o.value=String(i); o.textContent=String(i);
+        elGuests.appendChild(o);
       }
+      const extra=document.createElement("option");
+      extra.value="11+";
+      extra.textContent="11+ (call or email)";
+      elGuests.appendChild(extra);
 
-      modalOk.onclick = () => {
-        stopFireworks();
-        modal.classList.add("hidden");
-        window.location.href = redirectUrl;
-      };
-
-      // Auto-redirect nach 4s
-      setTimeout(() => {
-        if (!modal.classList.contains("hidden")) {
-          stopFireworks();
-          modal.classList.add("hidden");
-          window.location.href = redirectUrl;
-        }
-      }, 4000);
-    }
-
-    // simple fireworks (leichtgewichtig)
-    let fwRAF = null, fwCtx = null, fwParticles = [];
-    function startFireworks() {
-      const c = fwCanvas;
-      c.width = 480; c.height = 200;
-      fwCtx = c.getContext("2d");
-      fwParticles = [];
-      spawnFW();
-      const loop = () => {
-        fwCtx.fillStyle = "rgba(0,0,0,0.08)";
-        fwCtx.fillRect(0,0,c.width,c.height);
-        fwParticles.forEach(p => {
-          p.vy += 0.05; p.x += p.vx; p.y += p.vy; p.life -= 1;
-          fwCtx.fillStyle = `hsl(${p.h},100%,${50+Math.random()*20}%)`;
-          fwCtx.fillRect(p.x, p.y, 2, 2);
-        });
-        fwParticles = fwParticles.filter(p => p.life > 0);
-        if (fwParticles.length < 60) spawnFW();
-        fwRAF = requestAnimationFrame(loop);
-      };
-      loop();
-    }
-    function spawnFW() {
-      const cx = 60 + Math.random() * 360;
-      const cy = 60 + Math.random() * 60;
-      for (let i=0;i<90;i++){
-        fwParticles.push({
-          x: cx, y: cy,
-          vx: (Math.random()-0.5)*3.5,
-          vy: (Math.random()-0.5)*3.5,
-          h: Math.floor(Math.random()*360),
-          life: 60 + Math.random()*30
-        });
-      }
-    }
-    function stopFireworks() {
-      if (fwRAF) cancelAnimationFrame(fwRAF);
-      fwRAF = null; fwParticles = [];
-    }
-
-    async function loadConfig() {
-      const r = await fetch("/api/config");
-      CFG = await r.json();
-      venueAddress.textContent = CFG.venueAddress;
-
-      if (CFG.venuePhone) {
-        chipPhone.href = `tel:${CFG.venuePhone}`;
-        btnPhone.href = `tel:${CFG.venuePhone}`;
-      } else {
-        chipPhone.classList.add("disabled");
-      }
-      if (CFG.venueEmail) {
-        chipEmail.href = `mailto:${CFG.venueEmail}`;
-        btnEmail.href = `mailto:${CFG.venueEmail}`;
-      } else {
-        chipEmail.classList.add("disabled");
-      }
-
-      // Guests 1..10 + "11+"
-      guestsSel.innerHTML = "";
-      for (let i=1;i<=10;i++){
-        const o = document.createElement("option");
-        o.value = String(i);
-        o.textContent = String(i);
-        guestsSel.appendChild(o);
-      }
+      // date default = today
       const today = new Date();
-      dateEl.value = ymd(today);
+      const y = today.getFullYear();
+      const m = String(today.getMonth()+1).padStart(2,"0");
+      const d = String(today.getDate()).padStart(2,"0");
+      elDate.value = `${y}-${m}-${d}`;
+
       refreshSlots();
-    }
+    });
 
-    async function refreshSlots() {
-      selectedTime = null;
-      const g = Number(guestsSel.value || 2);
-      if (g >= 11) {
-        slotsEl.innerHTML = "";
-        plus11El.classList.remove("hidden");
-        return;
-      }
-      plus11El.classList.add("hidden");
-
-      const qs = new URLSearchParams({ date: dateEl.value, guests: String(g) });
-      const r = await fetch(`/api/slots?${qs}`);
-      const list = await r.json();
-
-      slotsEl.innerHTML = "";
-      list.forEach(s => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "slot" + (s.disabled ? " disabled" : "");
-        b.textContent = s.time;
-        b.disabled = !!s.disabled;
-        b.onclick = () => {
-          slotsEl.querySelectorAll(".slot.selected").forEach(e => e.classList.remove("selected"));
-          b.classList.add("selected");
-          selectedTime = s.time;
-        };
-        slotsEl.appendChild(b);
+    function renderSlots(list){
+      elSlots.innerHTML="";
+      list.forEach(s=>{
+        const b=document.createElement("button");
+        b.type="button"; b.className="pill"; b.textContent=s.time;
+        if(s.disabled){ b.disabled=true; b.style.opacity=.5; }
+        b.addEventListener("click", ()=>{
+          document.querySelectorAll(".pill").forEach(p=>p.classList.remove("active"));
+          b.classList.add("active");
+        });
+        elSlots.appendChild(b);
       });
     }
+    function activeTime(){
+      const a = elSlots.querySelector(".pill.active");
+      return a ? a.textContent : "";
+    }
+    function refreshSlots(){
+      const date = elDate.value;
+      const guests = elGuests.value==="11+" ? 10 : Number(elGuests.value||2);
+      fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${guests}`)
+        .then(r=>r.json()).then(renderSlots);
+      elGroup.classList.toggle("hidden", elGuests.value!=="11+");
+    }
 
-    async function submitForm(ev) {
-      ev.preventDefault();
-      if (!selectedTime) {
-        showModal("Choose a time", "Please tap one of the available times.");
+    elDate.addEventListener("change",refreshSlots);
+    elGuests.addEventListener("change",refreshSlots);
+
+    // Book
+    elBook.addEventListener("click", async ()=>{
+      if(elGuests.value==="11+"){
+        showModal("Group booking", `For 11+ guests please contact us directly.<br><br>
+        <a class="btn" href="tel:${cfg.venuePhone}">Call</a> &nbsp;
+        <a class="btn" href="mailto:${cfg.venueEmail}">Email</a>`);
         return;
       }
       const payload = {
-        date: dateEl.value,
-        time: selectedTime,
-        guests: Number(guestsSel.value),
-        firstName: $("#firstName").value.trim(),
-        name: $("#name").value.trim(),
-        email: $("#email").value.trim(),
-        phone: $("#phone").value.trim() || null,
-        notes: $("#notes").value.trim() || null
+        date: elDate.value,
+        time: activeTime(),
+        guests: Number(elGuests.value||2),
+        firstName: elFirst.value.trim(),
+        name: elName.value.trim(),
+        email: elEmail.value.trim(),
+        phone: elPhone.value.trim(),
+        notes: elNotes.value.trim(),
       };
-      const r = await fetch("/api/book", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = await r.json();
-
-      if (!r.ok) {
-        const msg = data?.error || "Booking failed.";
-        showModal("Sorry", msg);
+      if(!payload.date || !payload.time || !payload.firstName || !payload.name || !payload.email){
+        showModal("Missing data","Please fill all required fields and select a time.");
         return;
       }
+      const r = await fetch("/api/book", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const j = await r.json();
+      if(!r.ok){ showModal("Sorry", j?.error||"Error"); return; }
 
-      const lw = data.loyalty || { level:0, firework:false, pastCount:0 };
-      const title = lw.firework
-        ? `🎉 Congrats! ${lw.level}% Loyalty`
-        : "Thank you!";
-      const txt = lw.firework
-        ? `You just unlocked a ${lw.level}% Loyalty Discount. It applies from now on.`
-        : "Your reservation has been received.";
-
-      // Redirect-Ziel: deine Hauptseite / oder noxamasamui.com
-      const redirect = "https://noxamasamui.com/";
-
-      showModal(title, txt, lw.firework, redirect);
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      loadConfig();
-      for (let i=1;i<=10;i++){
-        const o = document.createElement("option");
-        o.value = String(i); o.textContent = String(i);
+      // Fireworks at 5/10/15
+      let extra="";
+      if([5,10,15].includes(j.nth)){
+        const pct = j.loyalty.level;
+        extra = `<div style="margin-top:10px;font-weight:700">🎆 Congratulations! You now enjoy <span style="color:#b6802a">${pct}%</span> loyalty discount.</div>`;
       }
-      guestsSel.addEventListener("change", refreshSlots);
-      dateEl.addEventListener("change", refreshSlots);
-      $("#bookForm").addEventListener("submit", submitForm);
+      showModal("Thank you!", `Your reservation has been received.${extra}<br><br>We redirect you to our website...`);
 
-      // 11+ Gäste – per Klick per Hand aktivieren
-      const opt11 = document.createElement("option");
-      opt11.value = "11";
-      opt11.textContent = "11+";
-      guestsSel.appendChild(opt11);
+      // redirect
+      setTimeout(()=>{ window.location.href = "https://noxamasamui.com"; }, 2200);
     });
   </script>
 </body>
