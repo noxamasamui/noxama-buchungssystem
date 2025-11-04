@@ -159,8 +159,21 @@ function renderReservationEmail(
 
   const html = `
   <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b1a12">
-    ${meta.mailHeaderUrl ? `<img src="${meta.mailHeaderUrl}" style="max-width:100%;display:block;margin:0 auto 16px"/>` : ""}
-    ${meta.mailLogoUrl ? `<div style="text-align:center;margin:8px 0"><img src="${meta.mailLogoUrl}" height="56"/></div>` : ""}
+   // genau EIN Branding-Element anzeigen: Header > sonst Logo > sonst nichts
+const branding = meta.mailHeaderUrl
+  ? `<img src="${meta.mailHeaderUrl}" style="max-width:100%;display:block;margin:0 auto 16px"/>`
+  : (meta.mailLogoUrl
+      ? `<div style="text-align:center;margin:8px 0"><img src="${meta.mailLogoUrl}" height="56"/></div>`
+      : "");
+
+const html = `
+  <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b1a12">
+    ${branding}
+    <h2 style="text-align:center;margin:16px 0 8px">Your Reservation at ${meta.brandName}</h2>
+    ...
+  </div>
+`;
+
     <h2 style="text-align:center;margin:16px 0 8px">Your Reservation at ${meta.brandName}</h2>
 
     <p>Hi ${csv(r.firstName)} ${csv(r.lastName)},</p>
