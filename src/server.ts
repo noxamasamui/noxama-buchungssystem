@@ -1,22 +1,22 @@
 // src/server.ts
 import { fileURLToPath } from "url";
+import express, { type Request, type Response, type NextFunction } from "express";
+import cors from "cors";
 import path from "path";
 import dotenv from "dotenv";
-import express, { type NextFunction, type Request, type Response } from "express";
-import cors from "cors";
 import { PrismaClient } from "@prisma/client";
 import { customAlphabet } from "nanoid";
 
-// WICHTIG: dein SMTP-Wrapper (nach Transpile als .js)
+// wichtig: auf ESM-Laufzeit achten -> .js import fuer das kompilierte Target
 import { mailer, fromAddress } from "./mailsender.js";
 
 dotenv.config();
 
-/* ────────────────────────────── ESM __dirname ────────────────────────────── */
+/* __dirname in ESM */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ────────────────────────────── App / Prisma ─────────────────────────────── */
+/* App / Prisma */
 const app = express();
 const prisma = new PrismaClient();
 
@@ -24,12 +24,12 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.static(path.resolve(__dirname, "../public")));
 
-/* ────────────────────────────── Config (ENV) ─────────────────────────────── */
+/* Konfiguration */
 const PORT = Number(process.env.PORT ?? 4020);
 const BASE_URL =
   process.env.PUBLIC_BASE_URL || process.env.BASE_URL || `http://localhost:${PORT}`;
 
-const BRAND_NAME = process.env.BRAND_NAME || "RÖSTILAND BY NOXAMA SAMUI";
+const BRAND_NAME = process.env.BRAND_NAME || "ROESTILAND BY NOXAMA SAMUI";
 const VENUE_ADDRESS =
   process.env.VENUE_ADDRESS || "Moo 4 Lamai Beach, 84310 Suratthani, Thailand";
 const VENUE_PHONE = process.env.VENUE_PHONE || "";
@@ -38,12 +38,11 @@ const VENUE_MAP_LINK =
   process.env.VENUE_MAP_LINK ||
   "https://maps.google.com/?q=Moo+4+Lamai+Beach,+84310+Suratthani";
 
-const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || null; // volle Breite
-const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || null;     // kleines Logo
+const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || null;
+const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || null;
 
 const ONLINE_SEATS_CAP = Number(process.env.ONLINE_SEATS_CAP || 40);
 
-// Öffnungszeiten und Slot-Dauer
 const OPEN_LUNCH_START = process.env.OPEN_LUNCH_START || "10:00";
 const OPEN_LUNCH_END = process.env.OPEN_LUNCH_END || "16:30";
 const OPEN_LUNCH_DURATION_MIN = Number(process.env.OPEN_LUNCH_DURATION_MIN || 90);
@@ -52,18 +51,23 @@ const OPEN_DINNER_START = process.env.OPEN_DINNER_START || "17:00";
 const OPEN_DINNER_END = process.env.OPEN_DINNER_END || "22:00";
 const OPEN_DINNER_DURATION_MIN = Number(process.env.OPEN_DINNER_DURATION_MIN || 90);
 
-// Admin Key
 const ADMIN_KEY = (process.env.ADMIN_RESET_KEY || process.env.ADMIN_PASSWORD || "").trim();
 
-// Zielseite nach erfolgreicher Buchung (für Frontend, falls genutzt)
-const REDIRECT_AFTER_BOOK = process.env.REDIRECT_AFTER_BOOK || "https://noxamasamui.com";
+// nach erfolgreicher Buchung hierhin weiterleiten
+const REDIRECT_AFTER_BOOK =
+  process.env.REDIRECT_AFTER_BOOK || "https://noxamasamui.com";
 
-// ID/Token Generator
 const nanoid = customAlphabet("abcdefghijkmnpqrstuvwxyz123456789", 21);
 
-/* ────────────────────────────── Helpers: Zeit/Slots ──────────────────────── */
+/* Helpers */
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!ADMIN_KEY) return res.status(500).json({ error: "Admin key not set" });
+  const k = String(req.headers["x-admin-key"] || req.query.key || "");
+  if (k !== ADMIN_KEY) return res.status(401).json({ error: "Unauthorized" });
+  next();
+}
 function hmToMin(hm: string): number {
-  const [h, m] = hm.split(":").map(Number);
+  const [h, m] = hm.split(":").map((s) => Number(s));
   return h * 60 + m;
 }
 function minToHm(min: number): string {
@@ -89,11 +93,11 @@ function isYmd(s: string): boolean {
 }
 function pickDurationMin(time: string): number {
   const t = hmToMin(time);
-  const lunchStart = hmToMin(OPEN_LUNCH_START);
-  const lunchEnd = hmToMin(OPEN_LUNCH_END);
-  return t >= lunchStart && t + OPEN_LUNCH_DURATION_MIN <= lunchEnd
-    ? OPEN_LUNCH_DURATION_MIN
-    : OPEN_DINNER_DURATION_MIN;
+  const lunch = [hmToMin(OPEN_LUNCH_START), hmToMin(OPEN_LUNCH_END)];
+  if (t >= lunch[0] && t + OPEN_LUNCH_DURATION_MIN <= lunch[1]) {
+    return OPEN_LUNCH_DURATION_MIN;
+  }
+  return OPEN_DINNER_DURATION_MIN;
 }
 function buildStartEnd(date: string, time: string): { startTs: Date; endTs: Date } {
   const startTs = new Date(`${date}T${time}:00`);
@@ -104,111 +108,91 @@ function csv(s: string): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/* ────────────────────────────── Helpers: Admin ───────────────────────────── */
-function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (!ADMIN_KEY) return res.status(500).json({ error: "Admin key not set" });
-  const k = String(req.headers["x-admin-key"] || req.query.key || "");
-  if (k !== ADMIN_KEY) return res.status(401).json({ error: "Unauthorized" });
-  next();
-}
-
-/* ────────────────────────────── Loyalty ──────────────────────────────────── */
+/* Loyalty */
 type Loyalty = { level: 0 | 5 | 10 | 15; nextAt?: number; pastCount: number };
 
 function calcLoyalty(pastCount: number): Loyalty {
   let level: 0 | 5 | 10 | 15 = 0;
-  const nth = pastCount + 1;
-  if (nth >= 15) level = 15;
-  else if (nth >= 10) level = 10;
-  else if (nth >= 5) level = 5;
+  if (pastCount + 1 >= 15) level = 15;
+  else if (pastCount + 1 >= 10) level = 10;
+  else if (pastCount + 1 >= 5) level = 5;
   const nextAt = level === 15 ? undefined : level === 10 ? 15 : level === 5 ? 10 : 5;
   return { level, nextAt, pastCount };
 }
 
-/* ────────────────────────────── Mail Renderer ────────────────────────────── */
+/* Mail-Renderer (kompakt) */
 function renderReservationEmail(
   meta: {
     brandName: string;
     baseUrl: string;
+    cancelUrl: string;
     mailHeaderUrl: string | null;
     mailLogoUrl: string | null;
+    venueAddress: string;
   },
   r: {
-    firstName: string;
-    lastName: string;
+    id: string;
     date: string;
     time: string;
     guests: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
     cancelToken: string;
   },
   loyalty: Loyalty
 ): { subject: string; html: string } {
   const subject = `Your Reservation at ${meta.brandName}`;
-
   const loyaltyBlock =
     loyalty.level > 0
-      ? `<p><strong>Thank you for your loyalty!</strong><br>You now enjoy a <strong>${loyalty.level}% Loyalty Discount</strong> for this and all future visits.</p>`
+      ? `<p><strong>Thank you for your loyalty!</strong><br/>You now enjoy a <strong>${loyalty.level}% Loyalty Discount</strong> for this and all future visits.</p>`
       : loyalty.nextAt
-      ? `<p><strong>Thank you for your loyalty!</strong><br>After <strong>${loyalty.nextAt}</strong> bookings you’ll enjoy a loyalty discount.</p>`
+      ? `<p><strong>Thank you for your loyalty!</strong><br/>After <strong>${loyalty.nextAt}</strong> bookings you will enjoy a loyalty discount.</p>`
       : "";
 
-  const cancelLink = `${BASE_URL}/cancel?token=${encodeURIComponent(r.cancelToken)}`;
+  const cancelLink = `${meta.baseUrl}/cancel?token=${encodeURIComponent(r.cancelToken)}`;
 
-  const brandTop = meta.mailHeaderUrl
-    ? `<img src="${meta.mailHeaderUrl}" alt="" style="display:block;width:100%;height:auto;border:0;max-width:640px;">`
-    : meta.mailLogoUrl
-    ? `<div style="text-align:center;padding:20px 0 10px">
-         <img src="${meta.mailLogoUrl}" alt="" style="max-height:56px;width:auto;border:0;display:inline-block;">
-       </div>`
-    : ``;
+  const header = meta.mailHeaderUrl
+    ? `<img src="${meta.mailHeaderUrl}" style="max-width:100%;display:block;margin:0 auto 16px"/>`
+    : "";
+  const logo = meta.mailLogoUrl
+    ? `<div style="text-align:center;margin:8px 0"><img src="${meta.mailLogoUrl}" height="56"/></div>`
+    : "";
 
   const html = `
-  <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b1a12;background:#fff;padding:0;margin:0;">
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%;background:#efe1d6;">
-      <tr><td>
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%;max-width:640px;margin:0 auto;background:#fff;">
-          <tr><td style="padding:0;">${brandTop}</td></tr>
+  <div style="font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2b1a12">
+    ${header}
+    ${logo}
+    <h2 style="text-align:center;margin:16px 0 8px">Your Reservation at ${meta.brandName}</h2>
 
-          <tr>
-            <td style="padding:18px 22px 10px;">
-              <h2 style="margin:0 0 6px;font-size:22px;line-height:1.25;text-align:center;">
-                Your Reservation at ${meta.brandName}
-              </h2>
-              <p style="margin:0 0 8px;">Hi ${csv(r.firstName)} ${csv(r.lastName)},</p>
-              <p style="margin:0;">Thank you for your reservation. We look forward to welcoming you.</p>
-            </td>
-          </tr>
+    <p>Hi ${csv(r.firstName)} ${csv(r.lastName)},</p>
+    <p>Thank you for your reservation. We look forward to welcoming you.</p>
 
-          <tr>
-            <td style="padding:12px 22px;">
-              <div style="background:#faefe6;border-radius:10px;padding:12px 14px;border:1px solid #ead7c7">
-                <div><b>Date</b> ${r.date}</div>
-                <div><b>Time</b> ${r.time}</div>
-                <div><b>Guests</b> ${r.guests}</div>
-                <div><b>Address</b> ${VENUE_ADDRESS}</div>
-              </div>
+    <div style="background:#faefe6;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #ead7c7">
+      <div><b>Date</b> ${r.date}</div>
+      <div><b>Time</b> ${r.time}</div>
+      <div><b>Guests</b> ${r.guests}</div>
+      <div><b>Address</b> ${VENUE_ADDRESS}</div>
+    </div>
 
-              ${loyaltyBlock ? `<div style="margin-top:10px;">${loyaltyBlock}</div>` : ``}
+    ${loyaltyBlock}
 
-              <div style="background:#fdeeea;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #f4d6ce">
-                <b>Punctuality</b><br>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
-              </div>
+    <div style="background:#fdeeea;border-radius:10px;padding:12px 14px;margin:12px 0;border:1px solid #f4d6ce">
+      <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
+    </div>
 
-              <div style="text-align:center;margin:18px 0 24px">
-                <a href="${cancelLink}" style="background:#b6802a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;display:inline-block">Cancel reservation</a>
-              </div>
+    <div style="text-align:center;margin:20px 0">
+      <a href="${cancelLink}" style="background:#b6802a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;display:inline-block">Cancel reservation</a>
+    </div>
 
-              <p style="text-align:center;margin:0 0 22px;color:#5a463a">Warm regards from <b>${BRAND_NAME}</b></p>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
-    </table>
-  </div>`;
+    <p style="text-align:center">Warm regards from <b>${BRAND_NAME}</b></p>
+  </div>
+  `;
   return { subject, html };
 }
 
-/* ────────────────────────────── Public: Config ───────────────────────────── */
+/* Public: Config */
 app.get("/api/config", (_req, res) => {
   res.json({
     brandName: BRAND_NAME,
@@ -220,11 +204,10 @@ app.get("/api/config", (_req, res) => {
     mailHeaderUrl: MAIL_HEADER_URL,
     mailLogoUrl: MAIL_LOGO_URL,
     onlineSeatsCap: ONLINE_SEATS_CAP,
-    redirectAfterBook: REDIRECT_AFTER_BOOK,
   });
 });
 
-/* ────────────────────────────── Public: Slots ────────────────────────────── */
+/* Public: Slots */
 app.get("/api/slots", async (req, res) => {
   const date = String(req.query.date || "");
   const guests = Number(req.query.guests || 2);
@@ -247,14 +230,12 @@ app.get("/api/slots", async (req, res) => {
   res.json(list);
 });
 
-/* ────────────────────────────── Public: Book ─────────────────────────────── */
+/* Public: Book */
 app.post("/api/book", async (req, res) => {
   try {
-    const { date, time, guests, firstName, name, email, phone, notes } =
-      (req.body as any) || {};
+    const { date, time, guests, firstName, name, email, phone, notes } = req.body || {};
 
     if (!isYmd(String(date))) return res.status(400).json({ error: "Invalid date" });
-
     const slots = dailySlots();
     if (!slots.includes(String(time)))
       return res.status(400).json({ error: "Invalid time" });
@@ -266,11 +247,11 @@ app.post("/api/book", async (req, res) => {
     if (!firstName || !name || !email)
       return res.status(400).json({ error: "Missing fields" });
 
-    const capAgg = await prisma.reservation.aggregate({
+    const agg = await prisma.reservation.aggregate({
       _sum: { guests: true },
       where: { date, time, status: { not: "canceled" } },
     });
-    const already = capAgg._sum.guests ?? 0;
+    const already = agg._sum.guests ?? 0;
     if (already + g > ONLINE_SEATS_CAP) return res.status(409).json({ error: "Fully booked" });
 
     const { startTs, endTs } = buildStartEnd(String(date), String(time));
@@ -281,11 +262,11 @@ app.post("/api/book", async (req, res) => {
         firstName: String(firstName),
         name: String(name),
         email: String(email),
-        phone: phone ? String(phone) : null,
+        phone: phone ?? null,
         date: String(date),
         time: String(time),
         guests: g,
-        notes: notes ? String(notes) : null,
+        notes: notes ?? null,
         status: "confirmed",
         isWalkIn: false,
         createdAt: new Date(),
@@ -296,7 +277,7 @@ app.post("/api/book", async (req, res) => {
       },
     });
 
-    // Loyalty: Anzahl früherer Buchungen (nicht canceled) vor dieser Reservierung
+    // Loyalty zaehlen (Vergangenheit vor dieser Buchung)
     const pastCount = await prisma.reservation.count({
       where: {
         email: newRes.email,
@@ -305,40 +286,50 @@ app.post("/api/book", async (req, res) => {
       },
     });
     const loyalty = calcLoyalty(pastCount);
+    const totalBookings = pastCount + 1;
+    const milestoneReached = totalBookings === 5 || totalBookings === 10 || totalBookings === 15;
 
+    // Mail senden
     const { subject, html } = renderReservationEmail(
       {
         brandName: BRAND_NAME,
         baseUrl: BASE_URL,
+        cancelUrl: `${BASE_URL}/cancelled.html`,
         mailHeaderUrl: MAIL_HEADER_URL,
         mailLogoUrl: MAIL_LOGO_URL,
+        venueAddress: VENUE_ADDRESS,
       },
       {
-        firstName: newRes.firstName,
-        lastName: newRes.name,
+        id: newRes.id,
         date: newRes.date,
         time: newRes.time,
         guests: newRes.guests,
+        firstName: newRes.firstName,
+        lastName: newRes.name,
+        email: newRes.email,
+        phone: newRes.phone ?? null,
         cancelToken: newRes.cancelToken,
       },
       loyalty
     );
 
-    await mailer().sendMail({
-      from: fromAddress(),
-      to: newRes.email,
-      subject,
-      html,
-    });
+    await mailer().sendMail({ from: fromAddress(), to: newRes.email, subject, html });
 
-    res.json({ ok: true, id: newRes.id, redirect: REDIRECT_AFTER_BOOK });
-  } catch (err) {
-    console.error(err);
+    res.json({
+      ok: true,
+      id: newRes.id,
+      redirect: REDIRECT_AFTER_BOOK,
+      loyaltyLevel: loyalty.level,
+      totalBookings,
+      milestoneReached,
+    });
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-/* ────────────────────────────── Public: Cancel ───────────────────────────── */
+/* Public: Cancel */
 app.get("/cancel", async (req, res) => {
   const token = String(req.query.token || "");
   if (!token) return res.status(400).send("Missing token");
@@ -352,9 +343,11 @@ app.get("/cancel", async (req, res) => {
   res.redirect("/cancelled.html");
 });
 
-/* ────────────────────────────── ADMIN: Walk-in ───────────────────────────── */
+/* ========================= ADMIN ========================= */
+
+/* Walk-in */
 app.post("/api/admin/walkin", requireAdmin, async (req, res) => {
-  const { date, time, guests, notes } = (req.body as any) || {};
+  const { date, time, guests, notes } = req.body || {};
 
   if (!isYmd(String(date))) return res.status(400).json({ error: "Invalid date" });
   const slots = dailySlots();
@@ -384,7 +377,7 @@ app.post("/api/admin/walkin", requireAdmin, async (req, res) => {
       date: String(date),
       time: String(time),
       guests: g,
-      notes: notes ? String(notes) : null,
+      notes: notes ?? null,
       status: "confirmed",
       isWalkIn: true,
       createdAt: new Date(),
@@ -398,7 +391,7 @@ app.post("/api/admin/walkin", requireAdmin, async (req, res) => {
   res.json({ ok: true, id: r.id });
 });
 
-/* ────────────────────────────── ADMIN: Liste / Export ────────────────────── */
+/* Liste */
 app.get("/api/admin/reservations", requireAdmin, async (req, res) => {
   const from = String(req.query.from || "");
   const to = String(req.query.to || "");
@@ -413,6 +406,7 @@ app.get("/api/admin/reservations", requireAdmin, async (req, res) => {
   res.json({ rows, totalGuests, count: rows.length });
 });
 
+/* CSV Export */
 app.get("/api/admin/export.csv", requireAdmin, async (req, res) => {
   const from = String(req.query.from || "");
   const to = String(req.query.to || "");
@@ -424,17 +418,7 @@ app.get("/api/admin/export.csv", requireAdmin, async (req, res) => {
   });
 
   const header = [
-    "Date",
-    "Time",
-    "FirstName",
-    "LastName",
-    "Email",
-    "Phone",
-    "Guests",
-    "Status",
-    "Notes",
-    "WalkIn",
-    "CreatedAt",
+    "Date","Time","FirstName","LastName","Email","Phone","Guests","Status","Notes","WalkIn","CreatedAt"
   ].join(",");
 
   const body = rows
@@ -460,60 +444,7 @@ app.get("/api/admin/export.csv", requireAdmin, async (req, res) => {
   res.send([header, body].join("\n"));
 });
 
-/* ────────────────────────────── ADMIN: Day block ─────────────────────────── */
-app.post("/api/admin/block-day", requireAdmin, async (req, res) => {
-  const { day, reason } = (req.body as any) || {};
-  if (!isYmd(String(day))) return res.status(400).json({ error: "Invalid day" });
-
-  const slots = dailySlots();
-  let created = 0;
-
-  for (const time of slots) {
-    const exists = await prisma.reservation.findFirst({
-      where: { date: day, time, email: "block@noxama.local", status: { not: "canceled" } },
-      select: { id: true },
-    });
-    if (exists) continue;
-
-    const { startTs, endTs } = buildStartEnd(day, time);
-
-    await prisma.reservation.create({
-      data: {
-        id: nanoid(),
-        firstName: "Closed",
-        name: String(reason || "Closed / Private event"),
-        email: "block@noxama.local",
-        phone: null,
-        date: day,
-        time,
-        guests: ONLINE_SEATS_CAP,
-        notes: "BLOCK_PLACEHOLDER",
-        status: "confirmed",
-        isWalkIn: true,
-        createdAt: new Date(),
-        cancelToken: nanoid(),
-        reminderSent: false,
-        startTs,
-        endTs,
-      },
-    });
-    created++;
-  }
-
-  res.json({ ok: true, created });
-});
-
-app.delete("/api/admin/block-day", requireAdmin, async (req, res) => {
-  const day = String(req.query.day || "");
-  if (!isYmd(day)) return res.status(400).json({ error: "Invalid day" });
-
-  const del = await prisma.reservation.deleteMany({
-    where: { date: day, email: "block@noxama.local" },
-  });
-  res.json({ ok: true, deleted: del.count });
-});
-
-/* ────────────────────────────── Fallback / Start ─────────────────────────── */
+/* Fallback + Start */
 app.get("/", (_req, res) => {
   res.sendFile(path.resolve(__dirname, "../public/index.html"));
 });
