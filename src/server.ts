@@ -373,8 +373,7 @@ app.post("/api/admin/walkin", requireAdmin, async (req, res) => {
     },
   });
 
-  res.json({ ok: true, id: r.id });
-});
+res.json({ ok: true, id: newRes.id, loyalty });
 
 // Block Day (Platzhalter)
 app.post("/api/admin/block-day", requireAdmin, async (req, res) => {
