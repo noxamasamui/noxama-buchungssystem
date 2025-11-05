@@ -1,45 +1,54 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgresql"        // falls du SQLite verwendest -> "sqlite"
   url      = env("DATABASE_URL")
 }
-
-// ... bestehende Models
 
 enum ReservationStatus {
   confirmed
   canceled
-  no-show
+  no_show   // <- statt "no-show"
 }
 
 model Reservation {
-  id           String             @id
-  firstName    String
-  name         String
-  email        String
-  phone        String?
-  date         String             // YYYY-MM-DD
-  time         String             // HH:MM
-  guests       Int
-  notes        String?
-  status       ReservationStatus  @default(confirmed)
-  isWalkIn     Boolean            @default(false)
-  createdAt    DateTime           @default(now())
-  cancelToken  String
-  reminderSent Boolean            @default(false)
-  startTs      DateTime
-  endTs        DateTime
+  id            String             @id
+  firstName     String
+  name          String
+  email         String
+  phone         String?
+  date          String             // YYYY-MM-DD
+  time          String             // HH:mm
+  guests        Int
+  notes         String?
+
+  status        ReservationStatus  @default(confirmed)
+  isWalkIn      Boolean            @default(false)
+
+  createdAt     DateTime           @default(now())
+  startTs       DateTime
+  endTs         DateTime
+
+  cancelToken   String
+  reminderSent  Boolean            @default(false)
+
+  @@index([date, time])
+  @@index([email])
 }
 
 model Notice {
   id         String   @id
-  date       String   // YYYY-MM-DD
-  title      String?
+  startTs    DateTime
+  endTs      DateTime
+  title      String
   message    String
-  requireAck Boolean  @default(false)
   active     Boolean  @default(true)
+  requireAck Boolean  @default(false)
+
   createdAt  DateTime @default(now())
+
+  @@index([startTs, endTs])
 }
