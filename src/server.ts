@@ -232,16 +232,30 @@ app.get("/cancel", async (req, res) => {
 
 /* Notices (Spezial-Events) */
 app.get("/api/notice", async (req, res) => {
-  const date = String(req.query.date || "");
-  if (!isYmd(date)) return res.json(null);
-  const start = new Date(`${date}T00:00:00`);
-  const end   = new Date(`${date}T23:59:59`);
-  const n = await prisma.notice.findFirst({
-    where: { active: true, startTs: { lte: end }, endTs: { gte: start } },
-    orderBy: { startTs: "desc" }
-  });
-  res.json(n || null);
+  try {
+    const date = String(req.query.date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: "Invalid date" });
+
+    const startOfDay = new Date(`${date}T00:00:00`);
+    const endOfDay   = new Date(`${date}T23:59:59`);
+
+    const n = await prisma.notice.findFirst({
+      where: { startTs: { lte: endOfDay }, endTs: { gte: startOfDay } },
+      orderBy: { startTs: "desc" },
+    });
+
+    if (!n) return res.json(null);
+    return res.json({ message: n.message, requireAck: n.requireAck });
+  } catch (e: any) {
+    // P2022 / fehlende Spalten/Tabelle: bis Migration da ist, still null zurück
+    if (e?.code === "P2022" || e?.code === "P2021") {
+      return res.json(null);
+    }
+    console.error(e);
+    return res.status(500).json({ error: "Server error" });
+  }
 });
+
 
 /* ---------- ADMIN (Lesen ohne Key; Danger-Zone mit Key) ---------- */
 
