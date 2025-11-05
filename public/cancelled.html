@@ -1,19 +1,31 @@
-<!doctype html>
+Public/cancelled.html: <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Reservation canceled</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-  <div class="header"><img src="/logo.png" alt=""></div>
-  <div class="container">
-    <div class="card" style="text-align:center">
-      <h2>Your reservation has been canceled.</h2>
-      <p>We hope to see you another time.</p>
-      <p><a class="btn" href="/">Back to booking</a></p>
+<header class="hero">
+  <img id="heroLogo" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI"/>
+</header>
+
+<main class="container">
+  <div class="card">
+    <h2>Reservation canceled</h2>
+    <p>Your reservation has been canceled. We hope this goodbye is only for now.</p>
+    <div class="actions">
+      <a class="btn primary" href="/">Back to booking</a>
     </div>
   </div>
+</main>
+
+<script>
+fetch("/api/config").then(r=>r.json()).then(c=>{
+  if (c.mailHeaderUrl) document.getElementById("heroLogo").src = c.mailHeaderUrl;
+  else if (c.mailLogoUrl) document.getElementById("heroLogo").src = c.mailLogoUrl;
+}).catch(()=>{});
+</script>
 </body>
 </html>
