@@ -1,3 +1,4 @@
+// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,36 +8,41 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Reservation {
-  id           String   @id @default(cuid())
-  date         String
-  time         String
-  startTs      DateTime
-  endTs        DateTime
-  firstName    String
-  name         String
-  email        String
-  phone        String?
-  guests       Int
-  notes        String?
-  status       String   @default("confirmed")
-  cancelToken  String   @unique
-  isWalkIn     Boolean  @default(false)
-  reminderSent Boolean  @default(false)
-  createdAt    DateTime @default(now())
+enum ReservationStatus {
+  confirmed
+  canceled
+  noshow
+}
 
-  @@index([date])
+model Reservation {
+  id            String             @id @default(cuid())
+  createdAt     DateTime           @default(now())
+  date          String
+  time          String
+  startTs       DateTime
+  endTs         DateTime
+  firstName     String
+  name          String
+  email         String?
+  phone         String?
+  guests        Int
+  notes         String?
+  status        ReservationStatus  @default(confirmed)
+  cancelToken   String             @unique
+  isWalkIn      Boolean            @default(false)
+  reminderSent  Boolean            @default(false)
+
+  @@index([date, time])
   @@index([startTs])
   @@index([email])
 }
 
 model Closure {
   id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
   startTs   DateTime
   endTs     DateTime
   reason    String?
-  createdAt DateTime @default(now())
 
-  @@index([startTs])
-  @@index([endTs])
+  @@index([startTs, endTs])
 }
