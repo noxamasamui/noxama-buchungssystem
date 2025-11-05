@@ -1,34 +1,33 @@
 {
   "name": "noxama-buchungssystem",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc && npm prune --omit=dev",
     "start": "node dist/server.js",
-    "postinstall": "prisma generate"
-  },
- "dependencies": {
-  "@prisma/client": "6.18.0",
-  "express": "4.21.2",
-  "dotenv": "16.6.1",
-  "nanoid": "5.0.7",
-  "nodemailer": "6.10.1"
-},
-"devDependencies": {
-  "prisma": "6.18.0",
-  "typescript": "5.9.3",
-  "@types/node": "20.19.23",
-  "@types/express": "5.0.4",
-  "@types/cors": "2.8.19",
-  "@types/nodemailer": "7.0.3"
-}
+    "dev": "ts-node-esm src/server.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:deploy": "prisma migrate deploy"
   },
   "engines": {
-    "node": ">=18 <=22"
+    "node": ">=18.17 <=22"
   },
-  "prisma": {
-    "schema": "prisma/schema.prisma"
+  "dependencies": {
+    "@prisma/client": "6.18.0",
+    "cors": "2.8.5",
+    "dotenv": "16.6.1",
+    "express": "4.21.2",
+    "nanoid": "5.0.7",
+    "nodemailer": "6.10.1"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.4",
+    "@types/node": "20.19.23",
+    "@types/nodemailer": "7.0.3",
+    "prisma": "6.18.0",
+    "typescript": "5.9.3"
   }
 }
