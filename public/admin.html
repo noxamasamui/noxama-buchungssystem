@@ -1,199 +1,329 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Admin — Reservations</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="/style.css" />
-  <style>
-    .toolbar{display:grid;grid-template-columns:1.2fr 1fr 1fr auto auto;gap:10px;align-items:end;margin-bottom:14px}
-    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden}
-    th,td{border-bottom:1px solid var(--border);padding:8px 10px;font-size:14px}
-    th{background:#faf5ef;text-align:left}
-    tr:last-child td{border-bottom:none}
-    .sec{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin:14px 0}
-    .toast{position:fixed;left:50%;top:30px;transform:translateX(-50%);background:#fff;border:1px solid var(--border);padding:12px 16px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.08);display:none}
-    .mini-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-    .mini-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Admin — Reservations</title>
+<link rel="stylesheet" href="/style.css"/>
+<style>
+  .wrap{max-width:1080px;margin:0 auto;padding:16px}
+  .brand{display:flex;justify-content:center;margin:8px 0 16px}
+  .brand img{max-width:680px;width:100%;border-radius:12px}
+  .card{background:#f6efe7;border:1px solid #ead7c7;border-radius:14px;padding:14px;margin:14px 0;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .row>*{flex:1 1 180px}
+  .btn{background:#b6802a;color:#fff;border:none;border-radius:10px;padding:8px 12px;cursor:pointer}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-top:1px solid #ead7c7}
+  th{text-align:left;background:#f2e7db}
+  .muted{opacity:.65}
+  .danger{background:#8b2b2b}
+  .ghost{background:#e3d4bf;color:#5b4321}
+  .tag{padding:2px 8px;border-radius:999px;background:#e9dccb;font-size:12px}
+</style>
 </head>
 <body>
-  <header class="brand">
-    <img src="/logo.png" alt="RÖSTILAND" />
-  </header>
+<div class="wrap">
+  <div class="brand"><img id="adminLogo" src="" alt="Logo"/></div>
 
-  <main class="container">
-    <h1 style="margin-bottom:12px;text-align:center">Admin</h1>
-
-    <div class="toolbar">
-      <label>Key
-        <input id="admin-key" placeholder="x-admin-key" />
-      </label>
-      <label>From
-        <input type="date" id="from" />
-      </label>
-      <label>To
-        <input type="date" id="to" />
-      </label>
-      <button class="btn" id="load">Load</button>
-      <button class="btn" id="export">Export CSV</button>
-    </div>
-
-    <table id="tbl">
-      <thead>
-        <tr>
-          <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Guests</th><th>Status</th><th>Walk-in</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <div class="sec">
-      <h3>Add walk-in</h3>
-      <div class="mini-grid2">
-        <label>Date
-          <input type="date" id="wDate" />
-        </label>
-        <label>Time (HH:MM)
-          <input type="time" id="wTime" />
-        </label>
-      </div>
-      <div class="mini-grid2" style="margin-top:10px">
-        <label>Guests
-          <input type="number" id="wGuests" min="1" max="10" value="2" />
-        </label>
-        <label>Notes
-          <input id="wNotes" />
-        </label>
-      </div>
-      <div class="actions"><button class="btn" id="saveWalkin">Save walk-in</button></div>
-    </div>
-
-    <div class="sec">
-      <h3>Block day (quick)</h3>
-      <div class="mini-grid2">
-        <label>Day
-          <input type="date" id="bDay" />
-        </label>
-        <label>Reason
-          <input id="bReason" value="Closed / Private event" />
-        </label>
-      </div>
-      <div class="actions" style="gap:8px">
-        <button class="btn" id="blockDay">Block whole day</button>
-        <button class="btn" id="unblockDay">Remove block</button>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h3>Danger zone</h3>
-      <div class="mini-grid">
-        <label>From
-          <input type="date" id="delFrom" />
-        </label>
-        <label>To
-          <input type="date" id="delTo" />
-        </label>
-        <div class="actions">
-          <button class="btn" id="delRange">Delete ALL reservations in range</button>
+  <div class="card">
+    <div class="row" style="align-items:flex-end">
+      <div>
+        <label class="muted">Quick range</label><br/>
+        <div class="row">
+          <button class="btn ghost" id="btnToday">Today</button>
+          <button class="btn ghost" id="btnWeek">This week</button>
+          <button class="btn ghost" id="btnMonth">This month</button>
         </div>
       </div>
+      <div>
+        <label class="muted">From</label><br/>
+        <input type="date" id="from" class="ghost" />
+      </div>
+      <div>
+        <label class="muted">To</label><br/>
+        <input type="date" id="to" class="ghost" />
+      </div>
+      <div>
+        <label class="muted">&nbsp;</label><br/>
+        <button class="btn" id="btnLoad">Load</button>
+      </div>
+      <div>
+        <label class="muted">Export</label><br/>
+        <select id="exportPreset" class="ghost">
+          <option value="day">Daily</option>
+          <option value="week">Weekly</option>
+          <option value="month" selected>Monthly</option>
+          <option value="year">Yearly</option>
+          <option value="custom">Custom (below)</option>
+        </select>
+        <button class="btn" id="btnExport">Export CSV</button>
+      </div>
     </div>
-  </main>
+  </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="card">
+    <h3 style="margin:0 0 8px">Reservations</h3>
+    <div style="overflow:auto">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Guests</th><th>Status</th><th>Walk-in</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"><tr><td colspan="8" class="muted">No data</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
-  <script>
-    const $ = (s)=>document.querySelector(s);
-    const showToast = (msg)=>{ const t=$("#toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none",1800); };
-    const today=()=>{ const d=new Date(); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), dd=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${dd}`; };
+  <div class="card">
+    <h3 style="margin:0 0 8px">Special notice</h3>
+    <div class="row">
+      <div><label class="muted">Date</label><br/><input type="date" id="nDate" class="ghost"/></div>
+      <div style="flex:2 1 300px"><label class="muted">Message</label><br/><input id="nMsg" class="ghost" placeholder="Text shown to guests on that date"/></div>
+      <div><label class="muted">Require consent</label><br/><input type="checkbox" id="nAck"/></div>
+      <div><label class="muted">Active</label><br/><input type="checkbox" id="nActive" checked/></div>
+      <div><label class="muted">&nbsp;</label><br/><button class="btn" id="nSave">Save notice</button></div>
+    </div>
+    <div style="margin-top:10px">
+      <table id="ntbl">
+        <thead><tr><th>Date</th><th>Message</th><th>Ack</th><th>Active</th><th></th></tr></thead>
+        <tbody id="ntbody"><tr><td colspan="5" class="muted">No notices</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
-    function headersWithKey(){
-      const key = $("#admin-key").value.trim();
-      return { "Content-Type":"application/json", "x-admin-key": key };
-    }
-    function qsWithKey(obj){
-      const key = $("#admin-key").value.trim();
-      const u = new URLSearchParams(obj);
-      u.set("key", key);
-      return "?" + u.toString();
-    }
+  <div class="card">
+    <h3 style="margin:0 0 8px">Blocks</h3>
+    <div class="row">
+      <div><label class="muted">Day</label><br/><input type="date" id="bDay" class="ghost"/></div>
+      <div><label class="muted">Time (optional)</label><br/><input id="bTime" class="ghost" placeholder="HH:MM or empty for whole day"/></div>
+      <div><label class="muted">Reason</label><br/><input id="bReason" class="ghost" placeholder="Closed / Private event"/></div>
+      <div><label class="muted">&nbsp;</label><br/><button class="btn" id="bAdd">Block</button></div>
+      <div><label class="muted">&nbsp;</label><br/><button class="btn ghost" id="bDel">Remove block</button></div>
+    </div>
+    <div style="margin-top:10px">
+      <table id="btbl">
+        <thead><tr><th>Date</th><th>Time</th><th>Reason</th></tr></thead>
+        <tbody id="btbody"><tr><td colspan="3" class="muted">No blocks</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
-    async function load(){
-      const from = $("#from").value;
-      const to = $("#to").value;
-      const r = await fetch(`/api/admin/reservations${qsWithKey({from,to})}`, { headers: headersWithKey() });
-      if(!r.ok){ showToast("Auth or range error"); return; }
-      const rows = await r.json();
-      const tb = $("#tbl tbody");
-      tb.innerHTML = "";
-      rows.forEach(r=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${r.date}</td><td>${r.time}</td><td>${r.firstName} ${r.name}</td><td>${r.email}</td><td>${r.guests}</td><td>${r.status}</td><td>${r.isWalkIn?"yes":""}</td>`;
-        tb.appendChild(tr);
-      });
-    }
+  <div class="card">
+    <h3 style="margin:0 0 8px">Danger zone</h3>
+    <div class="row" style="align-items:flex-end">
+      <div style="flex:2 1 300px">
+        <label class="muted">Key (required for danger actions)</label><br/>
+        <input id="dKey" class="ghost" placeholder="x-admin-key"/>
+      </div>
+      <div>
+        <label class="muted">&nbsp;</label><br/>
+        <button class="btn danger" id="dPurge">Delete ALL reservations</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-    async function exportCsv(){
-      const from = $("#from").value;
-      const to = $("#to").value;
-      const url = `/api/admin/export.csv${qsWithKey({from,to})}`;
-      window.open(url, "_blank");
-    }
+<script>
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
 
-    async function saveWalkin(){
-      const payload = {
-        date: $("#wDate").value,
-        time: $("#wTime").value,
-        guests: Number($("#wGuests").value),
-        notes: $("#wNotes").value.trim()
-      };
-      const r = await fetch(`/api/admin/walkin${qsWithKey({})}`, {
-        method:"POST", headers: headersWithKey(), body: JSON.stringify(payload)
-      });
-      if(!r.ok){ const j=await r.json().catch(()=>({})); showToast(j.error||"Error"); return; }
-      showToast("Saved"); load();
-    }
+let adminLogo = "";
+async function loadConfig(){
+  const cfg = await fetch("/api/config").then(r=>r.json());
+  adminLogo = cfg.adminLogoUrl || cfg.mailHeaderUrl;
+  $("#adminLogo").src = adminLogo;
+  // default range = this month
+  const d = new Date();
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const last = new Date(d.getFullYear(), d.getMonth()+1, 0);
+  $("#from").value = first.toISOString().slice(0,10);
+  $("#to").value = last.toISOString().slice(0,10);
+}
 
-    async function blockDay(){
-      const payload = { day: $("#bDay").value, reason: $("#bReason").value };
-      const r = await fetch(`/api/admin/block-day${qsWithKey({})}`, {
-        method:"POST", headers: headersWithKey(), body: JSON.stringify(payload)
-      });
-      if(!r.ok){ const j=await r.json().catch(()=>({})); showToast(j.error||"Error"); return; }
-      showToast("Blocked"); load();
-    }
-    async function unblockDay(){
-      const day = $("#bDay").value;
-      const r = await fetch(`/api/admin/block-day${qsWithKey({day})}`, {
-        method:"DELETE", headers: headersWithKey()
-      });
-      if(!r.ok){ const j=await r.json().catch(()=>({})); showToast(j.error||"Error"); return; }
-      showToast("Removed"); load();
-    }
+function ymd(d){ return d.toISOString().slice(0,10); }
 
-    async function delRange(){
-      if(!confirm("Delete ALL reservations in range?")) return;
-      const from = $("#delFrom").value, to = $("#delTo").value;
-      const r = await fetch(`/api/admin/reservations${qsWithKey({from,to})}`, { method:"DELETE", headers: headersWithKey() });
-      if(!r.ok){ const j=await r.json().catch(()=>({})); showToast(j.error||"Error"); return; }
-      showToast("Deleted"); load();
-    }
+$("#btnToday").onclick = ()=>{
+  const d = new Date();
+  $("#from").value = ymd(d);
+  $("#to").value = ymd(d);
+  load();
+};
+$("#btnWeek").onclick = ()=>{
+  const d = new Date();
+  const dow = d.getDay() || 7;
+  const mon = new Date(d); mon.setDate(d.getDate() - (dow-1));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  $("#from").value = ymd(mon); $("#to").value = ymd(sun);
+  load();
+};
+$("#btnMonth").onclick = ()=>{
+  const d = new Date();
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const last = new Date(d.getFullYear(), d.getMonth()+1, 0);
+  $("#from").value = ymd(first); $("#to").value = ymd(last);
+  load();
+};
 
-    (function init(){
-      const t = today();
-      $("#from").value = t; $("#to").value = t;
-      $("#wDate").value = t; $("#bDay").value = t; $("#delFrom").value = t; $("#delTo").value = t;
+$("#btnLoad").onclick = load;
 
-      $("#load").addEventListener("click", load);
-      $("#export").addEventListener("click", exportCsv);
-      $("#saveWalkin").addEventListener("click", saveWalkin);
-      $("#blockDay").addEventListener("click", blockDay);
-      $("#unblockDay").addEventListener("click", unblockDay);
-      $("#delRange").addEventListener("click", delRange);
+async function load(){
+  const from = $("#from").value, to = $("#to").value;
+  const data = await fetch(`/api/admin/reservations?from=${from}&to=${to}`).then(r=>r.json());
+  const tbody = $("#tbody"); tbody.innerHTML = "";
+  if(!data.rows.length){ tbody.innerHTML = `<tr><td colspan="8" class="muted">No data</td></tr>`; return; }
+  for(const r of data.rows){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.date}</td>
+      <td>${r.time}</td>
+      <td>${r.firstName} ${r.name}</td>
+      <td>${r.email || ""}</td>
+      <td>${r.guests}</td>
+      <td><span class="tag">${r.status}</span></td>
+      <td>${r.isWalkIn ? "yes" : ""}</td>
+      <td>
+        <button class="btn ghost" data-act="noshow" data-id="${r.id}">No-show</button>
+        <button class="btn ghost" data-act="cancel" data-id="${r.id}">Canceled</button>
+        <button class="btn" data-act="del" data-id="${r.id}">Delete</button>
+      </td>`;
+    tbody.appendChild(tr);
+  }
+}
 
-      load();
-    })();
-  </script>
+document.addEventListener("click", async (ev)=>{
+  const b = ev.target.closest("button");
+  if(!b) return;
+  const id = b.dataset.id;
+  const act = b.dataset.act;
+  if(act==="del"){
+    if(!confirm("Delete this reservation?")) return;
+    await fetch(`/api/admin/reservation/${id}`, { method:"DELETE" });
+    load();
+  }else if(act==="noshow"){
+    await fetch(`/api/admin/reservation/${id}`, {
+      method:"PATCH", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ status:"no-show" })
+    });
+    load();
+  }else if(act==="cancel"){
+    await fetch(`/api/admin/reservation/${id}`, {
+      method:"PATCH", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ status:"canceled" })
+    });
+    load();
+  }
+});
+
+$("#btnExport").onclick = ()=>{
+  const preset = $("#exportPreset").value;
+  const now = new Date();
+  let a = new Date(), b = new Date();
+
+  if(preset==="day"){
+    // today
+  }else if(preset==="week"){
+    const dow = now.getDay() || 7;
+    a.setDate(now.getDate() - (dow-1));
+    b = new Date(a); b.setDate(a.getDate()+6);
+  }else if(preset==="month"){
+    a = new Date(now.getFullYear(), now.getMonth(), 1);
+    b = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  }else if(preset==="year"){
+    a = new Date(now.getFullYear(), 0, 1);
+    b = new Date(now.getFullYear(), 11, 31);
+  }else{
+    a = new Date($("#from").value); b = new Date($("#to").value);
+  }
+  const from = ymd(a), to = ymd(b);
+  window.location.href = `/api/admin/export.csv?from=${from}&to=${to}`;
+};
+
+/* Notices */
+async function loadNotices(){
+  const from = $("#from").value, to = $("#to").value;
+  const list = await fetch(`/api/admin/notices?from=${from}&to=${to}`).then(r=>r.json());
+  const t = $("#ntbody"); t.innerHTML = "";
+  if(!list.length){ t.innerHTML = `<tr><td colspan="5" class="muted">No notices</td></tr>`; return; }
+  for(const n of list){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${n.date}</td>
+      <td>${n.message}</td>
+      <td>${n.requireAck ? "yes" : ""}</td>
+      <td>${n.active ? "yes" : ""}</td>
+      <td><button class="btn" data-remove-notice="${n.id}">Remove</button></td>`;
+    t.appendChild(tr);
+  }
+}
+$("#nSave").onclick = async ()=>{
+  const date = $("#nDate").value;
+  const message = $("#nMsg").value.trim();
+  const requireAck = $("#nAck").checked;
+  const active = $("#nActive").checked;
+  if(!date || !message) { alert("Missing date or message."); return; }
+  await fetch("/api/admin/notice", {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ date, message, requireAck, active })
+  });
+  $("#nMsg").value = "";
+  loadNotices();
+};
+document.addEventListener("click", async (ev)=>{
+  const b = ev.target.closest("[data-remove-notice]");
+  if(!b) return;
+  const id = b.dataset.removeNotice;
+  await fetch(`/api/admin/notice/${id}`, { method:"DELETE" });
+  loadNotices();
+});
+
+/* Blocks */
+async function loadBlocks(){
+  const from = $("#from").value, to = $("#to").value;
+  const list = await fetch(`/api/admin/blocked?from=${from}&to=${to}`).then(r=>r.json());
+  const t = $("#btbody"); t.innerHTML = "";
+  if(!list.length){ t.innerHTML = `<tr><td colspan="3" class="muted">No blocks</td></tr>`; return; }
+  for(const b of list){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${b.date}</td><td>${b.time}</td><td>${b.name||""}</td>`;
+    t.appendChild(tr);
+  }
+}
+$("#bAdd").onclick = async ()=>{
+  const day = $("#bDay").value; const time = $("#bTime").value.trim() || null;
+  const reason = $("#bReason").value.trim();
+  if(!day) { alert("Choose a day"); return; }
+  await fetch("/api/admin/block", {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ day, time, reason })
+  });
+  loadBlocks();
+};
+$("#bDel").onclick = async ()=>{
+  const day = $("#bDay").value; const time = $("#bTime").value.trim() || null;
+  if(!day) { alert("Choose a day"); return; }
+  const url = time ? `/api/admin/block?day=${day}&time=${time}` : `/api/admin/block?day=${day}`;
+  await fetch(url, { method:"DELETE" });
+  loadBlocks();
+};
+
+/* Danger */
+$("#dPurge").onclick = async ()=>{
+  const key = $("#dKey").value.trim();
+  if(!key){ alert("Key required"); return; }
+  if(!confirm("Delete ALL reservations?")) return;
+  await fetch("/api/admin/danger/purge", { method:"DELETE", headers: { "x-admin-key": key } });
+  load();
+};
+
+(async function init(){
+  await loadConfig();
+  await load();
+  await loadNotices();
+  await loadBlocks();
+})();
+</script>
 </body>
 </html>
