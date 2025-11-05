@@ -19,11 +19,15 @@ model Reservation {
   phone        String?
   guests       Int
   notes        String?
-  status       String    @default("confirmed")
-  cancelToken  String    @unique
-  isWalkIn     Boolean   @default(false)
-  reminderSent Boolean   @default(false)
-  createdAt    DateTime  @default(now())
+  status       String   @default("confirmed")
+  cancelToken  String   @unique
+  isWalkIn     Boolean  @default(false)
+  reminderSent Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([date])
+  @@index([startTs])
+  @@index([email])
 }
 
 model Closure {
@@ -31,5 +35,8 @@ model Closure {
   startTs   DateTime
   endTs     DateTime
   reason    String?
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([startTs])
+  @@index([endTs])
 }
