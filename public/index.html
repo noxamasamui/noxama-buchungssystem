@@ -94,6 +94,70 @@
   </div>
 
 <script>
+  <script>
+  const elModal = document.getElementById("noticeModal");
+  const elAck = document.getElementById("noticeAck");
+  const elAckWrap = document.getElementById("noticeAckWrap");
+  const elClose = document.getElementById("noticeClose");
+  const elText = document.getElementById("noticeText");
+
+  let currentNotice = null;
+  let ackRequired = false;
+  let ackGranted = false;
+
+  async function checkNoticeFor(dateYmd){
+    currentNotice = await fetch(`/api/notice?date=${dateYmd}`).then(r=>r.json()).catch(()=>null);
+    ackRequired = !!(currentNotice && currentNotice.requireAck);
+    ackGranted = !ackRequired;
+    updateBookButton();
+    if(currentNotice){
+      elText.textContent = currentNotice.message;
+      elAck.checked = false;
+      elAckWrap.style.display = currentNotice.requireAck ? "block":"none";
+      elModal.style.display = "flex";
+    }
+  }
+
+  elClose.addEventListener("click", ()=>{
+    if(ackRequired && !elAck.checked){
+      alert("Please confirm with the checkbox first.");
+      return;
+    }
+    ackGranted = ackRequired ? elAck.checked : true;
+    elModal.style.display = "none";
+    updateBookButton();
+  });
+  elAck.addEventListener("change", ()=>{ if(ackRequired){ ackGranted = elAck.checked; updateBookButton(); } });
+
+  function updateBookButton(){
+    const btn = document.getElementById("bookBtn") || document.querySelector('button[type="submit"]');
+    if(!btn) return;
+    btn.disabled = !ackGranted;
+  }
+
+  // rufe checkNoticeFor(date) auf, wenn das Datum geändert wird
+  const dateInput = document.querySelector('input[type="date"]#date') || document.querySelector('input[name="date"]');
+  if(dateInput){
+    dateInput.addEventListener("change", ()=>{
+      const d = dateInput.value;
+      if(/^\d{4}-\d{2}-\d{2}$/.test(d)) checkNoticeFor(d);
+    });
+    // initial
+    if(dateInput.value && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) checkNoticeFor(dateInput.value);
+  }
+
+  // Beim Absenden ack mitsenden
+  const form = document.querySelector("form");
+  if(form){
+    form.addEventListener("submit", (e)=>{
+      if(!ackGranted){
+        e.preventDefault();
+        alert("Please confirm the special information first.");
+      }
+    }, true);
+  }
+</script>
+
 const $ = sel => document.querySelector(sel);
 const T = (id, html) => { const el = document.createElement('div'); el.innerHTML = html; return el.firstElementChild; };
 
