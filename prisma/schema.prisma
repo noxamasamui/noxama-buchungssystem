@@ -7,46 +7,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ... bestehende Models
+
 enum ReservationStatus {
   confirmed
   canceled
-  noshow
+  no-show
 }
 
 model Reservation {
-  id            String             @id @default(cuid())
-  date          String
-  time          String
-  startTs       DateTime
-  endTs         DateTime
-  firstName     String
-  name          String
-  email         String
-  phone         String?
-  guests        Int
-  notes         String?
-  status        ReservationStatus  @default(confirmed)
-  cancelToken   String             @unique
-  isWalkIn      Boolean            @default(false)
-  reminderSent  Boolean            @default(false)
-  createdAt     DateTime           @default(now())
-}
-
-model Closure {
-  id        String   @id @default(cuid())
-  startTs   DateTime
-  endTs     DateTime
-  reason    String
-  createdAt DateTime @default(now())
+  id           String             @id
+  firstName    String
+  name         String
+  email        String
+  phone        String?
+  date         String             // YYYY-MM-DD
+  time         String             // HH:MM
+  guests       Int
+  notes        String?
+  status       ReservationStatus  @default(confirmed)
+  isWalkIn     Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  cancelToken  String
+  reminderSent Boolean            @default(false)
+  startTs      DateTime
+  endTs        DateTime
 }
 
 model Notice {
-  id           String   @id @default(cuid())
-  startDate    DateTime
-  endDate      DateTime
-  title        String
-  message      String
-  active       Boolean  @default(true)
-  requireAck   Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  id         String   @id
+  date       String   // YYYY-MM-DD
+  title      String?
+  message    String
+  requireAck Boolean  @default(false)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
 }
