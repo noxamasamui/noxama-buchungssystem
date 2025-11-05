@@ -1,24 +1,12 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Contact and Table Booking</title>
-<link rel="stylesheet" href="/style.css"/>
-<link rel="icon" href="/logo.png"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Contact and Table Booking</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <link rel="icon" href="/logo.png"/>
 </head>
-  <div id="noticeModal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:9999">
-  <div style="background:#fff;max-width:560px;width:92%;border-radius:12px;padding:16px">
-    <h3 id="noticeTitle" style="margin:0 0 8px">Important information</h3>
-    <div id="noticeText" style="white-space:pre-wrap"></div>
-    <div id="noticeAckWrap" style="margin:10px 0;display:none">
-      <label><input type="checkbox" id="noticeAck"/> I have read and agree</label>
-    </div>
-    <div style="text-align:right;margin-top:10px">
-      <button id="noticeClose" style="background:#b6802a;color:#fff;border:none;border-radius:10px;padding:8px 12px">OK</button>
-    </div>
-  </div>
-</div>
 <body>
   <div class="container">
     <div class="header"><img class="logo" src="/logo.png" alt="Röstiland"/></div>
@@ -85,6 +73,21 @@
     <div class="footer">Moo 4 Lamai Beach, 84310 Suratthani, Thailand</div>
   </div>
 
+  <!-- Special Notice Modal -->
+  <div id="noticeModal" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:9999">
+    <div style="background:#fff;max-width:560px;width:92%;border-radius:12px;padding:16px">
+      <h3 id="noticeTitle" style="margin:0 0 8px">Important information</h3>
+      <div id="noticeText" style="white-space:pre-wrap"></div>
+      <div id="noticeAckWrap" style="margin:10px 0;display:none">
+        <label><input type="checkbox" id="noticeAck"/> I have read and agree</label>
+      </div>
+      <div style="text-align:right;margin-top:10px">
+        <button id="noticeClose" style="background:#b6802a;color:#fff;border:none;border-radius:10px;padding:8px 12px">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
   <div id="toast" class="toast" style="display:none">
     <div>
       <h3 id="toastTitle">Thank you!</h3>
@@ -94,77 +97,17 @@
   </div>
 
 <script>
-  <script>
-  const elModal = document.getElementById("noticeModal");
-  const elAck = document.getElementById("noticeAck");
-  const elAckWrap = document.getElementById("noticeAckWrap");
-  const elClose = document.getElementById("noticeClose");
-  const elText = document.getElementById("noticeText");
-
-  let currentNotice = null;
-  let ackRequired = false;
-  let ackGranted = false;
-
-  async function checkNoticeFor(dateYmd){
-    currentNotice = await fetch(`/api/notice?date=${dateYmd}`).then(r=>r.json()).catch(()=>null);
-    ackRequired = !!(currentNotice && currentNotice.requireAck);
-    ackGranted = !ackRequired;
-    updateBookButton();
-    if(currentNotice){
-      elText.textContent = currentNotice.message;
-      elAck.checked = false;
-      elAckWrap.style.display = currentNotice.requireAck ? "block":"none";
-      elModal.style.display = "flex";
-    }
-  }
-
-  elClose.addEventListener("click", ()=>{
-    if(ackRequired && !elAck.checked){
-      alert("Please confirm with the checkbox first.");
-      return;
-    }
-    ackGranted = ackRequired ? elAck.checked : true;
-    elModal.style.display = "none";
-    updateBookButton();
-  });
-  elAck.addEventListener("change", ()=>{ if(ackRequired){ ackGranted = elAck.checked; updateBookButton(); } });
-
-  function updateBookButton(){
-    const btn = document.getElementById("bookBtn") || document.querySelector('button[type="submit"]');
-    if(!btn) return;
-    btn.disabled = !ackGranted;
-  }
-
-  // rufe checkNoticeFor(date) auf, wenn das Datum geändert wird
-  const dateInput = document.querySelector('input[type="date"]#date') || document.querySelector('input[name="date"]');
-  if(dateInput){
-    dateInput.addEventListener("change", ()=>{
-      const d = dateInput.value;
-      if(/^\d{4}-\d{2}-\d{2}$/.test(d)) checkNoticeFor(d);
-    });
-    // initial
-    if(dateInput.value && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) checkNoticeFor(dateInput.value);
-  }
-
-  // Beim Absenden ack mitsenden
-  const form = document.querySelector("form");
-  if(form){
-    form.addEventListener("submit", (e)=>{
-      if(!ackGranted){
-        e.preventDefault();
-        alert("Please confirm the special information first.");
-      }
-    }, true);
-  }
-</script>
-
+/* ---------- Helpers ---------- */
 const $ = sel => document.querySelector(sel);
 const T = (id, html) => { const el = document.createElement('div'); el.innerHTML = html; return el.firstElementChild; };
 
 const params = new URLSearchParams(location.search);
+
+/* ---------- Date / initial ---------- */
 const todayISO = new Date().toISOString().slice(0,10);
 $("#date").value = params.get("date") || todayISO;
 
+/* ---------- Guests (1..10 + 11+) ---------- */
 const guestsSel = $("#guests");
 for (let i=1;i<=10;i++){ const o=document.createElement("option"); o.value=String(i); o.textContent=String(i); guestsSel.appendChild(o); }
 const plus = document.createElement("option"); plus.value="11+"; plus.textContent="11+"; guestsSel.appendChild(plus);
@@ -180,6 +123,7 @@ guestsSel.addEventListener("change", () => {
   }
 });
 
+/* ---------- Slots ---------- */
 let selectedTime = params.get("time") || "";
 const slotsEl = $("#slots");
 
@@ -194,16 +138,60 @@ async function loadSlots(){
     const b = T("div", `<button type="button" class="slot ${s.disabled?'disabled':''}" data-time="${s.time}">${s.time}</button>`);
     if (s.time===selectedTime) b.classList.add("active");
     b.addEventListener("click", ()=> {
+      if (b.classList.contains("disabled")) return;
       [...slotsEl.querySelectorAll(".slot")].forEach(x=>x.classList.remove("active"));
       b.classList.add("active"); selectedTime = s.time;
     });
     slotsEl.appendChild(b);
   });
 }
-$("#date").addEventListener("change", loadSlots);
+$("#date").addEventListener("change", ()=>{ loadSlots(); checkNoticeFor($("#date").value); });
 $("#guests").addEventListener("change", loadSlots);
-loadSlots();
 
+/* ---------- Special Notice (Consent) ---------- */
+const elModal = document.getElementById("noticeModal");
+const elAck = document.getElementById("noticeAck");
+const elAckWrap = document.getElementById("noticeAckWrap");
+const elClose = document.getElementById("noticeClose");
+const elText = document.getElementById("noticeText");
+
+let currentNotice = null;
+let ackRequired = false;
+let ackGranted = false;
+
+function updateBookButton(){
+  const btn = document.getElementById("book");
+  if(!btn) return;
+  btn.disabled = !ackGranted;
+}
+
+async function checkNoticeFor(dateYmd){
+  try{
+    currentNotice = await fetch(`/api/notice?date=${dateYmd}`).then(r=>r.json());
+  }catch{ currentNotice = null; }
+  ackRequired = !!(currentNotice && currentNotice.requireAck);
+  ackGranted = !ackRequired;
+  updateBookButton();
+  if(currentNotice){
+    elText.textContent = currentNotice.message || "";
+    elAck.checked = false;
+    elAckWrap.style.display = currentNotice.requireAck ? "block":"none";
+    elModal.style.display = "flex";
+  }
+}
+
+elClose.addEventListener("click", ()=>{
+  if(ackRequired && !elAck.checked){
+    alert("Please confirm with the checkbox first.");
+    return;
+  }
+  ackGranted = ackRequired ? elAck.checked : true;
+  elModal.style.display = "none";
+  updateBookButton();
+});
+elAck.addEventListener("change", ()=>{ if(ackRequired){ ackGranted = elAck.checked; updateBookButton(); } });
+
+/* ---------- Toast ---------- */
 function showToast(title, text, btnText="OK", autoRedirect=true, loyalty=null){
   $("#toastTitle").innerHTML = title;
   $("#toastText").innerHTML = text;
@@ -213,13 +201,14 @@ function showToast(title, text, btnText="OK", autoRedirect=true, loyalty=null){
     $("#toast").style.display="none";
     if(autoRedirect) location.href = "https://noxamasamui.com";
   };
-  // Mini Konfetti bei Loyalty-Stufen
+  // Mini-Konfetti bei Loyalty-Stufen
   if (loyalty && (loyalty.level===5 || loyalty.level===10 || loyalty.level===15)) {
     try{ import('https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.module.mjs')
       .then(m=>m.default({particleCount:200,spread:120,origin:{y:.6}})); }catch{}
   }
 }
 
+/* ---------- Book ---------- */
 $("#book").addEventListener("click", async ()=>{
   const date = $("#date").value;
   const body = {
@@ -230,7 +219,8 @@ $("#book").addEventListener("click", async ()=>{
     name: $("#name").value.trim(),
     email: $("#email").value.trim(),
     phone: $("#phone").value.trim(),
-    notes: $("#notes").value.trim()
+    notes: $("#notes").value.trim(),
+    ack: ackGranted
   };
   if(!body.date || !body.time || !body.firstName || !body.name || !body.email){
     showToast("Missing data","Please fill date, time, first name, name and email.","OK", false); return;
@@ -253,12 +243,16 @@ $("#book").addEventListener("click", async ()=>{
   }
 });
 
-// Prefill from query
+/* ---------- Prefill from query ---------- */
 if (params.get("firstName")) $("#firstName").value = params.get("firstName");
 if (params.get("name")) $("#name").value = params.get("name");
 if (params.get("email")) $("#email").value = params.get("email");
 if (params.get("phone")) $("#phone").value = params.get("phone");
 if (params.get("notes")) $("#notes").value = decodeURIComponent(params.get("notes"));
+
+/* ---------- Initial load ---------- */
+loadSlots();
+checkNoticeFor($("#date").value);
 </script>
 </body>
 </html>
