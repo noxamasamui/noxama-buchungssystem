@@ -36,5 +36,13 @@
   "engines": {
     "node": ">=18.18.0"
   },
-  "license": "MIT"
+  "licen{
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "prisma:gen": "node ./node_modules/prisma/build/index.js generate",
+    "prisma:migrate": "node ./node_modules/prisma/build/index.js migrate deploy"
+  }
+}
+se": "MIT"
 }
