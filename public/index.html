@@ -2,185 +2,193 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Contact and Table Booking</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="/favicon.ico">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact and Table Booking — RÖSTILAND</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="icon" href="/favicon.ico">
 </head>
-<body class="bg">
+<body>
+  <!-- Logo-Banner -->
+  <img class="banner" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI">
 
-<header class="brand-hero">
-  <img src="/logo-hero.png" alt="RÖSTILAND" class="brand-hero__img">
-</header>
+  <div class="container">
+    <h1>Contact and Table Booking</h1>
 
-<main class="container">
-  <h1>Contact and Table Booking</h1>
-
-  <!-- Address -->
-  <section class="card">
-    <h3>Address</h3>
-    <p id="addr"></p>
-    <div class="btn-row">
-      <a id="btnPhone" class="btn">Phone</a>
-      <a id="btnMail" class="btn">Email</a>
-    </div>
-  </section>
-
-  <!-- Booking -->
-  <section class="card">
-    <div class="grid">
-      <label>Date
-        <input type="date" id="date">
-      </label>
-
-      <label>Guests (max 10 online)
-        <select id="guests">
-          <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-          <option>6</option><option>7</option><option>8</option><option>9</option><option selected>10</option>
-          <option value="11+">11+</option>
-        </select>
-      </label>
+    <div class="card" id="contactCard">
+      <h2>Address</h2>
+      <p id="addrText" class="small"></p>
+      <div class="actions" style="margin-top:8px">
+        <a id="btnPhone" class="btn" href="#">Phone</a>
+        <a id="btnEmail" class="btn" href="#">Email</a>
+      </div>
     </div>
 
-    <div>
-      <h4>Choose a time slot</h4>
-      <div id="slots" class="slot-grid"></div>
-      <p id="slotMsg" class="muted"></p>
-    </div>
+    <form class="card" id="form">
+      <label for="date">Date</label>
+      <div class="actions" style="gap:8px">
+        <input id="date" name="date" type="date" required>
+      </div>
 
-    <div class="grid">
-      <label>First name*<input id="firstName" required></label>
-      <label>Name*<input id="name" required></label>
-      <label class="col-span-2">Email*<input id="email" type="email" required></label>
-      <label class="col-span-2">Phone (optional)<input id="phone"></label>
-      <label class="col-span-2">Notes<input id="notes" placeholder="Allergies, seating request, occasion"></label>
-    </div>
+      <label for="guests">Guests (max 10 online)</label>
+      <select id="guests" name="guests" required>
+        <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+        <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+        <option value="11">11+</option>
+      </select>
 
-    <button id="book" class="btn btn-primary">Book now</button>
-  </section>
-</main>
+      <label>Choose a time slot</label>
+      <div id="slots" class="grid-times"></div>
+      <div id="slotsNote" class="small" style="margin-top:6px"></div>
 
-<!-- simple modal -->
-<div id="modal" class="modal hidden">
-  <div class="modal__card">
-    <div id="modalBody"></div>
-    <div class="center"><button class="btn" id="modalOk">OK</button></div>
+      <div class="row row-2" style="margin-top:12px">
+        <div>
+          <label for="firstName">First name*</label>
+          <input id="firstName" name="firstName" required>
+        </div>
+        <div>
+          <label for="name">Name*</label>
+          <input id="name" name="name" required>
+        </div>
+      </div>
+
+      <label for="email">Email*</label>
+      <input id="email" name="email" type="email" required>
+
+      <label for="phone">Phone (optional)</label>
+      <input id="phone" name="phone">
+
+      <label for="notes">Notes</label>
+      <textarea id="notes" name="notes" placeholder="Allergies, seating request, occasion"></textarea>
+
+      <div class="actions" style="margin-top:14px">
+        <button id="submitBtn" type="submit" class="btn btn-primary">Book now</button>
+      </div>
+
+      <!-- Feuerwerk + Hinweis bei 11+ -->
+      <div id="popup" class="card hidden" style="margin-top:14px;background:#fff7ee;border-color:#f0cfa7">
+        <div id="popupContent"></div>
+      </div>
+    </form>
   </div>
-</div>
 
 <script>
-const cfg = { brand:'', address:'', phone:'', email:'', maxOnlineGuests:10 };
-let selectedTime = '';
+const cfg = { brand:"", address:"", phone:"", email:"" };
 
-function showModal(html){
-  document.getElementById('modalBody').innerHTML = html;
-  document.getElementById('modal').classList.remove('hidden');
-}
-document.getElementById('modalOk').onclick = ()=>document.getElementById('modal').classList.add('hidden');
-
-function esc(s=''){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
-function today(){ return new Date().toISOString().slice(0,10); }
-
-async function loadConfig(){
-  const c = await fetch('/api/config').then(r=>r.json());
-  Object.assign(cfg,c);
-  document.getElementById('addr').textContent = cfg.address;
-  document.getElementById('btnPhone').href = 'tel:'+cfg.phone.replace(/\s+/g,'');
-  document.getElementById('btnMail').href = 'mailto:'+cfg.email;
+async function loadConfig() {
+  const r = await fetch('/api/config'); const j = await r.json();
+  cfg.brand = j.brand; cfg.address = j.address; cfg.phone = j.phone; cfg.email = j.email;
+  document.getElementById('addrText').textContent = cfg.address;
+  document.getElementById('btnPhone').href = 'tel:' + cfg.phone.replace(/\s+/g,'');
+  document.getElementById('btnEmail').href = 'mailto:' + cfg.email;
 }
 
-async function loadDayNotice(dateStr){
-  const dn = await fetch('/api/daynotice?date='+encodeURIComponent(dateStr)).then(r=>r.json()).catch(()=>null);
-  if (dn && dn.message){
-    showModal(`<h3>Info ${esc(dateStr)}</h3><p>${esc(dn.message)}</p>`);
-  }
-}
+function ymd(d){ return d.toISOString().slice(0,10); }
+function todayLocal(){ const t=new Date(); t.setHours(0,0,0,0); return t; }
 
-async function loadSlots(dateStr){
-  const guestsSel = document.getElementById('guests') as HTMLSelectElement;
-  const gVal = guestsSel.value;
-  if (gVal === '11+') return; // keine Online slots anzeigen
-  const guests = Number(gVal||'1');
+async function loadSlots() {
+  const date = document.getElementById('date').value;
+  const guestsSel = document.getElementById('guests').value;
+  const slots = document.getElementById('slots');
+  const note = document.getElementById('slotsNote');
+  slots.innerHTML = ''; note.textContent = '';
 
-  const wrap = document.getElementById('slots');
-  const msg = document.getElementById('slotMsg');
-  wrap.innerHTML=''; msg.textContent='';
+  if (!date) return;
 
-  const data = await fetch('/api/slots?date='+encodeURIComponent(dateStr)+'&guests='+guests).then(r=>r.json());
-  const anyAvailable = data.some(s => s.allowed === true);
-
-  for(const s of data){
-    const btn = document.createElement('button');
-    btn.textContent = s.time;
-    btn.className = 'slot';
-    if(!s.allowed){
-      btn.disabled = true;
-      btn.classList.add('slot-off');
-      btn.title = s.reason||'Not available';
-    }else{
-      btn.onclick = ()=>{
-        selectedTime = s.time;
-        for(const el of wrap.querySelectorAll('.slot.selected')) el.classList.remove('selected');
-        btn.classList.add('selected');
-      };
-    }
-    wrap.appendChild(btn);
-  }
-  if(!anyAvailable){
-    msg.textContent = 'We are fully booked or closed on this date. Please choose another day.';
-  }
-}
-
-document.getElementById('guests').addEventListener('change', e=>{
-  const v = (e.target as HTMLSelectElement).value;
-  if(v==='11+'){
-    showModal('<h3>Groups of 11+</h3><p>Please contact us directly by phone or email. Thank you!</p>');
-    (e.target as HTMLSelectElement).value = '10';
-  }else{
-    loadSlots((document.getElementById('date') as HTMLInputElement).value);
-  }
-});
-
-document.getElementById('date').addEventListener('change', async e=>{
-  const d = (e.target as HTMLInputElement).value;
-  await loadDayNotice(d);
-  await loadSlots(d);
-});
-
-document.getElementById('book').onclick = async ()=>{
-  const date = (document.getElementById('date') as HTMLInputElement).value;
-  const guests = Number((document.getElementById('guests') as HTMLSelectElement).value||'1');
-  const firstName = (document.getElementById('firstName') as HTMLInputElement).value.trim();
-  const name = (document.getElementById('name') as HTMLInputElement).value.trim();
-  const email = (document.getElementById('email') as HTMLInputElement).value.trim();
-  const phone = (document.getElementById('phone') as HTMLInputElement).value.trim();
-  const notes = (document.getElementById('notes') as HTMLInputElement).value.trim();
-
-  if(!date || !selectedTime || !firstName || !name || !email){
-    showModal('<p>Please fill all required fields and choose a time slot.</p>');
+  // 11+ -> keine Slots; freundlicher Hinweis
+  if (guestsSel === '11') {
+    note.innerHTML = 'For groups of 11 or more: please contact us via <b>phone</b> or <b>email</b>.';
     return;
   }
+
+  const r = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guestsSel)}`);
+  const list = await r.json();
+
+  let any = false;
+  list.forEach(s => {
+    if (!s.allowed) return;           // ausgebuchte Slots NICHT anzeigen
+    any = true;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'slot';
+    b.textContent = s.time;
+    b.dataset.time = s.time;
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.slot').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+    slots.appendChild(b);
+  });
+
+  if (!any) {
+    // Grund vom Server anzeigen
+    const reason = (list[0] && list[0].reason) ? list[0].reason : 'Fully booked or closed on this day.';
+    note.textContent = reason;
+  }
+}
+
+document.getElementById('date').addEventListener('change', loadSlots);
+document.getElementById('guests').addEventListener('change', loadSlots);
+
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  // 11+ -> Popup, kein Submit
+  if (document.getElementById('guests').value === '11') {
+    showPopup(`
+      <h2>Groups of 11+</h2>
+      <p>For large groups, please contact us directly so we can arrange the perfect setup for you.</p>
+      <p><b>Phone:</b> ${cfg.phone}<br><b>Email:</b> ${cfg.email}</p>
+    `, false);
+    return;
+  }
+
+  const active = document.querySelector('.slot.active');
+  if (!active) { alert('Please choose a time slot.'); return; }
+
+  const payload = {
+    date: document.getElementById('date').value,
+    time: active.dataset.time,
+    firstName: document.getElementById('firstName').value.trim(),
+    name: document.getElementById('name').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    phone: document.getElementById('phone').value.trim(),
+    guests: Number(document.getElementById('guests').value),
+    notes: document.getElementById('notes').value.trim(),
+  };
 
   const res = await fetch('/api/reservations', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ date, time:selectedTime, firstName, name, email, phone, guests, notes })
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
   });
-  const j = await res.json().catch(()=>({}));
-  if(!res.ok){
-    showModal('<p>'+esc(j.error||'Failed to book')+'</p>');
-    return;
+  const j = await res.json();
+  if (!res.ok) {
+    showPopup(`<h2>Sorry</h2><p>${j.error || 'We could not complete your reservation.'}</p>`, false);
+  } else {
+    showPopup(`<h2>Reservation received</h2>
+      <p>Thank you! You will get a confirmation email shortly. Please also check your spam folder.</p>`, true);
+    // nach erfolgreicher Buchung Slots und Formular zurücksetzen
+    document.getElementById('form').reset();
+    document.getElementById('date').value = ymd(todayLocal());
+    loadSlots();
   }
-  showModal('<h3>Reservation received</h3><p>Thank you! You will get a confirmation email shortly. Please check your spam folder.</p>');
-  selectedTime='';
-  loadSlots(date);
-};
+});
+
+function showPopup(html, firework){
+  const box = document.getElementById('popup');
+  const area = document.getElementById('popupContent');
+  area.innerHTML = html;
+  if (firework) {
+    // simple „Feuerwerk“-Animation via Emoji
+    area.innerHTML += `<div style="font-size:28px;margin-top:8px">🎉🎆✨</div>`;
+  }
+  box.classList.remove('hidden');
+  window.scrollTo({top:box.offsetTop-12,behavior:'smooth'});
+}
 
 (async function init(){
   await loadConfig();
-  const d = today();
-  (document.getElementById('date') as HTMLInputElement).value = d;
-  await loadDayNotice(d);
-  await loadSlots(d);
+  const t = todayLocal();
+  document.getElementById('date').value = ymd(t);
+  await loadSlots();
 })();
 </script>
 </body>
