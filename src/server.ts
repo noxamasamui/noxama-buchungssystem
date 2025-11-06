@@ -29,24 +29,24 @@ const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
 const VENUE_EMAIL = process.env.VENUE_EMAIL || "info@noxamasamui.com";
 
 const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "/logo-hero.png";
-const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || ""; // optional 1200x400 Banner
+const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";  // 1200x400 Banner
 const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
 const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
-const OPEN_HOUR = toNum(process.env.OPEN_HOUR, 10);
-const CLOSE_HOUR = toNum(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = toNum(process.env.SLOT_INTERVAL, 15); // Anzeige-Raster
-const SUNDAY_CLOSED = toBool(process.env.SUNDAY_CLOSED, true);
+const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
+const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // nur Grid, nicht Service-Dauer
+const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
-const MAX_SEATS_TOTAL = toNum(process.env.MAX_SEATS_TOTAL, 48);
-const MAX_SEATS_RESERVABLE = toNum(process.env.MAX_SEATS_RESERVABLE, 40);
-const MAX_ONLINE_GUESTS = toNum(process.env.MAX_ONLINE_GUESTS, 10);
-const WALKIN_BUFFER = toNum(process.env.WALKIN_BUFFER, 8);
+const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
+const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
+const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
+const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 8);
 
-// WICHTIG: Aufenthaltsdauer aus ENV (gegen Overbooking)
-const LUNCH_DURATION_MIN = toNum(process.env.LUNCH_DURATION_MIN, 90);
-const DINNER_DURATION_MIN = toNum(process.env.DINNER_DURATION_MIN, 150);
-const DINNER_START_HOUR = toNum(process.env.DINNER_START_HOUR, 17); // ab 17 Uhr Dinner-Logik
+/* >>> Neu: Service-Dauern für Überlappungsprüfung (standard 90/150, Cutover 17:00) */
+const SERVICE_CUTOFF_HOUR = num(process.env.SERVICE_CUTOFF_HOUR, 17);
+const LUNCH_DURATION_MIN  = num(process.env.LUNCH_DURATION_MIN, 90);
+const DINNER_DURATION_MIN = num(process.env.DINNER_DURATION_MIN, 150);
 
 const ADMIN_TO =
   String(process.env.ADMIN_EMAIL || "") ||
@@ -61,15 +61,18 @@ const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 465),
   secure: String(process.env.SMTP_SECURE || "true").toLowerCase() !== "false",
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
 });
 async function sendMail(to: string, subject: string, html: string) {
   await transporter.sendMail({ from: `"${FROM_NAME}" <${FROM_ADDR}>`, to, subject, html });
 }
 
 /* ───────────────────────────────── Helpers ─────────────────────────────── */
-function toNum(v: any, fb: number) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
-function toBool(v: any, fb = false) { if (v == null) return fb; return String(v).trim().toLowerCase() === "true"; }
+function num(v: any, fb: number) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
+function strBool(v: any, fb = false) { if (v==null) return fb; return String(v).trim().toLowerCase() === "true"; }
 function pad2(n: number) { return String(n).padStart(2, "0"); }
 
 function normalizeYmd(input: string): string {
@@ -80,7 +83,8 @@ function normalizeYmd(input: string): string {
     return `${yy}-${pad2(mm)}-${pad2(dd)}`;
   }
   const d = new Date(s);
-  if (!isNaN(d.getTime())) return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  if (!isNaN(d.getTime()))
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   return "";
 }
 function splitYmd(ymd: string){ const [y,m,d] = ymd.split("-").map(Number); return {y,m,d}; }
@@ -95,15 +99,14 @@ function capacityOnlineLeft(reserved:number, walkins:number){
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
 }
 
-/** Aufenthaltsdauer anhand Uhrzeit: vor DINNER_START_HOUR = Lunch, sonst Dinner */
-function bookingDurationMinutes(dateYmd: string, timeHHmm: string): number {
-  const [hhStr] = timeHHmm.split(":");
-  const hh = Number(hhStr);
-  if (!Number.isFinite(hh)) return LUNCH_DURATION_MIN;
-  return hh >= DINNER_START_HOUR ? DINNER_DURATION_MIN : LUNCH_DURATION_MIN;
+/* >>> Neu: Service-Dauer je Startzeit (für Überlappung) */
+function serviceMinutesFor(dateYmd: string, timeHHmm: string): number {
+  const start = localDateFrom(dateYmd, timeHHmm);
+  const cutoff = localDate(splitYmd(dateYmd).y, splitYmd(dateYmd).m, splitYmd(dateYmd).d, SERVICE_CUTOFF_HOUR, 0, 0);
+  return start < cutoff ? LUNCH_DURATION_MIN : DINNER_DURATION_MIN;
 }
 
-/* ───────────── DB-Queries: overlaps / sums ────────── */
+/* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
     where: {
@@ -120,6 +123,11 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   return { reserved, walkins, total: reserved + walkins };
 }
 
+/* >>> Geändert: slotDuration = Service-Dauer (nicht mehr 15min) */
+function slotDuration(date:string, time:string){
+  return serviceMinutesFor(date, time);
+}
+
 /* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
 async function slotAllowed(date: string, time: string){
   const norm = normalizeYmd(date);
@@ -128,9 +136,7 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
-
-  // WICHTIG: volle Aufenthaltsdauer statt 15 Minuten
-  const minutes = bookingDurationMinutes(norm, time);
+  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time)); // Grid min. 15, Service 90/150
   const end = addMinutes(start, minutes);
 
   const {y,m,d}=splitYmd(norm);
@@ -309,12 +315,11 @@ app.get("/api/slots", async (req,res)=>{
 
   const times = slotListForDay();
   const out:any[] = [];
-  let anyOpen = false;
 
+  let anyOpen = false;
   for(const t of times){
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
-      // Nicht anzeigen im Frontend – aber Grund zur Info beibehalten
       out.push({ time: t, canReserve: false, allowed: false, reason: allow.reason, left: 0 });
       continue;
     }
@@ -327,8 +332,15 @@ app.get("/api/slots", async (req,res)=>{
 
   if (!anyOpen && out.length > 0) {
     const sunday = SUNDAY_CLOSED && isSunday(date);
-    if (sunday) out.forEach(s => s.reason = "Closed on Sunday");
-    else out.forEach(s => { if (s.reason === "Blocked" || s.reason == null) s.reason = "Fully booked for this date. Please choose another day."; });
+    if (sunday) {
+      out.forEach(s => s.reason = "Closed on Sunday");
+    } else {
+      out.forEach(s => {
+        if (s.reason === "Blocked" || s.reason == null) {
+          s.reason = "Fully booked for this date. Please choose another day.";
+        }
+      });
+    }
   }
 
   res.json(out);
@@ -385,7 +397,7 @@ app.post("/api/reservations", async (req,res)=>{
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // Admin Info (kurz)
+    // Admin Info (knapp)
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -399,8 +411,8 @@ app.post("/api/reservations", async (req,res)=>{
       reservation: created,
       visitNo,
       discount: currentDiscount,
-      nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15 -> Feuerwerk im Frontend
-      nextMilestone: teaseNext,
+      nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15
+      nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
     });
   }catch(err){
     console.error("reservation error:", err);
@@ -434,7 +446,7 @@ app.get("/cancel/:token", async (req,res)=>{
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
-/* ───────────────────────────── Admin APIs (unverändert ausser Export) ─── */
+/* ───────────────────────────── Admin: Liste ────────────────────────────── */
 app.get("/api/admin/reservations", async (req,res)=>{
   const date = normalizeYmd(String(req.query.date || ""));
   const view = String(req.query.view || "day");
@@ -461,7 +473,7 @@ app.get("/api/admin/reservations", async (req,res)=>{
     list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
   }
 
-  // Loyalty-Felder ergänzen
+  // Loyalty: visitCount + discount anreichern
   const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
   const counts = new Map<string, number>();
   await Promise.all(emails.map(async em => {
@@ -475,9 +487,9 @@ app.get("/api/admin/reservations", async (req,res)=>{
     const disc = loyaltyDiscountFor(vc);
     return { ...r, visitCount: vc, discount: disc };
   });
+
   res.json(enriched);
 });
-
 app.delete("/api/admin/reservations/:id", async (req,res)=>{
   await prisma.reservation.delete({ where: { id: req.params.id } });
   res.json({ ok:true });
@@ -487,6 +499,7 @@ app.post("/api/admin/reservations/:id/noshow", async (req,res)=>{
   res.json(r);
 });
 
+/* ───────────────────────────── Admin: Walk-in ──────────────────────────── */
 app.post("/api/admin/walkin", async (req,res)=>{
   try{
     const { date, time, guests, notes } = req.body;
@@ -505,11 +518,8 @@ app.post("/api/admin/walkin", async (req,res)=>{
       open = localDate(y,m,d, OPEN_HOUR,0,0);
       close = localDate(y,m,d, CLOSE_HOUR,0,0);
       if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
-
-      // auch fuer Walk-ins volle Aufenthaltsdauer
-      const minutes = bookingDurationMinutes(norm, String(time));
-      startTs = start; endTs = addMinutes(start, Math.min(minutes, differenceInMinutes(close, start)));
-      if (endTs > close) endTs = close;
+      const minutes = Math.max(15, Math.min(serviceMinutesFor(norm, String(time)), differenceInMinutes(close, start)));
+      startTs = start; endTs = addMinutes(start, minutes); if (endTs > close) endTs = close;
     }
 
     const sums = await sumsForInterval(norm, startTs, endTs);
@@ -530,15 +540,132 @@ app.post("/api/admin/walkin", async (req,res)=>{
   }
 });
 
-/* Closures + Export + Reset + Reminder unveraendert wie gehabt (gekürzt fuer Uebersicht) */
-app.post("/api/admin/closure", async (req,res)=>{ /* wie gehabt */ const { startTs,endTs,reason }=req.body; const s=new Date(String(startTs).replace(" ","T")); const e=new Date(String(endTs).replace(" ","T")); if(isNaN(s.getTime())||isNaN(e.getTime())) return res.status(400).json({error:"Invalid time range"}); if(e<=s) return res.status(400).json({error:"End must be after start"}); const c=await prisma.closure.create({data:{startTs:s,endTs:e,reason:String(reason||"Closed")}}); res.json(c); });
-app.post("/api/admin/closure/day", async (req,res)=>{ const date=normalizeYmd(String(req.body.date||"")); if(!date) return res.status(400).json({error:"Invalid date"}); const {y,m,d}=splitYmd(date); const s=localDate(y,m,d,OPEN_HOUR,0,0); const e=localDate(y,m,d,CLOSE_HOUR,0,0); const reason=String(req.body.reason||"Closed"); const c=await prisma.closure.create({data:{startTs:s,endTs:e,reason}}); res.json(c); });
-app.get("/api/admin/closure", async (_req,res)=>{ const list=await prisma.closure.findMany({orderBy:{startTs:"desc"}}); res.json(list); });
-app.delete("/api/admin/closure/:id", async (req,res)=>{ try{ await prisma.closure.delete({ where:{ id:req.params.id }}); res.json({ok:true}); }catch(e){ res.status(500).json({error:"Failed to delete block"}); } });
+/* ───────────────────────────── Admin: Closures ─────────────────────────── */
+app.post("/api/admin/closure", async (req,res)=>{
+  try{
+    const { startTs, endTs, reason } = req.body;
+    const s = new Date(String(startTs).replace(" ", "T"));
+    const e = new Date(String(endTs).replace(" ", "T"));
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return res.status(400).json({ error: "Invalid time range" });
+    if (e <= s) return res.status(400).json({ error: "End must be after start" });
+    const c = await prisma.closure.create({ data: { startTs:s, endTs:e, reason:String(reason || "Closed") } });
+    res.json(c);
+  }catch(err){
+    console.error("Create closure error:", err);
+    res.status(500).json({ error: "Failed to create block" });
+  }
+});
+app.post("/api/admin/closure/day", async (req,res)=>{
+  try{
+    const date = normalizeYmd(String(req.body.date || ""));
+    if (!date) return res.status(400).json({ error: "Invalid date" });
+    const { y,m,d } = splitYmd(date);
+    const s = localDate(y,m,d, OPEN_HOUR,0,0);
+    const e = localDate(y,m,d, CLOSE_HOUR,0,0);
+    const reason = String(req.body.reason || "Closed");
+    const c = await prisma.closure.create({ data: { startTs:s, endTs:e, reason } });
+    res.json(c);
+  }catch(err){
+    console.error("Block day error:", err);
+    res.status(500).json({ error: "Failed to block day" });
+  }
+});
+app.get("/api/admin/closure", async (_req,res)=>{
+  try{
+    const list = await prisma.closure.findMany({ orderBy: { startTs:"desc" } });
+    res.json(list);
+  }catch(err){
+    console.error("List closure error:", err);
+    res.status(500).json({ error: "Failed to load blocks" });
+  }
+});
+app.delete("/api/admin/closure/:id", async (req,res)=>{
+  try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
+  catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
+});
 
-app.get("/api/export", async (req,res)=>{ try{ const period=String(req.query.period||"weekly"); const date=normalizeYmd(String(req.query.date||"")); const base=date?new Date(date+"T00:00:00"):new Date(); const from=new Date(base); const to=new Date(base); switch(period){case"daily":to.setDate(to.getDate()+1);break;case"weekly":to.setDate(to.getDate()+7);break;case"monthly":to.setMonth(to.getMonth()+1);break;case"yearly":to.setFullYear(to.getFullYear()+1);break;default:to.setDate(to.getDate()+7);} const list=await prisma.reservation.findMany({where:{startTs:{gte:from,lt:to}},orderBy:[{startTs:"asc"},{date:"asc"},{time:"asc"}]}); const rows=list.map(r=>({Date:r.date,Time:r.time,FirstName:r.firstName,LastName:r.name,Email:r.email,Phone:r.phone||"",Guests:r.guests,Status:r.status,Notes:r.notes||"",WalkIn:r.isWalkIn?"yes":"",CreatedAt:r.createdAt?format(r.createdAt,"yyyy-MM-dd HH:mm"):""})); const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Reservations"); const buf=XLSX.write(wb,{type:"buffer",bookType:"xlsx"}); const fname=`reservations_${format(from,"yyyyMMdd")}_${period}.xlsx`; res.setHeader("Content-Disposition",`attachment; filename="${fname}"`); res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); res.send(buf); }catch(err){ console.error("Export error:",err); res.status(500).json({error:"Export failed"}); } });
+/* ───────────────────────────── Admin: Reset ────────────────────────────── */
+app.post("/api/admin/reset", async (req,res)=>{
+  try{
+    const { key } = req.body || {};
+    if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
+    await prisma.reservation.deleteMany({});
+    res.json({ ok:true });
+  }catch(err){
+    console.error("reset error:", err);
+    res.status(500).json({ error: "Failed to reset" });
+  }
+});
 
-setInterval(async ()=>{ try{ const now=new Date(); const from=addHours(now,24); const to=addHours(now,25); const list=await prisma.reservation.findMany({where:{status:"confirmed",isWalkIn:false,reminderSent:false,startTs:{gte:from,lt:to}}}); for(const r of list){ const visitNo=await prisma.reservation.count({where:{email:r.email,status:{in:["confirmed","noshow"]}}}); const html=confirmationHtml({ firstName:r.firstName,name:r.name,date:r.date,time:r.time,guests:r.guests,cancelUrl:`${BASE_URL}/cancel/${r.cancelToken}`, visitNo, currentDiscount:0 }); try{ await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html); await prisma.reservation.update({ where:{id:r.id}, data:{reminderSent:true} }); }catch(e){ console.error("reminder mail",e); } } }catch(e){ console.error("reminder job",e); } }, 30*60*1000);
+/* ───────────────────────────────── Export ──────────────────────────────── */
+app.get("/api/export", async (req,res)=>{
+  try{
+    const period = String(req.query.period || "weekly");
+    const date = normalizeYmd(String(req.query.date || ""));
+    const base = date ? new Date(date + "T00:00:00") : new Date();
+    const from = new Date(base);
+    const to   = new Date(base);
+
+    switch(period){
+      case "daily":   to.setDate(to.getDate()+1); break;
+      case "weekly":  to.setDate(to.getDate()+7); break;
+      case "monthly": to.setMonth(to.getMonth()+1); break;
+      case "yearly":  to.setFullYear(to.getFullYear()+1); break;
+      default:        to.setDate(to.getDate()+7); break;
+    }
+
+    const list = await prisma.reservation.findMany({
+      where: { startTs: { gte: from, lt: to } },
+      orderBy: [{ startTs:"asc" }, { date:"asc" }, { time:"asc" }],
+    });
+
+    const rows = list.map(r=>({
+      Date: r.date, Time: r.time,
+      FirstName: r.firstName, LastName: r.name,
+      Email: r.email, Phone: r.phone || "",
+      Guests: r.guests, Status: r.status,
+      Notes: r.notes || "", WalkIn: r.isWalkIn ? "yes" : "",
+      CreatedAt: r.createdAt ? format(r.createdAt, "yyyy-MM-dd HH:mm") : "",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reservations");
+
+    const buf = XLSX.write(wb, { type:"buffer", bookType:"xlsx" });
+    const fname = `reservations_${format(from,"yyyyMMdd")}_${period}.xlsx`;
+    res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
+    res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(buf);
+  }catch(err){
+    console.error("Export error:", err);
+    res.status(500).json({ error: "Export failed" });
+  }
+});
+
+/* ───────────────────────────── Reminder Job ────────────────────────────── */
+setInterval(async ()=>{
+  try{
+    const now = new Date();
+    const from = addHours(now, 24);
+    const to   = addHours(now, 25);
+    const list = await prisma.reservation.findMany({
+      where: { status:"confirmed", isWalkIn:false, reminderSent:false, startTs: { gte: from, lt: to } },
+    });
+    for(const r of list){
+      const html = confirmationHtml({
+        firstName:r.firstName, name:r.name, date:r.date, time:r.time, guests:r.guests,
+        cancelUrl: `${BASE_URL}/cancel/${r.cancelToken}`,
+        visitNo: await prisma.reservation.count({ where: { email: r.email, status: { in: ["confirmed", "noshow"] } } }),
+        currentDiscount: 0
+      });
+      try{
+        await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html);
+        await prisma.reservation.update({ where: { id: r.id }, data: { reminderSent:true } });
+      }catch(e){ console.error("reminder mail", e); }
+    }
+  }catch(e){ console.error("reminder job", e); }
+}, 30*60*1000);
 
 /* ───────────────────────────────── Start ───────────────────────────────── */
 async function start(){
