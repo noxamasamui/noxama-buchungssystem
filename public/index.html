@@ -7,25 +7,31 @@
   <link rel="stylesheet" href="/style.css"/>
 
   <style>
-    /* =============== Banner (CSS-only, no JS) ================= */
+    /* ================= Banner (kein Crop, komplette Grafik sichtbar) ================= */
     .hero-wrap{
       max-width:1200px;
       margin:0 auto 14px auto;
+      display:flex;
+      justify-content:center;
     }
     .hero{
-      width:100%;
-      height:clamp(260px, 28vw, 380px); /* responsive Höhe, fühlt sich wie ein echter Banner an */
+      /* Bild immer vollständig zeigen */
       display:block;
+      width:auto;           /* breite passt sich der erlaubten Höhe/Max-Breite an */
+      height:auto;          /* hält Seitenverhältnis */
+      max-width:100%;       /* nie breiter als Container */
+      max-height:clamp(220px, 32vw, 360px); /* verhindert zu hohe Darstellung, bleibt responsiv */
+
+      /* Optik */
       background:#e9dfcf;
       border-radius:12px;
       box-shadow:0 8px 28px rgba(0,0,0,.18);
-
-      /* Wichtig: „cover“ für Banner-Look; Ausschnitt minimal nach oben */
-      object-fit:cover;
-      object-position:center 44%;
+    }
+    @media (max-width: 520px){
+      .hero{ max-height: 220px; }
     }
 
-    /* =============== Guests + 11+ Button ====================== */
+    /* ================= Guests + 11+ Button ================= */
     .guest-line { display:flex; align-items:center; gap:10px; }
     .guest-line input { max-width:100px; }
     .guest-extra {
@@ -35,7 +41,7 @@
     .guest-extra:hover { background:#8a6626; }
     .inline-help { font-size:12px; opacity:.7; margin-top:2px; }
 
-    /* =============== Success Popup ============================ */
+    /* ================= Success Popup ================= */
     .modal-backdrop {
       position:fixed; inset:0; background:rgba(0,0,0,.55);
       z-index:9999; display:none; align-items:center; justify-content:center;
@@ -57,7 +63,7 @@
 <body>
 <div class="container">
 
-  <!-- Banner -->
+  <!-- Banner: zeigt das Bild vollständig, ohne Zuschnitt -->
   <div class="hero-wrap">
     <img id="heroImg" class="hero" src="/logo-hero.png" alt="Röstiland"/>
   </div>
@@ -149,6 +155,7 @@
       document.getElementById("brand").textContent = `Reservation — ${CFG.brand}`;
       document.getElementById("venueInfo").textContent = `${CFG.address} • ${CFG.phone}`;
       elGuests.max = String(CFG.maxOnlineGuests || 10);
+      /* Bildquelle aus Env; CSS sorgt dafür, dass NICHT zugeschnitten wird */
       heroImg.src = CFG.mailHeaderUrl || CFG.mailLogoUrl || "/logo-hero.png";
     }catch{}
   }
