@@ -51,6 +51,15 @@ const ADMIN_TO =
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
 
+/* ── NEU: Zeitfenster und Aufenthaltsdauer aus Env (Lunch 90 / Dinner 150) ── */
+const OPEN_LUNCH_START = process.env.OPEN_LUNCH_START || "10:00";
+const OPEN_LUNCH_END   = process.env.OPEN_LUNCH_END   || "16:30";
+const OPEN_LUNCH_DURATION_MIN = num(process.env.OPEN_LUNCH_DURATION_MIN, 90);
+
+const OPEN_DINNER_START = process.env.OPEN_DINNER_START || "17:00";
+const OPEN_DINNER_END   = process.env.OPEN_DINNER_END   || "22:00";
+const OPEN_DINNER_DURATION_MIN = num(process.env.OPEN_DINNER_DURATION_MIN, 150);
+
 /* ────────────────────────────── Mailer (SMTP) ──────────────────────────── */
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -94,6 +103,11 @@ function capacityOnlineLeft(reserved:number, walkins:number){
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
 }
 
+/* ── NEU: kleine Zeit-Helper fuer Fensterzuordnung ── */
+function parseHHMM(s:string){ const [h,m]=String(s).split(":").map(Number); return (h*60 + (m||0)); }
+function minutesOfDay(hhmm:string){ return parseHHMM(hhmm); }
+function inRange(min:number, start:string, end:string){ const a=parseHHMM(start), b=parseHHMM(end); return min>=a && min<b; }
+
 /* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
@@ -110,10 +124,13 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
-function slotDuration(date:string, time:string){
-  const t = localDateFrom(date,time);
-  const next = addMinutes(t, SLOT_INTERVAL);
-  return differenceInMinutes(next, t);
+
+/* ── ERSETZT: Slot-Dauer nun 90/150 je nach Tagesfenster ── */
+function slotDuration(_date:string, time:string){
+  const tMin = minutesOfDay(time);
+  if (inRange(tMin, OPEN_LUNCH_START, OPEN_LUNCH_END))   return OPEN_LUNCH_DURATION_MIN;   // z. B. 90
+  if (inRange(tMin, OPEN_DINNER_START, OPEN_DINNER_END)) return OPEN_DINNER_DURATION_MIN;  // z. B. 150
+  return Math.max(SLOT_INTERVAL, 60); // Fallback
 }
 
 /* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
@@ -182,7 +199,7 @@ function emailHeader(logoUrl:string){
     </div>`;
 }
 
-/** Confirmation mail – jetzt MIT Besuchsnummer; Teaser 4/9/14; Feierblock 5/10/15 */
+/** Confirmation mail */
 function confirmationHtml(p:{
   firstName:string; name:string; date:string; time:string; guests:number;
   cancelUrl:string; visitNo:number; currentDiscount:number;
@@ -372,7 +389,7 @@ app.post("/api/reservations", async (req,res)=>{
     const unlocked = loyaltyUnlockedNow(visitNo);
     const teaseNext = loyaltyTeaseNext(visitNo);
 
-    // Guest mail (mit Besuchsnummer, Teaser 4/9/14, Feierblock 5/10/15)
+    // Guest mail
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
       firstName: created.firstName,
@@ -386,7 +403,7 @@ app.post("/api/reservations", async (req,res)=>{
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // Admin Info (knapp)
+    // Admin Info
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -395,14 +412,14 @@ app.post("/api/reservations", async (req,res)=>{
       try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
     }
 
-    // Response fuer Frontend (Popup bei Freischaltung 5/10/15)
+    // Response fuer Frontend
     res.json({
       ok: true,
       reservation: created,
       visitNo,
       discount: currentDiscount,
-      nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15
-      nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
+      nowUnlockedTier: unlocked,
+      nextMilestone: teaseNext,
     });
   }catch(err){
     console.error("reservation error:", err);
@@ -465,7 +482,7 @@ app.get("/api/admin/reservations", async (req,res)=>{
     list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
   }
 
-  // Loyalty-Felder ergänzen: visitCount + discount je E-Mail
+  // Loyalty-Felder ergaenzen
   const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
   const counts = new Map<string, number>();
   await Promise.all(emails.map(async em => {
