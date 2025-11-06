@@ -164,24 +164,33 @@ for(let i=1;i<=10;i++){
 
 let selectedTime = null;
 
-/* ---------- slots loader ---------- */
+/* ---------- slots loader (only render available) ---------- */
 async function loadSlots() {
   selectedTime = null;
   qs("#book").disabled = true;
+
   const d = qs("#date").value;
   const g = Number(qs("#guests").value || 1);
-  const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
-  const data = await r.json();
 
   const box = qs("#slots");
   const banner = qs("#dayInfo");
-  box.innerHTML = "";
+  box.innerHTML = "";                       // immer zuerst leeren
 
-  // Only render actually available slots
-  const available = data.filter(s => s.canReserve === true);
+  const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
+  const data = await r.json();
+
+  // NUR Slots rendern, die wirklich buchbar sind
+  const available = (Array.isArray(data) ? data : []).filter(
+    s => s && s.canReserve === true && s.allowed === true
+  );
 
   if (available.length === 0) {
-    const reasons = (data || []).map(s => s.reason || "").join(" | ").toLowerCase();
+    // Keine Buttons anzeigen
+    box.innerHTML = "";
+    qs("#book").disabled = true;
+
+    // Grund herausfinden für Popup
+    const reasons = (data || []).map(s => String(s.reason||"")).join(" | ").toLowerCase();
     if (reasons.includes("closed on sunday")) {
       openModal("infoModal", "Closed on Sunday",
         "We are closed on Sundays. Please choose another day. Thank you for your understanding.");
