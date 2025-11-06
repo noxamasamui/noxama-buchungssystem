@@ -41,7 +41,7 @@ const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
-const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 0); // 0 = Walk-ins voll anrechnen
+const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 0); // Walk-ins voll anrechnen
 
 const ADMIN_TO =
   String(process.env.ADMIN_EMAIL || "") ||
@@ -129,8 +129,8 @@ async function slotAllowed(date: string, time: string){
   const minutesBase = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
   let minutes = minutesBase;
 
-  // Event-Fenster (DayNotice) ggf. durchsetzen – Tisch bis Eventende blockieren
-  const dn = await prisma.dayNotice.findFirst({ where: { date: norm } });
+  // Event-Fenster (Notice) ggf. durchsetzen – Tisch bis Eventende blockieren
+  const dn = await prisma.notice.findFirst({ where: { date: norm } });
   if (dn) {
     const evStart = new Date(dn.startTs);
     const evEnd   = new Date(dn.endTs);
@@ -245,22 +245,37 @@ app.get("/api/config", (_req,res)=>{
   });
 });
 
-/* ─────────────────────── DayNotice (neu sichtbar) ──────────────────────── */
+/* ─────────────────────── DayNotice/Notice Endpoints ────────────────────── */
 // Admin: Liste & Delete
 app.get("/api/admin/daynotice", async (_req, res) => {
-  const list = await prisma.dayNotice.findMany({ orderBy: [{ startTs: "desc" }] });
+  const list = await prisma.notice.findMany({ orderBy: [{ startTs: "desc" }] });
   res.json(list);
 });
 app.delete("/api/admin/daynotice/:id", async (req, res) => {
-  await prisma.dayNotice.delete({ where: { id: req.params.id } });
+  await prisma.notice.delete({ where: { id: req.params.id } });
   res.json({ ok: true });
+});
+// Admin: create/update
+app.post("/api/admin/daynotice", async (req, res) => {
+  const { date, startTs, endTs, message } = req.body || {};
+  const norm = normalizeYmd(String(date||""));
+  if (!norm) return res.status(400).json({ error: "Invalid date" });
+  const s = new Date(String(startTs).replace(" ", "T"));
+  const e = new Date(String(endTs).replace(" ", "T"));
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return res.status(400).json({ error: "Invalid range" });
+  const dn = await prisma.notice.upsert({
+    where: { date: norm },
+    create: { date: norm, startTs: s, endTs: e, message: String(message||"") },
+    update: { startTs: s, endTs: e, message: String(message||"") }
+  });
+  res.json(dn);
 });
 // Public: Einzelabfrage für Popup
 app.get("/api/daynotice", async (req, res) => {
   const date = String(req.query.date || "");
   const norm = normalizeYmd(date);
   if (!norm) return res.json(null);
-  const dn = await prisma.dayNotice.findFirst({ where: { date: norm } });
+  const dn = await prisma.notice.findFirst({ where: { date: norm } });
   if (!dn) return res.json(null);
   res.json({ message: dn.message || "", startTs: dn.startTs, endTs: dn.endTs });
 });
@@ -515,23 +530,6 @@ app.post("/api/admin/reset", async (req,res)=>{
     res.status(500).json({ error: "Failed to reset" });
   }
 });
-
-// Admin: create DayNotice
-app.post("/api/admin/daynotice", async (req, res) => {
-  const { date, startTs, endTs, message } = req.body || {};
-  const norm = normalizeYmd(String(date||""));
-  if (!norm) return res.status(400).json({ error: "Invalid date" });
-  const s = new Date(String(startTs).replace(" ", "T"));
-  const e = new Date(String(endTs).replace(" ", "T"));
-  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return res.status(400).json({ error: "Invalid range" });
-  const dn = await prisma.dayNotice.upsert({
-    where: { date: norm },
-    create: { date: norm, startTs: s, endTs: e, message: String(message||"") },
-    update: { startTs: s, endTs: e, message: String(message||"") }
-  });
-  res.json(dn);
-});
-
 
 /* ───────────────────────────────── Export ──────────────────────────────── */
 app.get("/api/export", async (req,res)=>{
