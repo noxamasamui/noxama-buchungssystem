@@ -31,6 +31,12 @@ model Reservation {
   isWalkIn      Boolean            @default(false)
   reminderSent  Boolean            @default(false)
   createdAt     DateTime           @default(now())
+
+  @@index([startTs])
+  @@index([endTs])
+  @@index([date])
+  @@index([email])
+  @@index([status])
 }
 
 model Closure {
@@ -39,6 +45,9 @@ model Closure {
   endTs     DateTime
   reason    String
   createdAt DateTime @default(now())
+
+  @@index([startTs])
+  @@index([endTs])
 }
 
 model Notice {
@@ -46,4 +55,7 @@ model Notice {
   date      String   // YYYY-MM-DD
   message   String
   createdAt DateTime @default(now())
+
+  // exakt eine Notice pro Datum
+  @@unique([date])
 }
