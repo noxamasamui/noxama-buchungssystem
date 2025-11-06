@@ -51,15 +51,6 @@ const ADMIN_TO =
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
 
-/* ── NEU: Zeitfenster und Aufenthaltsdauer aus Env (Lunch 90 / Dinner 150) ── */
-const OPEN_LUNCH_START = process.env.OPEN_LUNCH_START || "10:00";
-const OPEN_LUNCH_END   = process.env.OPEN_LUNCH_END   || "16:30";
-const OPEN_LUNCH_DURATION_MIN = num(process.env.OPEN_LUNCH_DURATION_MIN, 90);
-
-const OPEN_DINNER_START = process.env.OPEN_DINNER_START || "17:00";
-const OPEN_DINNER_END   = process.env.OPEN_DINNER_END   || "22:00";
-const OPEN_DINNER_DURATION_MIN = num(process.env.OPEN_DINNER_DURATION_MIN, 150);
-
 /* ────────────────────────────── Mailer (SMTP) ──────────────────────────── */
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -103,11 +94,6 @@ function capacityOnlineLeft(reserved:number, walkins:number){
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
 }
 
-/* ── NEU: kleine Zeit-Helper fuer Fensterzuordnung ── */
-function parseHHMM(s:string){ const [h,m]=String(s).split(":").map(Number); return (h*60 + (m||0)); }
-function minutesOfDay(hhmm:string){ return parseHHMM(hhmm); }
-function inRange(min:number, start:string, end:string){ const a=parseHHMM(start), b=parseHHMM(end); return min>=a && min<b; }
-
 /* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
@@ -124,13 +110,10 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
-
-/* ── ERSETZT: Slot-Dauer nun 90/150 je nach Tagesfenster ── */
-function slotDuration(_date:string, time:string){
-  const tMin = minutesOfDay(time);
-  if (inRange(tMin, OPEN_LUNCH_START, OPEN_LUNCH_END))   return OPEN_LUNCH_DURATION_MIN;   // z. B. 90
-  if (inRange(tMin, OPEN_DINNER_START, OPEN_DINNER_END)) return OPEN_DINNER_DURATION_MIN;  // z. B. 150
-  return Math.max(SLOT_INTERVAL, 60); // Fallback
+function slotDuration(date:string, time:string){
+  const t = localDateFrom(date,time);
+  const next = addMinutes(t, SLOT_INTERVAL);
+  return differenceInMinutes(next, t);
 }
 
 /* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
@@ -199,7 +182,7 @@ function emailHeader(logoUrl:string){
     </div>`;
 }
 
-/** Confirmation mail */
+/** Confirmation mail – mit Besuchsnummer; Teaser 4/9/14; Feierblock 5/10/15 */
 function confirmationHtml(p:{
   firstName:string; name:string; date:string; time:string; guests:number;
   cancelUrl:string; visitNo:number; currentDiscount:number;
@@ -412,14 +395,14 @@ app.post("/api/reservations", async (req,res)=>{
       try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
     }
 
-    // Response fuer Frontend
+    // Response
     res.json({
       ok: true,
       reservation: created,
       visitNo,
       discount: currentDiscount,
-      nowUnlockedTier: unlocked,
-      nextMilestone: teaseNext,
+      nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15
+      nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
     });
   }catch(err){
     console.error("reservation error:", err);
@@ -482,7 +465,7 @@ app.get("/api/admin/reservations", async (req,res)=>{
     list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
   }
 
-  // Loyalty-Felder ergaenzen
+  // Loyalty-Felder ergänzen: visitCount + discount je E-Mail
   const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
   const counts = new Map<string, number>();
   await Promise.all(emails.map(async em => {
@@ -594,16 +577,52 @@ app.delete("/api/admin/closure/:id", async (req,res)=>{
   catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
 });
 
-/* ───────────────────────────── Admin: Reset ────────────────────────────── */
-app.post("/api/admin/reset", async (req,res)=>{
+/* ───────────────────────────── Admin: Notices ─────────────────────────── */
+app.post("/api/admin/notice", async (req,res)=>{
   try{
-    const { key } = req.body || {};
-    if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
-    await prisma.reservation.deleteMany({});
+    const { date, message } = req.body || {};
+    if(!date || !message) return res.status(400).json({ error: "Date and message required" });
+    const norm = normalizeYmd(String(date));
+    if(!norm) return res.status(400).json({ error: "Invalid date" });
+    const n = await prisma.notice.create({ data: { date: norm, message: String(message) } });
+    res.json(n);
+  }catch(err){
+    console.error("Create notice error:", err);
+    res.status(500).json({ error: "Failed to save notice" });
+  }
+});
+app.get("/api/admin/notice", async (_req,res)=>{
+  try{
+    const list = await prisma.notice.findMany({ orderBy: [{ date: "desc" }, { createdAt: "desc" }] });
+    res.json(list);
+  }catch(err){
+    console.error("List notice error:", err);
+    res.status(500).json({ error: "Failed to load notices" });
+  }
+});
+app.delete("/api/admin/notice/:id", async (req,res)=>{
+  try{
+    await prisma.notice.delete({ where: { id: req.params.id } });
     res.json({ ok:true });
   }catch(err){
-    console.error("reset error:", err);
-    res.status(500).json({ error: "Failed to reset" });
+    console.error("Delete notice error:", err);
+    res.status(500).json({ error: "Failed to delete notice" });
+  }
+});
+
+/* ───────────────────────── Public: Notice by date ─────────────────────── */
+app.get("/api/notices", async (req,res)=>{
+  try{
+    const date = normalizeYmd(String(req.query.date||""));
+    if(!date) return res.json(null);
+    const n = await prisma.notice.findFirst({
+      where: { date },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(n || null);
+  }catch(err){
+    console.error("Get notices error:", err);
+    res.status(500).json({ error: "Failed to load notice" });
   }
 });
 
@@ -686,3 +705,4 @@ async function start(){
   app.listen(PORT, "0.0.0.0", ()=>console.log(`Server running on ${PORT}`));
 }
 start().catch(err=>{ console.error("Fatal start error", err); process.exit(1); });
+
