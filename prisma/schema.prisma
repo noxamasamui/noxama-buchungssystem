@@ -16,35 +16,29 @@ enum ReservationStatus {
 
 model Reservation {
   id            String             @id @default(cuid())
-  createdAt     DateTime           @default(now())
-  date          String
-  time          String
+  date          String             // YYYY-MM-DD
+  time          String             // HH:mm
   startTs       DateTime
   endTs         DateTime
   firstName     String
   name          String
-  email         String?
-  phone         String?
+  email         String
+  phone         String
   guests        Int
   notes         String?
   status        ReservationStatus  @default(confirmed)
   cancelToken   String             @unique
   isWalkIn      Boolean            @default(false)
   reminderSent  Boolean            @default(false)
-
-  @@index([date, time])
-  @@index([startTs])
-  @@index([email])
+  createdAt     DateTime           @default(now())
 }
 
 model Closure {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
   startTs   DateTime
   endTs     DateTime
-  reason    String?
-
-  @@index([startTs, endTs])
+  reason    String
+  createdAt DateTime @default(now())
 }
 
 model Notice {
