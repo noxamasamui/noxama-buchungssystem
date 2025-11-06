@@ -621,6 +621,55 @@ app.get("/api/notice", async (req,res)=>{
     res.status(500).json({ error: "Failed to load notice" });
   }
 });
+/* ─────────────────────────── Special Notices ─────────────────────────── */
+
+// Speichern/Überschreiben einer Notice (Datum muss YYYY-MM-DD sein)
+app.post("/api/admin/notice", async (req, res) => {
+  try {
+    const norm = normalizeYmd(String(req.body.date || ""));
+    const message = String(req.body.message || "").trim();
+    if (!norm || !message) return res.status(400).json({ error: "Invalid input" });
+
+    // upsert auf eindeutigem 'date'
+    const saved = await prisma.notice.upsert({
+      where: { date: norm },
+      update: { message },
+      create: { date: norm, message },
+    });
+
+    res.json({ ok: true, notice: saved });
+  } catch (e) {
+    console.error("save notice error:", e);
+    res.status(500).json({ error: "Failed to save notice" });
+  }
+});
+
+// Für das Frontend (Buchungsseite): Notice für ein Datum abfragen
+app.get("/api/notice", async (req, res) => {
+  try {
+    const norm = normalizeYmd(String(req.query.date || ""));
+    if (!norm) return res.json(null);
+    const n = await prisma.notice.findUnique({ where: { date: norm } });
+    res.json(n || null);
+  } catch (e) {
+    console.error("get notice error:", e);
+    res.json(null);
+  }
+});
+
+// Optional: aktuelle Notice wieder löschen
+app.delete("/api/admin/notice/:date", async (req, res) => {
+  try {
+    const norm = normalizeYmd(String(req.params.date || ""));
+    if (!norm) return res.status(400).json({ error: "Invalid date" });
+    await prisma.notice.delete({ where: { date: norm } }).catch(() => {});
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("delete notice error:", e);
+    res.status(500).json({ error: "Failed to delete notice" });
+  }
+});
+
 
 /* ───────────────────────────── Reminder Job ────────────────────────────── */
 setInterval(async ()=>{
