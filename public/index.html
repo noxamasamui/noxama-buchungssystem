@@ -1,229 +1,187 @@
-<header class="brand-hero">
-  <img src="/logo-hero.png" alt="RÖSTILAND" class="brand-hero__img">
-</header>
-<!-- public/index.html -->
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Table Booking — RÖSTILAND</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="/style.css" />
+<meta charset="utf-8">
+<title>Contact and Table Booking</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <header class="container">
-    <img src="/logo-hero.png" alt="RÖSTILAND" class="hero-logo" />
-    <h1 class="page-title">Contact and Table Booking</h1>
-  </header>
+<body class="bg">
 
-  <main class="container">
-    <section class="card">
-      <h2>Address</h2>
-      <p id="addr-line"></p>
-      <div class="btn-row">
-        <a id="call-btn" class="btn" href="#">Phone</a>
-        <a id="mail-btn" class="btn" href="#">Email</a>
-      </div>
-    </section>
+<header class="brand-hero">
+  <img src="/logo-hero.png" alt="RÖSTILAND" class="brand-hero__img">
+</header>
 
-    <section class="card">
-      <div class="form-row">
-        <label for="date">Date</label>
-        <input id="date" type="date" />
-      </div>
+<main class="container">
+  <h1>Contact and Table Booking</h1>
 
-      <div class="form-row">
-        <label for="guests">Guests (max 10 online)</label>
-        <select id="guests"></select>
-      </div>
+  <!-- Address -->
+  <section class="card">
+    <h3>Address</h3>
+    <p id="addr"></p>
+    <div class="btn-row">
+      <a id="btnPhone" class="btn">Phone</a>
+      <a id="btnMail" class="btn">Email</a>
+    </div>
+  </section>
 
-      <div class="form-row">
-        <label>Choose a time slot</label>
-        <div id="slots" class="slots"></div>
-        <div id="slot-info" class="note"></div>
-      </div>
+  <!-- Booking -->
+  <section class="card">
+    <div class="grid">
+      <label>Date
+        <input type="date" id="date">
+      </label>
 
-      <div class="grid-2">
-        <div class="form-row">
-          <label for="firstName">First name*</label>
-          <input id="firstName" type="text" />
-        </div>
-        <div class="form-row">
-          <label for="name">Name*</label>
-          <input id="name" type="text" />
-        </div>
-      </div>
+      <label>Guests (max 10 online)
+        <select id="guests">
+          <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+          <option>6</option><option>7</option><option>8</option><option>9</option><option selected>10</option>
+          <option value="11+">11+</option>
+        </select>
+      </label>
+    </div>
 
-      <div class="grid-2">
-        <div class="form-row">
-          <label for="email">Email*</label>
-          <input id="email" type="email" />
-        </div>
-        <div class="form-row">
-          <label for="phone">Phone (optional)</label>
-          <input id="phone" type="text" />
-        </div>
-      </div>
+    <div>
+      <h4>Choose a time slot</h4>
+      <div id="slots" class="slot-grid"></div>
+      <p id="slotMsg" class="muted"></p>
+    </div>
 
-      <div class="form-row">
-        <label for="notes">Notes</label>
-        <textarea id="notes" rows="3" placeholder="Allergies, seating request, occasion"></textarea>
-      </div>
+    <div class="grid">
+      <label>First name*<input id="firstName" required></label>
+      <label>Name*<input id="name" required></label>
+      <label class="col-span-2">Email*<input id="email" type="email" required></label>
+      <label class="col-span-2">Phone (optional)<input id="phone"></label>
+      <label class="col-span-2">Notes<input id="notes" placeholder="Allergies, seating request, occasion"></label>
+    </div>
 
-      <div class="form-row">
-        <button id="book-btn" class="btn-primary">Book now</button>
-      </div>
-    </section>
-  </main>
+    <button id="book" class="btn btn-primary">Book now</button>
+  </section>
+</main>
 
-  <div id="modal-root"></div>
+<!-- simple modal -->
+<div id="modal" class="modal hidden">
+  <div class="modal__card">
+    <div id="modalBody"></div>
+    <div class="center"><button class="btn" id="modalOk">OK</button></div>
+  </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-  <script>
-    const slotsDiv = document.getElementById('slots');
-    const slotInfo = document.getElementById('slot-info');
-    let selectedTime = null;
-    let CFG = null;
+<script>
+const cfg = { brand:'', address:'', phone:'', email:'', maxOnlineGuests:10 };
+let selectedTime = '';
 
-    function esc(s){return String(s||'');}
-    function todayYmd(){
-      const d = new Date();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
-      return `${d.getFullYear()}-${m}-${day}`;
+function showModal(html){
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+document.getElementById('modalOk').onclick = ()=>document.getElementById('modal').classList.add('hidden');
+
+function esc(s=''){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function today(){ return new Date().toISOString().slice(0,10); }
+
+async function loadConfig(){
+  const c = await fetch('/api/config').then(r=>r.json());
+  Object.assign(cfg,c);
+  document.getElementById('addr').textContent = cfg.address;
+  document.getElementById('btnPhone').href = 'tel:'+cfg.phone.replace(/\s+/g,'');
+  document.getElementById('btnMail').href = 'mailto:'+cfg.email;
+}
+
+async function loadDayNotice(dateStr){
+  const dn = await fetch('/api/daynotice?date='+encodeURIComponent(dateStr)).then(r=>r.json()).catch(()=>null);
+  if (dn && dn.message){
+    showModal(`<h3>Info ${esc(dateStr)}</h3><p>${esc(dn.message)}</p>`);
+  }
+}
+
+async function loadSlots(dateStr){
+  const guestsSel = document.getElementById('guests') as HTMLSelectElement;
+  const gVal = guestsSel.value;
+  if (gVal === '11+') return; // keine Online slots anzeigen
+  const guests = Number(gVal||'1');
+
+  const wrap = document.getElementById('slots');
+  const msg = document.getElementById('slotMsg');
+  wrap.innerHTML=''; msg.textContent='';
+
+  const data = await fetch('/api/slots?date='+encodeURIComponent(dateStr)+'&guests='+guests).then(r=>r.json());
+  const anyAvailable = data.some(s => s.allowed === true);
+
+  for(const s of data){
+    const btn = document.createElement('button');
+    btn.textContent = s.time;
+    btn.className = 'slot';
+    if(!s.allowed){
+      btn.disabled = true;
+      btn.classList.add('slot-off');
+      btn.title = s.reason||'Not available';
+    }else{
+      btn.onclick = ()=>{
+        selectedTime = s.time;
+        for(const el of wrap.querySelectorAll('.slot.selected')) el.classList.remove('selected');
+        btn.classList.add('selected');
+      };
     }
-    function showInfo(msg){ slotInfo.textContent = msg || ''; }
+    wrap.appendChild(btn);
+  }
+  if(!anyAvailable){
+    msg.textContent = 'We are fully booked or closed on this date. Please choose another day.';
+  }
+}
 
-    function showModal(html){
-      const root = document.getElementById('modal-root');
-      root.innerHTML = `
-        <div class="modal-wrap">
-          <div class="modal">
-            <button class="modal-close" aria-label="Close">×</button>
-            ${html}
-          </div>
-        </div>`;
-      root.querySelector('.modal-close').onclick = ()=> root.innerHTML='';
-      root.querySelector('.modal-wrap').onclick = (e)=>{ if(e.target.classList.contains('modal-wrap')) root.innerHTML=''; };
-    }
+document.getElementById('guests').addEventListener('change', e=>{
+  const v = (e.target as HTMLSelectElement).value;
+  if(v==='11+'){
+    showModal('<h3>Groups of 11+</h3><p>Please contact us directly by phone or email. Thank you!</p>');
+    (e.target as HTMLSelectElement).value = '10';
+  }else{
+    loadSlots((document.getElementById('date') as HTMLInputElement).value);
+  }
+});
 
-    function celebrate(visitCount, discount){
-      showModal(`
-        <div class="modal-title">🎉 Thank you for your loyalty!</div>
-        <div style="font-size:1.05rem;line-height:1.5;margin-bottom:10px;">
-          This is your <b>${visitCount}${ordinal(visitCount)}</b> visit.
-          Your <b>${discount}% loyalty thank-you</b> is now active for this reservation.
-        </div>
-        <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
-      `);
-      const canvas = document.getElementById('confettiCanvas');
-      const myConfetti = confetti.create(canvas, { resize:true, useWorker:true });
-      const end = Date.now() + 7000; // 7s
-      (function frame(){
-        myConfetti({ particleCount: 5, spread: 120, startVelocity: 60, scalar: 1.2, ticks: 200, origin: { x: Math.random(), y: Math.random() - 0.2 } });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      })();
-    }
-    function ordinal(n){const v=n%100;if(v>=11&&v<=13)return"th";switch(n%10){case 1:return"st";case 2:return"nd";case 3:return"rd";default:return"th";}}
+document.getElementById('date').addEventListener('change', async e=>{
+  const d = (e.target as HTMLInputElement).value;
+  await loadDayNotice(d);
+  await loadSlots(d);
+});
 
-    async function loadConfig(){
-      CFG = await fetch('/api/config').then(r=>r.json());
-      // header
-      document.getElementById('addr-line').textContent = CFG.address;
-      document.getElementById('call-btn').href = `tel:${CFG.phone}`;
-      document.getElementById('mail-btn').href = `mailto:${CFG.email}`;
+document.getElementById('book').onclick = async ()=>{
+  const date = (document.getElementById('date') as HTMLInputElement).value;
+  const guests = Number((document.getElementById('guests') as HTMLSelectElement).value||'1');
+  const firstName = (document.getElementById('firstName') as HTMLInputElement).value.trim();
+  const name = (document.getElementById('name') as HTMLInputElement).value.trim();
+  const email = (document.getElementById('email') as HTMLInputElement).value.trim();
+  const phone = (document.getElementById('phone') as HTMLInputElement).value.trim();
+  const notes = (document.getElementById('notes') as HTMLInputElement).value.trim();
 
-      // guests max 10 – hart
-      const sel = document.getElementById('guests');
-      sel.innerHTML='';
-      const maxG = Math.min(10, CFG.maxOnlineGuests || 10);
-      for(let i=1;i<=maxG;i++){
-        const o = document.createElement('option');
-        o.value = String(i); o.textContent = String(i);
-        sel.appendChild(o);
-      }
-    }
+  if(!date || !selectedTime || !firstName || !name || !email){
+    showModal('<p>Please fill all required fields and choose a time slot.</p>');
+    return;
+  }
 
-    async function loadSlots(){
-      const ymd = document.getElementById('date').value;
-      const guests = Number(document.getElementById('guests').value || 1);
-      selectedTime = null;
-      slotsDiv.innerHTML = '';
-      showInfo('');
+  const res = await fetch('/api/reservations', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ date, time:selectedTime, firstName, name, email, phone, guests, notes })
+  });
+  const j = await res.json().catch(()=>({}));
+  if(!res.ok){
+    showModal('<p>'+esc(j.error||'Failed to book')+'</p>');
+    return;
+  }
+  showModal('<h3>Reservation received</h3><p>Thank you! You will get a confirmation email shortly. Please check your spam folder.</p>');
+  selectedTime='';
+  loadSlots(date);
+};
 
-      // Hinweis für den Tag (Admin-Notice)
-      try{
-        const n = await fetch(`/api/notice?date=${encodeURIComponent(ymd)}`).then(r=>r.json());
-        if(n && n.message){
-          showModal(`<div class="modal-title">Information</div><div>${n.message}</div>`);
-        }
-      }catch{}
-
-      const data = await fetch(`/api/slots?date=${encodeURIComponent(ymd)}&guests=${guests}`).then(r=>r.json());
-      const offered = data.filter(s => s.canReserve === true);
-      if(offered.length === 0){
-        if (data.some(s=>s.reason==='Closed on Sunday')) {
-          showModal(`<div class="modal-title">We are closed on Sunday</div><div>We hope to welcome you on another day.</div>`);
-        } else {
-          showModal(`<div class="modal-title">Fully booked</div><div>We are fully booked on this date. Please choose another day.</div>`);
-        }
-        return;
-      }
-      offered.forEach(s=>{
-        const b = document.createElement('button');
-        b.type='button';
-        b.className = 'slot-btn';
-        b.textContent = s.time;
-        b.onclick = ()=>{
-          selectedTime = s.time;
-          [...slotsDiv.querySelectorAll('button')].forEach(x=>x.classList.remove('active'));
-          b.classList.add('active');
-        };
-        slotsDiv.appendChild(b);
-      });
-    }
-
-    async function bookNow(){
-      const ymd = document.getElementById('date').value;
-      const guests = Number(document.getElementById('guests').value || 1);
-      const firstName = document.getElementById('firstName').value.trim();
-      const name = document.getElementById('name').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      const notes = document.getElementById('notes').value.trim();
-
-      if(!selectedTime){
-        showModal(`<div class="modal-title">Choose a time</div><div>Please select a free time slot first.</div>`);
-        return;
-      }
-      const payload = { date: ymd, time: selectedTime, firstName, name, email, phone, guests, notes };
-      const r = await fetch('/api/reservations',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const res = await r.json();
-
-      if(!r.ok){
-        showModal(`<div class="modal-title">Oops</div><div>${esc(res.error || 'Something went wrong.')}</div>`);
-        return;
-      }
-
-      // Loyalty Feuerwerk bei 5/10/15, sonst normales Danke
-      if (res.visitCount === 5 || res.visitCount === 10 || res.visitCount === 15) {
-        celebrate(res.visitCount, res.discount || 0);
-      } else {
-        showModal(`<div class="modal-title">Thank you!</div><div>Reservation received. You will get a confirmation email shortly (please check your spam folder).</div>`);
-      }
-    }
-
-    // Init
-    (async function(){
-      await loadConfig();
-      document.body.style.backgroundColor = '#d6c7b2';
-      const date = document.getElementById('date');
-      date.value = todayYmd();
-      date.addEventListener('change', loadSlots);
-      document.getElementById('guests').addEventListener('change', loadSlots);
-      document.getElementById('book-btn').addEventListener('click', bookNow);
-      await loadSlots();
-    })();
-  </script>
+(async function init(){
+  await loadConfig();
+  const d = today();
+  (document.getElementById('date') as HTMLInputElement).value = d;
+  await loadDayNotice(d);
+  await loadSlots(d);
+})();
+</script>
 </body>
 </html>
