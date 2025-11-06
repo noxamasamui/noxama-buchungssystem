@@ -5,15 +5,15 @@
   <title>Admin — RÖSTILAND BY NOXAMA SAMUI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
-
   <style>
-    /* kleiner, eleganter Banner */
     .hero-wrap{max-width:1200px;margin:0 auto 12px auto;display:flex;justify-content:center}
     .hero{display:block;width:auto;height:auto;max-width:100%;max-height:clamp(140px,24vw,260px);
           background:#e9dfcf;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18)}
-    @media (max-width:520px){ .hero{max-height:180px} }
-
     nav{display:none}
+    .small{font-size:12px;padding:6px 8px}
+    .table{overflow:auto}
+    .muted{opacity:.7}
+    .chip{display:inline-block;background:#eee;border-radius:12px;padding:2px 8px;margin-left:6px;font-size:12px}
   </style>
 </head>
 <body>
@@ -22,8 +22,6 @@
   <div class="hero-wrap">
     <img id="heroImg" class="hero" src="/logo-hero.png" alt="Röstiland"/>
   </div>
-
-  <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
 
   <h1 id="brand">Admin</h1>
 
@@ -43,9 +41,7 @@
           <option value="month">month</option>
         </select>
       </div>
-      <div class="row">
-        <button id="btnLoad" class="btn" type="button">Load</button>
-      </div>
+      <button id="btnLoad" class="btn" type="button">Load</button>
     </div>
 
     <div id="list"></div>
@@ -61,6 +57,46 @@
         </select>
       </div>
       <button id="btnExcel" class="btn" type="button">Excel</button>
+    </div>
+  </div>
+
+  <!-- Walk-in -->
+  <div class="card">
+    <h2>Walk-in</h2>
+    <div class="row">
+      <div><label>Date</label><input id="wDate" type="date"/></div>
+      <div><label>Time</label><input id="wTime" type="time" step="900"/></div>
+      <div><label>Guests</label><input id="wGuests" type="number" min="1" max="48" value="2"/></div>
+    </div>
+    <label>Notes</label><input id="wNotes" placeholder="Optional"/>
+    <div class="row">
+      <button id="btnWalkin" class="btn" type="button">Add walk-in</button>
+      <span id="wStatus" class="badge"></span>
+    </div>
+  </div>
+
+  <!-- Blockzeiten -->
+  <div class="card">
+    <h2>Block times / days</h2>
+    <div class="row">
+      <div><label>Start</label><input id="bStart" type="datetime-local"/></div>
+      <div><label>End</label><input id="bEnd" type="datetime-local"/></div>
+      <div style="flex:1"><label>Reason</label><input id="bReason" placeholder="Closed"/></div>
+    </div>
+    <div class="row">
+      <button id="btnBlock" class="btn" type="button">Block time range</button>
+      <span id="bStatus" class="badge"></span>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div><label>Whole day</label><input id="bdDate" type="date"/></div>
+      <div style="flex:1"><label>Reason</label><input id="bdReason" placeholder="Closed"/></div>
+      <button id="btnBlockDay" class="btn" type="button">Block whole day</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <h3 style="margin:6px 0 8px 0;font-size:18px">Existing blocks</h3>
+      <div id="blocks" class="table"></div>
     </div>
   </div>
 
@@ -82,20 +118,14 @@
       <span id="nStatus" class="badge"></span>
     </div>
   </div>
+
 </div>
 
 <script>
   const pad2 = n => String(n).padStart(2,"0");
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
-  function normalizeYmd(s){
-    s=String(s||"").trim();
-    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    if(/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(s)){ const [dd,mm,yy]=s.split(".").map(Number); return `${yy}-${pad2(mm)}-${pad2(dd)}`; }
-    const d=new Date(s); if(!isNaN(d.getTime())) return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-    return "";
-  }
 
-  // Config + banner
+  // Banner + Brand
   (async ()=>{
     try{
       const r=await fetch("/api/config"); const cfg=await r.json();
@@ -104,7 +134,7 @@
     }catch{}
   })();
 
-  // Filters
+  /* ───── Liste ───── */
   const elDate=document.getElementById('fltDate'); elDate.value=today();
   const elView=document.getElementById('fltView');
   document.getElementById('btnLoad').onclick = loadList;
@@ -115,17 +145,17 @@
     const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${encodeURIComponent(v)}`);
     const list = await r.json();
     const wrap = document.getElementById('list');
+
     if(!Array.isArray(list) || !list.length){ wrap.innerHTML = '<p class="muted">No data</p>'; return; }
 
     const rows = list.map(x=>`<tr>
       <td>${x.date}</td><td>${x.time}</td>
-      <td>${x.firstName} ${x.name}</td>
+      <td>${x.firstName} ${x.name}${x.isWalkIn?'<span class="chip">walk-in</span>':''}</td>
       <td>${x.email||""}</td>
       <td>${x.phone||""}</td>
       <td>${x.guests}</td>
       <td>${x.status}</td>
       <td>${x.notes||""}</td>
-      <td>${x.isWalkIn ? "yes":"no"}</td>
       <td>
         <button data-id="${x.id}" class="del small">Delete</button>
         <button data-id="${x.id}" class="noshow small">No show</button>
@@ -136,13 +166,12 @@
       <table>
         <thead><tr>
           <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
-          <th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th><th>Action</th>
+          <th>Guests</th><th>Status</th><th>Notes</th><th>Action</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
 
-    // actions
     wrap.querySelectorAll("button.del").forEach(b=>{
       b.onclick=async()=>{ await fetch(`/api/admin/reservations/${b.dataset.id}`,{method:"DELETE"}); loadList(); };
     });
@@ -159,39 +188,110 @@
     window.location.href = `/api/export?date=${encodeURIComponent(d)}&period=${encodeURIComponent(p)}`;
   };
 
-  // Notices
+  /* ───── Walk-in ───── */
+  const wDate=document.getElementById('wDate'); wDate.value=today();
+  const wTime=document.getElementById('wTime'); wTime.value="10:00";
+  const wGuests=document.getElementById('wGuests');
+  const wNotes=document.getElementById('wNotes');
+  const wStatus=document.getElementById('wStatus');
+
+  document.getElementById('btnWalkin').onclick=async()=>{
+    wStatus.textContent="";
+    try{
+      const r=await fetch("/api/admin/walkin",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({date:wDate.value,time:wTime.value,guests:Number(wGuests.value||0),notes:wNotes.value.trim()})
+      });
+      const js=await r.json();
+      if(!r.ok){ wStatus.textContent=js.error||"Error"; return; }
+      wStatus.textContent="Saved";
+      loadList();
+      setTimeout(()=>wStatus.textContent="",1500);
+    }catch{ wStatus.textContent="Error"; }
+  };
+
+  /* ───── Blockzeiten ───── */
+  const bStart=document.getElementById('bStart');
+  const bEnd=document.getElementById('bEnd');
+  const bReason=document.getElementById('bReason');
+  const bdDate=document.getElementById('bdDate'); bdDate.value=today();
+  const bdReason=document.getElementById('bdReason');
+  const bStatus=document.getElementById('bStatus');
+
+  document.getElementById('btnBlock').onclick=async()=>{
+    bStatus.textContent="";
+    try{
+      const r=await fetch("/api/admin/closure",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({startTs:bStart.value,endTs:bEnd.value,reason:bReason.value.trim()})
+      });
+      const js=await r.json();
+      if(!r.ok){ bStatus.textContent=js.error||"Error"; return; }
+      bStatus.textContent="Saved";
+      loadBlocks();
+      setTimeout(()=>bStatus.textContent="",1500);
+    }catch{ bStatus.textContent="Error"; }
+  };
+
+  document.getElementById('btnBlockDay').onclick=async()=>{
+    bStatus.textContent="";
+    try{
+      const r=await fetch("/api/admin/closure/day",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({date:bdDate.value,reason:bdReason.value.trim()})
+      });
+      const js=await r.json();
+      if(!r.ok){ bStatus.textContent=js.error||"Error"; return; }
+      bStatus.textContent="Saved";
+      loadBlocks();
+      setTimeout(()=>bStatus.textContent="",1500);
+    }catch{ bStatus.textContent="Error"; }
+  };
+
+  async function loadBlocks(){
+    const r=await fetch("/api/admin/closure"); const list=await r.json();
+    const box=document.getElementById("blocks");
+    if(!Array.isArray(list)||!list.length){ box.innerHTML='<p class="muted">No blocks</p>'; return; }
+    const rows=list.map(c=>`<tr>
+      <td>${new Date(c.startTs).toLocaleString()}</td>
+      <td>${new Date(c.endTs).toLocaleString()}</td>
+      <td>${c.reason||""}</td>
+      <td><button data-id="${c.id}" class="rm small">Delete</button></td>
+    </tr>`).join("");
+    box.innerHTML=`<div class="table"><table>
+      <thead><tr><th>Start</th><th>End</th><th>Reason</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+    box.querySelectorAll("button.rm").forEach(b=>{
+      b.onclick=async()=>{ await fetch(`/api/admin/closure/${b.dataset.id}`,{method:"DELETE"}); loadBlocks(); };
+    });
+  }
+  loadBlocks();
+
+  /* ───── Notices ───── */
   const nDate=document.getElementById('nDate'); nDate.value=today();
   const nMsg=document.getElementById('nMsg');
   const nStatus=document.getElementById('nStatus');
 
-  async function prefillNotice(){
+  // Notice für gewähltes Datum vorfüllen
+  async function loadNotice(){
+    nStatus.textContent="";
     try{
-      const d = nDate.value || today();
-      const r = await fetch(`/api/admin/notice?date=${encodeURIComponent(d)}`);
-      const js = await r.json();
+      const r=await fetch(`/api/admin/notice?date=${encodeURIComponent(nDate.value)}`);
+      const js=await r.json();
       nMsg.value = js && js.message ? js.message : "";
-    }catch{ nMsg.value=""; }
+    }catch{}
   }
-  nDate.addEventListener("change",prefillNotice);
-  prefillNotice();
+  nDate.addEventListener("change", loadNotice);
+  loadNotice();
 
-  document.getElementById('btnNotice').onclick = async ()=>{
-    nStatus.textContent = "";
-    const d = normalizeYmd(nDate.value);
-    const m = nMsg.value.trim();
-    if(!d || !m){ nStatus.textContent="Invalid input"; return; }
+  document.getElementById('btnNotice').onclick=async()=>{
+    nStatus.textContent="";
     try{
-      const r = await fetch("/api/admin/notice",{
-        method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ date:d, message:m })
+      const r=await fetch("/api/admin/notice",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({date:nDate.value,message:nMsg.value.trim()})
       });
-      const js = await r.json();
-      if(!r.ok || !js.ok){ nStatus.textContent = "Failed to save notice"; return; }
-      nStatus.textContent = "Saved";
-      setTimeout(()=>nStatus.textContent="", 1500);
-    }catch{
-      nStatus.textContent = "Failed to save notice";
-    }
+      const js=await r.json();
+      if(!r.ok){ nStatus.textContent=js.error||"Failed to save notice"; return; }
+      nStatus.textContent="Saved";
+      setTimeout(()=>nStatus.textContent="",1500);
+    }catch{ nStatus.textContent="Failed"; }
   };
 </script>
 </body>
