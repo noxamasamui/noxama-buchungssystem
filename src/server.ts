@@ -419,6 +419,14 @@ app.post("/api/reservations", async (req,res)=>{
     res.status(500).json({ error: "Failed to create reservation" });
   }
 });
+// Public: notice for a given date
+app.get("/api/notice", async (req, res) => {
+  const date = normalizeYmd(String(req.query.date || ""));
+  if (!date) return res.json(null);
+  const n = await prisma.notice.findFirst({ where: { date } });
+  res.json(n);
+});
+
 
 /* ─────────────────────────────── Cancel ────────────────────────────────── */
 app.get("/cancel/:token", async (req,res)=>{
