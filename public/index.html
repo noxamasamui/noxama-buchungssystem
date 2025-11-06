@@ -1,4 +1,48 @@
-<!-- Loyalty Modal (hidden by default) -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+<div class="container">
+  <img class="logo" src="/logo-hero.png" alt="Logo"/>
+  <nav><a class="active" href="/">Reservation</a> <a href="/admin">Admin</a></nav>
+
+  <h1 id="brand">Reservation</h1>
+  <p id="venueInfo" class="muted"></p>
+
+  <div class="card">
+    <h2>Book a table</h2>
+    <div class="row">
+      <div><label>Date</label><input id="rDate" type="date"/></div>
+      <div><label>Time</label><select id="rTime"></select></div>
+      <div><label>Guests</label><input id="rGuests" type="number" min="1" max="48" value="2"/></div>
+    </div>
+
+    <div class="row">
+      <div><label>First name</label><input id="rFirstName" autocomplete="given-name"/></div>
+      <div><label>Last name</label><input id="rLastName" autocomplete="family-name"/></div>
+    </div>
+    <div class="row">
+      <div><label>Email</label><input id="rEmail" type="email" autocomplete="email"/></div>
+      <div><label>Phone</label><input id="rPhone" type="tel" autocomplete="tel"/></div>
+    </div>
+
+    <label>Notes</label><input id="rNotes" placeholder="Optional"/>
+
+    <div class="row">
+      <button id="btnReserve" class="btn" type="button">Reserve</button>
+      <span id="msg" class="badge"></span>
+      <div class="spacer"></div>
+      <small class="muted" id="statusText"></small>
+    </div>
+  </div>
+</div>
+
+<!-- Loyalty Modal (identisch zu deiner Vorlage) -->
 <div id="loyalty-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;">
     <canvas id="fw-canvas" width="480" height="180" style="width:100%;height:180px;display:block;border-radius:10px;margin-bottom:10px;"></canvas>
@@ -8,6 +52,92 @@
 </div>
 
 <script>
+  // small helpers
+  const pad2=n=>String(n).padStart(2,"0");
+  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+
+  // fill date default
+  const elDate = document.getElementById("rDate");
+  elDate.value = today();
+
+  // times population based on /api/slots
+  const elTime = document.getElementById("rTime");
+  const elGuests = document.getElementById("rGuests");
+  const elMsg = document.getElementById("msg");
+  const elStatus = document.getElementById("statusText");
+
+  async function loadConfig(){
+    try{
+      const r = await fetch("/api/config");
+      const cfg = await r.json();
+      document.getElementById("brand").textContent = `Reservation — ${cfg.brand}`;
+      document.getElementById("venueInfo").textContent = `${cfg.address} • ${cfg.phone}`;
+      elGuests.max = String(cfg.maxOnlineGuests || 10);
+    }catch{}
+  }
+  loadConfig();
+
+  async function loadSlots(){
+    elTime.innerHTML = "";
+    elMsg.textContent = "";
+    elStatus.textContent = "Loading slots…";
+    try{
+      const d = elDate.value || today();
+      const g = Number(elGuests.value || 2);
+      const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
+      const slots = await r.json();
+      let openCount = 0;
+      for(const s of slots){
+        if(s.allowed){
+          const opt = document.createElement("option");
+          opt.value = s.time; opt.textContent = s.time;
+          elTime.appendChild(opt); openCount++;
+        }
+      }
+      if(openCount===0){
+        elStatus.textContent = slots?.[0]?.reason || "No availability";
+      }else{
+        elStatus.textContent = `Available times: ${openCount}`;
+      }
+    }catch(err){
+      elStatus.textContent = "Failed to load slots";
+    }
+  }
+  elDate.addEventListener("change", loadSlots);
+  elGuests.addEventListener("change", loadSlots);
+  loadSlots();
+
+  // booking submit
+  document.getElementById("btnReserve").addEventListener("click", async ()=>{
+    elMsg.textContent = "Sending…";
+    const payload = {
+      date: elDate.value || today(),
+      time: elTime.value,
+      firstName: document.getElementById("rFirstName").value.trim(),
+      name: document.getElementById("rLastName").value.trim(),
+      email: document.getElementById("rEmail").value.trim(),
+      phone: document.getElementById("rPhone").value.trim(),
+      guests: Number(elGuests.value || 0),
+      notes: document.getElementById("rNotes").value.trim()
+    };
+    try{
+      const r = await fetch("/api/reservations", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await r.json();
+      if(!r.ok){ elMsg.textContent = json.error || "Error"; return; }
+      elMsg.textContent = "Reservation received. Confirmation follows by email.";
+      handleBookingSuccess(json);
+      // refresh slots to reflect new capacity
+      loadSlots();
+    }catch(e){
+      elMsg.textContent = "Network error";
+    }
+  });
+
+  // loyalty modal logic exactly like deine Vorlage
   function showLoyaltyModal(tier){
     const txt = document.getElementById('loyalty-text');
     if (tier === 15) txt.textContent = 'Herzlichen Glueckwunsch! Ab sofort erhaeltst du 15 Prozent Loyalty Danke.';
@@ -20,8 +150,6 @@
     document.getElementById('loyalty-modal').style.display = 'none';
     stopFireworks();
   }
-
-  // leichte Feuerwerk-Animation (ohne externe Libs)
   let fwTimer=null;
   function startFireworks(){
     const c = document.getElementById('fw-canvas');
@@ -52,9 +180,6 @@
   }
   function stopFireworks(){ if(fwTimer){ clearInterval(fwTimer); fwTimer=null; } }
 
-  // Hook in deine bestehende Fetch-Erfolgsmeldung:
-  // Nach erfolgreichem POST /api/reservations -> json.nowUnlockedTier prüfen.
-  // Beispiel – rufe diese Funktion genau dort auf:
   function handleBookingSuccess(json){
     if (json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)){
       showLoyaltyModal(json.nowUnlockedTier);
@@ -63,3 +188,5 @@
     }
   }
 </script>
+</body>
+</html>
