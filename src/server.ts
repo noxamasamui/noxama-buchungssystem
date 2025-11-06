@@ -35,8 +35,13 @@ const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
+
+/* NEW: durations from ENV to prevent overbooking across overlap */
+const LUNCH_MINUTES = num(process.env.LUNCH_MINUTES, 90);
+const DINNER_MINUTES = num(process.env.DINNER_MINUTES, 150);
+const DINNER_START_HOUR = num(process.env.DINNER_START_HOUR, 17);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
@@ -94,6 +99,12 @@ function capacityOnlineLeft(reserved:number, walkins:number){
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
 }
 
+/* Duration used to compute overlap window per booking */
+function logicalSlotMinutes(hhmm: string): number {
+  const hh = Number(hhmm.split(":")[0]);
+  return hh >= DINNER_START_HOUR ? DINNER_MINUTES : LUNCH_MINUTES;
+}
+
 /* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
@@ -110,11 +121,6 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
-function slotDuration(date:string, time:string){
-  const t = localDateFrom(date,time);
-  const next = addMinutes(t, SLOT_INTERVAL);
-  return differenceInMinutes(next, t);
-}
 
 /* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
 async function slotAllowed(date: string, time: string){
@@ -124,7 +130,9 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
-  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
+
+  // use lunch/dinner minutes for overlap window
+  const minutes = logicalSlotMinutes(time);
   const end = addMinutes(start, minutes);
 
   const {y,m,d}=splitYmd(norm);
@@ -240,7 +248,6 @@ app.get("/api/slots", async (req,res)=>{
   const times = slotListForDay();
   const out:any[] = [];
 
-  let allBlocked = true;
   for(const t of times){
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
@@ -250,17 +257,18 @@ app.get("/api/slots", async (req,res)=>{
     const sums = await sumsForInterval(date, allow.start!, allow.end!);
     const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
     const canReserve = leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
-    if (canReserve) allBlocked = false;
     out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
   }
 
-  // Falls komplett geblockt, Grund differenzieren
+  // falls komplett keine Slots wählbar: freundliche Reason für Frontend
   if (out.every(s=>!s.allowed)) {
-    const sunday = SUNDAY_CLOSED && isSunday(date);
-    if (sunday) {
+    // Sonntag
+    const {y,m,d} = splitYmd(date);
+    const isSun = localDate(y,m,d).getDay() === 0 && SUNDAY_CLOSED;
+    if (isSun) {
       out.forEach(s => s.reason = "Closed on Sunday");
     } else {
-      out.forEach(s => { if (s.reason==="Blocked" || s.reason==null) s.reason = "Fully booked for this date. Please choose another day."; });
+      out.forEach(s => s.reason = "Fully booked for this date. Please choose another day.");
     }
   }
 
@@ -375,10 +383,12 @@ app.get("/api/admin/reservations", async (req,res)=>{
   }
   res.json(list);
 });
+
 app.delete("/api/admin/reservations/:id", async (req,res)=>{
   await prisma.reservation.delete({ where: { id: req.params.id } });
   res.json({ ok:true });
 });
+
 app.post("/api/admin/reservations/:id/noshow", async (req,res)=>{
   const r = await prisma.reservation.update({ where: { id: req.params.id }, data: { status:"noshow" }});
   res.json(r);
@@ -403,7 +413,7 @@ app.post("/api/admin/walkin", async (req,res)=>{
       open = localDate(y,m,d, OPEN_HOUR,0,0);
       close = localDate(y,m,d, CLOSE_HOUR,0,0);
       if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
-      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
+      const minutes = Math.max(15, Math.min(logicalSlotMinutes(String(time)), differenceInMinutes(close, start)));
       startTs = start; endTs = addMinutes(start, minutes); if (endTs > close) endTs = close;
     }
 
@@ -440,6 +450,7 @@ app.post("/api/admin/closure", async (req,res)=>{
     res.status(500).json({ error: "Failed to create block" });
   }
 });
+
 app.post("/api/admin/closure/day", async (req,res)=>{
   try{
     const date = normalizeYmd(String(req.body.date || ""));
@@ -455,6 +466,7 @@ app.post("/api/admin/closure/day", async (req,res)=>{
     res.status(500).json({ error: "Failed to block day" });
   }
 });
+
 app.get("/api/admin/closure", async (_req,res)=>{
   try{
     const list = await prisma.closure.findMany({ orderBy: { startTs:"desc" } });
@@ -464,22 +476,10 @@ app.get("/api/admin/closure", async (_req,res)=>{
     res.status(500).json({ error: "Failed to load blocks" });
   }
 });
-app.delete("/api/admin/closure/:id", async (req,res)=>{
-  try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
-  catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
-});
 
-/* ───────────────────────────── Admin: Reset ────────────────────────────── */
-app.post("/api/admin/reset", async (req,res)=>{
-  try{
-    const { key } = req.body || {};
-    if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
-    await prisma.reservation.deleteMany({});
-    res.json({ ok:true });
-  }catch(err){
-    console.error("reset error:", err);
-    res.status(500).json({ error: "Failed to reset" });
-  }
+app.delete("/api/admin/closure/:id", async (req,res)=>{
+  try{ await prisma.reservation.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
+  catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
 });
 
 /* ───────────────────────────────── Export ──────────────────────────────── */
@@ -557,3 +557,4 @@ async function start(){
   app.listen(PORT, "0.0.0.0", ()=>console.log(`Server running on ${PORT}`));
 }
 start().catch(err=>{ console.error("Fatal start error", err); process.exit(1); });
+
