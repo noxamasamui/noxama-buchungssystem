@@ -2,48 +2,69 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Admin — Reservations</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="icon" href="/favicon.ico">
 <link rel="stylesheet" href="/style.css">
 </head>
-<body class="bg">
+<body>
+  <!-- Logo-Banner -->
+  <img class="banner" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI">
 
-<header class="brand-hero">
-  <img src="/logo-hero.png" alt="RÖSTILAND" class="brand-hero__img">
-</header>
+  <div class="container">
+    <h1>Admin</h1>
 
-<main class="container">
-  <h1>Admin</h1>
+    <!-- Filter / Export -->
+    <div class="card">
+      <div class="row row-2">
+        <div>
+          <label>Date filter</label>
+          <input id="filterDate" type="date">
+        </div>
+        <div>
+          <label>View</label>
+          <select id="filterView">
+            <option value="day">day</option>
+            <option value="week">week</option>
+            <option value="month">month</option>
+          </select>
+        </div>
+      </div>
 
-  <!-- All reservations -->
-  <section class="card">
-    <h3>All reservations</h3>
-    <div class="grid">
-      <label>Date filter
-        <input type="date" id="fltDate">
-      </label>
-      <label>View
-        <select id="fltView">
-          <option value="day">day</option>
-          <option value="week">week</option>
-          <option value="month">month</option>
-        </select>
-      </label>
-      <button class="btn" id="btnLoad">Load</button>
-
-      <label>Export
-        <select id="expPeriod">
+      <div class="actions" style="margin-top:10px">
+        <button id="btnLoad" class="btn btn-primary">Load</button>
+        <select id="exportRange">
           <option value="weekly">weekly</option>
           <option value="daily">daily</option>
           <option value="monthly">monthly</option>
           <option value="yearly">yearly</option>
         </select>
-      </label>
-      <button class="btn" id="btnExport">Excel</button>
+        <button id="btnExport" class="btn">Excel</button>
+      </div>
     </div>
 
-    <div class="table-wrap">
+    <!-- Hinweise (Day Notice) -->
+    <div class="card">
+      <h2>Day notice</h2>
+      <div class="row row-2">
+        <div>
+          <label>Date</label>
+          <input id="nDate" type="date">
+        </div>
+        <div>
+          <label>Message</label>
+          <input id="nMsg" placeholder="e.g. Christmas menu …">
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="nSave" class="btn btn-primary">Save / Update</button>
+      </div>
+
+      <div id="noticeList" class="small" style="margin-top:10px"></div>
+    </div>
+
+    <!-- Reservations -->
+    <div class="card">
+      <h2>All reservations</h2>
       <table class="table" id="tbl">
         <thead>
           <tr>
@@ -54,179 +75,104 @@
         <tbody id="tbody"></tbody>
       </table>
     </div>
-  </section>
-
-  <!-- Add walk-in -->
-  <section class="card">
-    <h3>Add walk in</h3>
-    <div class="grid">
-      <label>Date <input type="date" id="wDate"></label>
-      <label>Time <input type="time" id="wTime" step="900"></label>
-      <label>Guests <input type="number" id="wGuests" min="1" max="48" value="2"></label>
-      <label class="col-span-2">Notes
-        <input type="text" id="wNotes" placeholder="Table, source, anything…">
-      </label>
-      <button class="btn" id="btnWalkin">Save walk in</button>
-    </div>
-  </section>
-
-  <!-- Block day -->
-  <section class="card">
-    <h3>Block day</h3>
-    <div class="grid">
-      <label>Date <input type="date" id="blkDate"></label>
-      <label>Reason <input type="text" id="blkReason" placeholder="Closed / Event"></label>
-      <button class="btn" id="btnBlock">Block</button>
-    </div>
-  </section>
-
-  <!-- Day notice (event hint + time protection) -->
-  <section class="card">
-    <h3>Day notice (customer popup + protect duration)</h3>
-    <div class="grid">
-      <label>Date <input type="date" id="dnDate"></label>
-      <label>Start <input type="time" id="dnStart" step="900" value="18:00"></label>
-      <label>End <input type="time" id="dnEnd" step="900" value="20:30"></label>
-      <label class="col-span-2">Message
-        <input type="text" id="dnMsg" placeholder="Menu, price, friendly hint…">
-      </label>
-      <button class="btn" id="btnDnSave">Save notice</button>
-    </div>
-
-    <div class="table-wrap">
-      <table class="table">
-        <thead><tr><th>Date</th><th>Start</th><th>End</th><th>Message</th><th>Action</th></tr></thead>
-        <tbody id="daynotice-tbody"></tbody>
-      </table>
-    </div>
-  </section>
-
-</main>
+  </div>
 
 <script>
-const tbody = document.getElementById('tbody');
+function ymd(d){ return d.toISOString().slice(0,10); }
+function todayLocal(){ const t=new Date(); t.setHours(0,0,0,0); return t; }
 
-function esc(s=''){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
-
-async function load(){
-  const date = (document.getElementById('fltDate').value||'');
-  const view = document.getElementById('fltView').value;
-  const qs = new URLSearchParams({date, view}).toString();
-  const res = await fetch('/api/admin/reservations?'+qs);
-  const list = await res.json();
-  tbody.innerHTML = '';
-  for(const r of list){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${esc(r.date)}</td>
-      <td>${esc(r.time)}</td>
-      <td>${esc(r.firstName)} ${esc(r.name)}</td>
-      <td>${esc(r.email||'')}</td>
-      <td>${esc(r.phone||'')}</td>
-      <td>${r.guests}</td>
-      <td>${esc(r.status)}</td>
-      <td>${esc(r.notes||'')}</td>
-      <td>${r.isWalkIn ? 'yes' : ''}</td>
-      <td>
-        <button class="btn btn-warn" onclick="delRes('${r.id}')">Delete</button>
-        <button class="btn btn-ghost" onclick="noShow('${r.id}')">No show</button>
-      </td>`;
-    tbody.appendChild(tr);
-  }
-}
-async function delRes(id){
-  if(!confirm('Delete reservation?')) return;
-  await fetch('/api/admin/reservations/'+id,{method:'DELETE'});
-  load();
-}
-async function noShow(id){
-  await fetch('/api/admin/reservations/'+id+'/noshow',{method:'POST'});
-  load();
-}
-
-document.getElementById('btnLoad').onclick = load;
-
-document.getElementById('btnExport').onclick = async ()=>{
-  const period = document.getElementById('expPeriod').value;
-  const date = (document.getElementById('fltDate').value||'');
-  location.href = '/api/export?period='+encodeURIComponent(period)+'&date='+encodeURIComponent(date);
-};
-
-// walk-in
-document.getElementById('btnWalkin').onclick = async ()=>{
-  const date = document.getElementById('wDate').value;
-  const time = document.getElementById('wTime').value;
-  const guests = document.getElementById('wGuests').value;
-  const notes = document.getElementById('wNotes').value;
-  const res = await fetch('/api/admin/walkin',{method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ date, time, guests, notes })
-  });
-  const j = await res.json().catch(()=>({}));
-  if(!res.ok){ alert(j.error||'Error'); return; }
-  alert('Saved');
-  load();
-};
-
-// block day
-document.getElementById('btnBlock').onclick = async ()=>{
-  const date = document.getElementById('blkDate').value;
-  const reason = document.getElementById('blkReason').value || 'Closed';
-  const res = await fetch('/api/admin/closure/day',{method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ date, reason })
-  });
-  const j = await res.json().catch(()=>({}));
-  if(!res.ok){ alert(j.error||'Error'); return; }
-  alert('Day blocked');
-};
-
-// day notice create
-document.getElementById('btnDnSave').onclick = async ()=>{
-  const date = document.getElementById('dnDate').value;
-  const start = document.getElementById('dnStart').value;
-  const end = document.getElementById('dnEnd').value;
-  const message = document.getElementById('dnMsg').value || '';
-  if(!date || !start || !end){ alert('Missing fields'); return; }
-  const s = date+' '+start;
-  const e = date+' '+end;
-  const res = await fetch('/api/admin/daynotice',{method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ date, startTs:s, endTs:e, message })
-  });
-  const j = await res.json().catch(()=>({}));
-  if(!res.ok){ alert(j.error||'Error'); return; }
-  loadDayNotices();
-};
-
-// list+delete notices
-async function loadDayNotices(){
-  const res = await fetch('/api/admin/daynotice');
-  const list = await res.json();
-  const tb = document.getElementById('daynotice-tbody');
+async function loadList(){
+  const d = document.getElementById('filterDate').value;
+  const v = document.getElementById('filterView').value;
+  const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${encodeURIComponent(v)}`);
+  const list = await r.json();
+  const tb = document.getElementById('tbody');
   tb.innerHTML = '';
-  for(const dn of list){
-    const s = new Date(dn.startTs), e = new Date(dn.endTs);
+  list.forEach(r=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${s.toISOString().slice(0,10)}</td>
-      <td>${s.toTimeString().slice(0,5)}</td>
-      <td>${e.toTimeString().slice(0,5)}</td>
-      <td>${esc(dn.message||'')}</td>
-      <td><button class="btn btn-warn" onclick="delDn('${dn.id}')">Delete</button></td>`;
+      <td>${r.date}</td>
+      <td>${r.time}</td>
+      <td>${r.firstName} ${r.name}</td>
+      <td>${r.email}</td>
+      <td>${r.phone||''}</td>
+      <td>${r.guests}</td>
+      <td>${r.status}</td>
+      <td>${r.notes||''}</td>
+      <td>${r.isWalkIn ? 'yes':'-'}</td>
+      <td class="actions">
+        <button class="btn small" data-act="noshow" data-id="${r.id}">No show</button>
+        <button class="btn small" data-act="delete" data-id="${r.id}">Delete</button>
+      </td>`;
     tb.appendChild(tr);
-  }
-}
-async function delDn(id){
-  if(!confirm('Delete notice?')) return;
-  await fetch('/api/admin/daynotice/'+id, {method:'DELETE'});
-  loadDayNotices();
+  });
 }
 
-(function init(){
-  const today = new Date().toISOString().slice(0,10);
-  (document.getElementById('fltDate') as HTMLInputElement).value = today;
-  (document.getElementById('wDate')  as HTMLInputElement).value = today;
-  load(); loadDayNotices();
+// Button-Delegation
+document.getElementById('tbody').addEventListener('click', async (e)=>{
+  const b = (e.target as HTMLElement);
+  if (!(b instanceof HTMLButtonElement)) return;
+  const id = b.dataset.id;
+  const act = b.dataset.act;
+  if (!id || !act) return;
+
+  if (act === 'delete') {
+    if (!confirm('Delete reservation?')) return;
+    const res = await fetch(`/api/admin/reservations/${id}`, { method:'DELETE' });
+    if (res.ok) loadList();
+  } else if (act === 'noshow') {
+    const res = await fetch(`/api/admin/reservations/${id}/noshow`, { method:'POST' });
+    if (res.ok) loadList();
+  }
+});
+
+// Filter/Export
+document.getElementById('btnLoad').addEventListener('click', loadList);
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const date = document.getElementById('filterDate').value;
+  const period = document.getElementById('exportRange').value;
+  window.location.href = `/api/export?date=${encodeURIComponent(date)}&period=${encodeURIComponent(period)}`;
+});
+
+// Day notice: Save/Update + Liste
+document.getElementById('nSave').addEventListener('click', async ()=>{
+  const date = (document.getElementById('nDate') as HTMLInputElement).value;
+  const message = (document.getElementById('nMsg') as HTMLInputElement).value;
+  if (!date) { alert('Choose a date'); return; }
+  const res = await fetch('/api/admin/daynotice', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ date, message })
+  });
+  if (res.ok) { await loadNotices(); alert('Saved'); }
+});
+
+async function loadNotices(){
+  const r = await fetch('/api/admin/daynotice');
+  const list = await r.json();
+  const box = document.getElementById('noticeList');
+  if (!list.length){ box.innerHTML = '<span class="small">No notices yet</span>'; return; }
+  box.innerHTML = list.map(n => `
+    <div class="notice" style="margin:6px 0;display:flex;justify-content:space-between;gap:12px">
+      <div><b>${n.date}</b> — ${n.message || ''}</div>
+      <button class="btn small" data-del="${n.id}">Delete</button>
+    </div>`).join('');
+  box.querySelectorAll('button[data-del]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = (btn as HTMLButtonElement).dataset.del!;
+      if (!confirm('Delete notice?')) return;
+      const res = await fetch(`/api/admin/daynotice/${id}`, { method:'DELETE' });
+      if (res.ok) loadNotices();
+    });
+  });
+}
+
+(async function init(){
+  const t = todayLocal();
+  (document.getElementById('filterDate') as HTMLInputElement).value = ymd(t);
+  (document.getElementById('nDate') as HTMLInputElement).value = ymd(t);
+  await loadList();
+  await loadNotices();
 })();
 </script>
-
 </body>
 </html>
