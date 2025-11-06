@@ -29,19 +29,19 @@ const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
 const VENUE_EMAIL = process.env.VENUE_EMAIL || "info@noxamasamui.com";
 
 const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "/logo-hero.png";
-const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";  // optional Banner
+const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";
 const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
 const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
-const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 0); // Walk-ins voll anrechnen
+const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 0);
 
 const ADMIN_TO =
   String(process.env.ADMIN_EMAIL || "") ||
@@ -126,19 +126,7 @@ async function slotAllowed(date: string, time: string){
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
 
   // Basisdauer
-  const minutesBase = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
-  let minutes = minutesBase;
-
-  // Event-Fenster (Notice) ggf. durchsetzen – Tisch bis Eventende blockieren
-  const dn = await prisma.notice.findFirst({ where: { date: norm } });
-  if (dn) {
-    const evStart = new Date(dn.startTs);
-    const evEnd   = new Date(dn.endTs);
-    if (start < evEnd && addMinutes(start, minutesBase) > evStart) {
-      minutes = Math.max(minutesBase, differenceInMinutes(evEnd, start));
-    }
-  }
-
+  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
   const end = addMinutes(start, minutes);
 
   const {y,m,d}=splitYmd(norm);
@@ -246,29 +234,34 @@ app.get("/api/config", (_req,res)=>{
 });
 
 /* ─────────────────────── DayNotice/Notice Endpoints ────────────────────── */
-// Admin: Liste & Delete
+// Admin: Liste & Delete (nach createdAt sortiert)
 app.get("/api/admin/daynotice", async (_req, res) => {
-  const list = await prisma.notice.findMany({ orderBy: [{ startTs: "desc" }] });
+  const list = await prisma.notice.findMany({ orderBy: [{ createdAt: "desc" }] });
   res.json(list);
 });
 app.delete("/api/admin/daynotice/:id", async (req, res) => {
   await prisma.notice.delete({ where: { id: req.params.id } });
   res.json({ ok: true });
 });
-// Admin: create/update
+// Admin: create/update – nach date suchen, dann per id updaten oder neu anlegen
 app.post("/api/admin/daynotice", async (req, res) => {
-  const { date, startTs, endTs, message } = req.body || {};
+  const { date, message } = req.body || {};
   const norm = normalizeYmd(String(date||""));
   if (!norm) return res.status(400).json({ error: "Invalid date" });
-  const s = new Date(String(startTs).replace(" ", "T"));
-  const e = new Date(String(endTs).replace(" ", "T"));
-  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return res.status(400).json({ error: "Invalid range" });
-  const dn = await prisma.notice.upsert({
-    where: { date: norm },
-    create: { date: norm, startTs: s, endTs: e, message: String(message||"") },
-    update: { startTs: s, endTs: e, message: String(message||"") }
-  });
-  res.json(dn);
+
+  const existing = await prisma.notice.findFirst({ where: { date: norm } });
+  if (existing) {
+    const updated = await prisma.notice.update({
+      where: { id: existing.id },
+      data: { message: String(message || "") }
+    });
+    return res.json(updated);
+  } else {
+    const created = await prisma.notice.create({
+      data: { date: norm, message: String(message || "") }
+    });
+    return res.json(created);
+  }
 });
 // Public: Einzelabfrage für Popup
 app.get("/api/daynotice", async (req, res) => {
@@ -277,7 +270,7 @@ app.get("/api/daynotice", async (req, res) => {
   if (!norm) return res.json(null);
   const dn = await prisma.notice.findFirst({ where: { date: norm } });
   if (!dn) return res.json(null);
-  res.json({ message: dn.message || "", startTs: dn.startTs, endTs: dn.endTs });
+  res.json({ message: dn.message || "" });
 });
 
 /* ───────────────────────────── Slots API ───────────────────────────────── */
@@ -289,7 +282,7 @@ app.get("/api/slots", async (req,res)=>{
   const times = slotListForDay();
   const out:any[] = [];
 
-  let allBlocked = true;
+  let anyAvailable = false;
   for(const t of times){
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
@@ -299,17 +292,15 @@ app.get("/api/slots", async (req,res)=>{
     const sums = await sumsForInterval(date, allow.start!, allow.end!);
     const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
     const canReserve = leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
-    if (canReserve) allBlocked = false;
+    if (canReserve) anyAvailable = true;
     out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
   }
 
-  // Falls komplett geblockt, Grund differenzieren
-  if (out.every(s=>!s.allowed)) {
-    const sunday = SUNDAY_CLOSED && isSunday(date);
-    if (sunday) {
+  if (!anyAvailable) {
+    if (SUNDAY_CLOSED && isSunday(date)) {
       out.forEach(s => s.reason = "Closed on Sunday");
     } else {
-      out.forEach(s => { if (s.reason==="Blocked" || s.reason==null) s.reason = "Fully booked for this date. Please choose another day."; });
+      out.forEach(s => { if (!s.allowed) s.reason = "Fully booked for this date. Please choose another day."; });
     }
   }
 
@@ -345,14 +336,12 @@ app.post("/api/reservations", async (req,res)=>{
       },
     });
 
-    // Guest mail
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
       firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests, cancelUrl
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // Admin notice
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -377,14 +366,12 @@ app.get("/cancel/:token", async (req,res)=>{
   if (!already) {
     await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
 
-    // guest
     if (r.email && r.email !== "walkin@noxama.local") {
       const gHtml = canceledGuestHtml({
         firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests, rebookUrl: `${BASE_URL}/`,
       });
       try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch {}
     }
-    // admin
     if (ADMIN_TO) {
       const aHtml = canceledAdminHtml({
         firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
