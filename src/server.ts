@@ -29,13 +29,13 @@ const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
 const VENUE_EMAIL = process.env.VENUE_EMAIL || "info@noxamasamui.com";
 
 const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "/logo-hero.png";
-const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";  // 1200x400 Banner
+const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";
 const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
 const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
@@ -182,7 +182,6 @@ function emailHeader(logoUrl:string){
     </div>`;
 }
 
-/** Confirmation mail – mit Besuchsnummer; Teaser 4/9/14; Feierblock 5/10/15 */
 function confirmationHtml(p:{
   firstName:string; name:string; date:string; time:string; guests:number;
   cancelUrl:string; visitNo:number; currentDiscount:number;
@@ -364,15 +363,14 @@ app.post("/api/reservations", async (req,res)=>{
       },
     });
 
-    // Loyalty: Besuchsnummer (confirmed + noshow, inkl. dieser Buchung)
+    // Besuchs-ORDINAL bis zu dieser Buchung (inklusive)
     const visitNo = await prisma.reservation.count({
-      where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
+      where: { email: created.email, status: { in: ["confirmed", "noshow"] }, startTs: { lte: created.startTs } },
     });
     const currentDiscount = loyaltyDiscountFor(visitNo);
     const unlocked = loyaltyUnlockedNow(visitNo);
     const teaseNext = loyaltyTeaseNext(visitNo);
 
-    // Guest mail
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
       firstName: created.firstName,
@@ -386,7 +384,6 @@ app.post("/api/reservations", async (req,res)=>{
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // Admin Info
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -395,14 +392,13 @@ app.post("/api/reservations", async (req,res)=>{
       try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
     }
 
-    // Response
     res.json({
       ok: true,
       reservation: created,
       visitNo,
       discount: currentDiscount,
-      nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15
-      nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
+      nowUnlockedTier: unlocked,
+      nextMilestone: teaseNext,
     });
   }catch(err){
     console.error("reservation error:", err);
@@ -419,14 +415,12 @@ app.get("/cancel/:token", async (req,res)=>{
   if (!already) {
     await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
 
-    // guest
     if (r.email && r.email !== "walkin@noxama.local") {
       const gHtml = canceledGuestHtml({
         firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests, rebookUrl: `${BASE_URL}/`,
       });
       try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch {}
     }
-    // admin
     if (ADMIN_TO) {
       const aHtml = canceledAdminHtml({
         firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
@@ -465,21 +459,17 @@ app.get("/api/admin/reservations", async (req,res)=>{
     list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
   }
 
-  // Loyalty-Felder ergänzen: visitCount + discount je E-Mail
-  const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
-  const counts = new Map<string, number>();
-  await Promise.all(emails.map(async em => {
-    const c = await prisma.reservation.count({
-      where: { email: em, status: { in: ["confirmed", "noshow"] } },
-    });
-    counts.set(em, c);
-  }));
-
-  const enriched = list.map(r => {
-    const vc = r.email ? (counts.get(r.email) || 0) : 0;
+  // visit ORDINAL pro Buchung (<= startTs)
+  const enriched = await Promise.all(list.map(async r=>{
+    let vc = 0;
+    if (r.email) {
+      vc = await prisma.reservation.count({
+        where: { email:r.email, status:{ in:["confirmed","noshow"] }, startTs: { lte: r.startTs } }
+      });
+    }
     const disc = loyaltyDiscountFor(vc);
     return { ...r, visitCount: vc, discount: disc };
-  });
+  }));
 
   res.json(enriched);
 });
@@ -577,52 +567,59 @@ app.delete("/api/admin/closure/:id", async (req,res)=>{
   catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
 });
 
-/* ───────────────────────────── Admin: Notices ─────────────────────────── */
-app.post("/api/admin/notice", async (req,res)=>{
+/* ───────────────────────────── Admin: Reset ────────────────────────────── */
+app.post("/api/admin/reset", async (req,res)=>{
   try{
-    const { date, message } = req.body || {};
-    if(!date || !message) return res.status(400).json({ error: "Date and message required" });
-    const norm = normalizeYmd(String(date));
-    if(!norm) return res.status(400).json({ error: "Invalid date" });
-    const n = await prisma.notice.create({ data: { date: norm, message: String(message) } });
-    res.json(n);
-  }catch(err){
-    console.error("Create notice error:", err);
-    res.status(500).json({ error: "Failed to save notice" });
-  }
-});
-app.get("/api/admin/notice", async (_req,res)=>{
-  try{
-    const list = await prisma.notice.findMany({ orderBy: [{ date: "desc" }, { createdAt: "desc" }] });
-    res.json(list);
-  }catch(err){
-    console.error("List notice error:", err);
-    res.status(500).json({ error: "Failed to load notices" });
-  }
-});
-app.delete("/api/admin/notice/:id", async (req,res)=>{
-  try{
-    await prisma.notice.delete({ where: { id: req.params.id } });
+    const { key } = req.body || {};
+    if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
+    await prisma.reservation.deleteMany({});
     res.json({ ok:true });
   }catch(err){
-    console.error("Delete notice error:", err);
-    res.status(500).json({ error: "Failed to delete notice" });
+    console.error("reset error:", err);
+    res.status(500).json({ error: "Failed to reset" });
   }
 });
 
-/* ───────────────────────── Public: Notice by date ─────────────────────── */
-app.get("/api/notices", async (req,res)=>{
+/* ───────────────────────────── Special Notice ──────────────────────────── */
+// public check (Frontend fragt /api/notice?date=YYYY-MM-DD)
+app.get("/api/notice", async (req,res)=>{
   try{
-    const date = normalizeYmd(String(req.query.date||""));
+    const date = normalizeYmd(String(req.query.date || ""));
     if(!date) return res.json(null);
-    const n = await prisma.notice.findFirst({
-      where: { date },
-      orderBy: { createdAt: "desc" },
-    });
+    const n = await prisma.notice.findFirst({ where:{ date }, orderBy:{ createdAt:'desc' }});
     res.json(n || null);
   }catch(err){
-    console.error("Get notices error:", err);
-    res.status(500).json({ error: "Failed to load notice" });
+    res.json(null);
+  }
+});
+// admin create/update (Upsert per Date)
+app.post("/api/admin/notice", async (req,res)=>{
+  try{
+    const date = normalizeYmd(String(req.body.date || ""));
+    const message = String(req.body.message || "").trim();
+    if(!date || !message) return res.status(400).json({ error:"Date and message required" });
+    const existing = await prisma.notice.findFirst({ where:{ date }, orderBy:{ createdAt:'desc' }});
+    if(existing){
+      const u = await prisma.notice.update({ where:{ id: existing.id }, data:{ message }});
+      return res.json(u);
+    }
+    const c = await prisma.notice.create({ data:{ date, message }});
+    res.json(c);
+  }catch(err){
+    console.error("notice save", err);
+    res.status(500).json({ error:"Failed to save notice" });
+  }
+});
+app.get("/api/admin/notices", async (_req,res)=>{
+  const list = await prisma.notice.findMany({ orderBy:[{ date:'desc' }, { createdAt:'desc' }] });
+  res.json(list);
+});
+app.delete("/api/admin/notices/:id", async (req,res)=>{
+  try{
+    await prisma.notice.delete({ where:{ id: req.params.id }});
+    res.json({ ok:true });
+  }catch(err){
+    res.status(500).json({ error:"Failed to delete notice" });
   }
 });
 
@@ -686,7 +683,7 @@ setInterval(async ()=>{
         firstName:r.firstName, name:r.name, date:r.date, time:r.time, guests:r.guests,
         cancelUrl: `${BASE_URL}/cancel/${r.cancelToken}`,
         visitNo: await prisma.reservation.count({
-          where: { email: r.email, status: { in: ["confirmed", "noshow"] } },
+          where: { email: r.email, status: { in: ["confirmed", "noshow"] }, startTs: { lte: r.startTs } },
         }),
         currentDiscount: 0
       });
@@ -705,4 +702,3 @@ async function start(){
   app.listen(PORT, "0.0.0.0", ()=>console.log(`Server running on ${PORT}`));
 }
 start().catch(err=>{ console.error("Fatal start error", err); process.exit(1); });
-
