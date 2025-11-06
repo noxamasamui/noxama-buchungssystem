@@ -68,8 +68,8 @@
       <table class="table" id="tbl">
         <thead>
           <tr>
-            <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
-            <th>Guests</th><th>Status</th><th>Notes</th><th>Walk in</th><th>Action</th>
+            <th>DATE</th><th>TIME</th><th>NAME</th><th>EMAIL</th><th>PHONE</th>
+            <th>GUESTS</th><th>STATUS</th><th>NOTES</th><th>WALK IN</th><th>ACTION</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -84,63 +84,69 @@ function todayLocal(){ const t=new Date(); t.setHours(0,0,0,0); return t; }
 async function loadList(){
   const d = document.getElementById('filterDate').value;
   const v = document.getElementById('filterView').value;
-  const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${encodeURIComponent(v)}`);
-  const list = await r.json();
+  const res = await fetch('/api/admin/reservations?date=' + encodeURIComponent(d) + '&view=' + encodeURIComponent(v));
+  const list = await res.json();
+
   const tb = document.getElementById('tbody');
   tb.innerHTML = '';
-  list.forEach(r=>{
+  list.forEach(function(r){
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.date}</td>
-      <td>${r.time}</td>
-      <td>${r.firstName} ${r.name}</td>
-      <td>${r.email}</td>
-      <td>${r.phone||''}</td>
-      <td>${r.guests}</td>
-      <td>${r.status}</td>
-      <td>${r.notes||''}</td>
-      <td>${r.isWalkIn ? 'yes':'-'}</td>
-      <td class="actions">
-        <button class="btn small" data-act="noshow" data-id="${r.id}">No show</button>
-        <button class="btn small" data-act="delete" data-id="${r.id}">Delete</button>
-      </td>`;
+    tr.innerHTML =
+      '<td>'+r.date+'</td>'+
+      '<td>'+r.time+'</td>'+
+      '<td>'+escapeHtml(r.firstName)+' '+escapeHtml(r.name)+'</td>'+
+      '<td>'+escapeHtml(r.email)+'</td>'+
+      '<td>'+(r.phone?escapeHtml(r.phone):'')+'</td>'+
+      '<td>'+r.guests+'</td>'+
+      '<td>'+r.status+'</td>'+
+      '<td>'+(r.notes?escapeHtml(r.notes):'')+'</td>'+
+      '<td>'+(r.isWalkIn?'yes':'-')+'</td>'+
+      '<td class="actions">'+
+        '<button class="btn small" data-act="noshow" data-id="'+r.id+'">No show</button> '+
+        '<button class="btn small" data-act="delete" data-id="'+r.id+'">Delete</button>'+
+      '</td>';
     tb.appendChild(tr);
   });
 }
 
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
 // Button-Delegation
-document.getElementById('tbody').addEventListener('click', async (e)=>{
-  const b = (e.target as HTMLElement);
-  if (!(b instanceof HTMLButtonElement)) return;
-  const id = b.dataset.id;
-  const act = b.dataset.act;
+document.getElementById('tbody').addEventListener('click', async function(e){
+  const target = e.target;
+  if (!(target && target.tagName === 'BUTTON')) return;
+  const id = target.getAttribute('data-id');
+  const act = target.getAttribute('data-act');
   if (!id || !act) return;
 
   if (act === 'delete') {
     if (!confirm('Delete reservation?')) return;
-    const res = await fetch(`/api/admin/reservations/${id}`, { method:'DELETE' });
+    const res = await fetch('/api/admin/reservations/' + encodeURIComponent(id), { method:'DELETE' });
     if (res.ok) loadList();
   } else if (act === 'noshow') {
-    const res = await fetch(`/api/admin/reservations/${id}/noshow`, { method:'POST' });
+    const res = await fetch('/api/admin/reservations/' + encodeURIComponent(id) + '/noshow', { method:'POST' });
     if (res.ok) loadList();
   }
 });
 
 // Filter/Export
 document.getElementById('btnLoad').addEventListener('click', loadList);
-document.getElementById('btnExport').addEventListener('click', ()=>{
+document.getElementById('btnExport').addEventListener('click', function(){
   const date = document.getElementById('filterDate').value;
   const period = document.getElementById('exportRange').value;
-  window.location.href = `/api/export?date=${encodeURIComponent(date)}&period=${encodeURIComponent(period)}`;
+  window.location.href = '/api/export?date=' + encodeURIComponent(date) + '&period=' + encodeURIComponent(period);
 });
 
 // Day notice: Save/Update + Liste
-document.getElementById('nSave').addEventListener('click', async ()=>{
-  const date = (document.getElementById('nDate') as HTMLInputElement).value;
-  const message = (document.getElementById('nMsg') as HTMLInputElement).value;
+document.getElementById('nSave').addEventListener('click', async function(){
+  const date = document.getElementById('nDate').value;
+  const message = document.getElementById('nMsg').value;
   if (!date) { alert('Choose a date'); return; }
   const res = await fetch('/api/admin/daynotice', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ date, message })
   });
   if (res.ok) { await loadNotices(); alert('Saved'); }
@@ -150,17 +156,22 @@ async function loadNotices(){
   const r = await fetch('/api/admin/daynotice');
   const list = await r.json();
   const box = document.getElementById('noticeList');
-  if (!list.length){ box.innerHTML = '<span class="small">No notices yet</span>'; return; }
-  box.innerHTML = list.map(n => `
-    <div class="notice" style="margin:6px 0;display:flex;justify-content:space-between;gap:12px">
-      <div><b>${n.date}</b> — ${n.message || ''}</div>
-      <button class="btn small" data-del="${n.id}">Delete</button>
-    </div>`).join('');
-  box.querySelectorAll('button[data-del]').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const id = (btn as HTMLButtonElement).dataset.del!;
+  if (!list.length){
+    box.innerHTML = '<span class="small">No notices yet</span>';
+    return;
+  }
+  box.innerHTML = list.map(function(n){
+    return '<div class="notice" style="margin:6px 0;display:flex;justify-content:space-between;gap:12px">'+
+      '<div><b>'+n.date+'</b> — '+escapeHtml(n.message||'')+'</div>'+
+      '<button class="btn small" data-del="'+n.id+'">Delete</button>'+
+    '</div>';
+  }).join('');
+
+  Array.prototype.forEach.call(box.querySelectorAll('button[data-del]'), function(btn){
+    btn.addEventListener('click', async function(){
+      const id = btn.getAttribute('data-del');
       if (!confirm('Delete notice?')) return;
-      const res = await fetch(`/api/admin/daynotice/${id}`, { method:'DELETE' });
+      const res = await fetch('/api/admin/daynotice/' + encodeURIComponent(id), { method:'DELETE' });
       if (res.ok) loadNotices();
     });
   });
@@ -168,8 +179,8 @@ async function loadNotices(){
 
 (async function init(){
   const t = todayLocal();
-  (document.getElementById('filterDate') as HTMLInputElement).value = ymd(t);
-  (document.getElementById('nDate') as HTMLInputElement).value = ymd(t);
+  document.getElementById('filterDate').value = ymd(t);
+  document.getElementById('nDate').value = ymd(t);
   await loadList();
   await loadNotices();
 })();
