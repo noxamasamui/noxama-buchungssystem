@@ -5,37 +5,12 @@
   <title>Admin — RÖSTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-
-  <style>
-    .hero-wrap{
-      max-width:1200px;
-      margin:0 auto 14px auto;
-      display:flex;
-      justify-content:center;
-    }
-    .hero{
-      display:block;
-      width:auto;
-      height:auto;
-      max-width:100%;
-      max-height:clamp(220px, 32vw, 360px);
-      background:#e9dfcf;
-      border-radius:12px;
-      box-shadow:0 8px 28px rgba(0,0,0,.18);
-    }
-    @media (max-width:520px){
-      .hero{ max-height:220px; }
-    }
-    .actions-cell .btn-group{display:inline-flex;gap:8px;}
-    .badge-list > div{margin:6px 0;}
-  </style>
 </head>
 <body>
 <div class="container">
-
-  <!-- Logo-Banner -->
+  <!-- Banner / Logo wie auf der Startseite -->
   <div class="hero-wrap">
-    <img id="heroImg" class="hero" src="/logo-hero.png" alt="RÖSTILAND"/>
+    <img id="heroBanner" class="hero-banner" alt="Banner"/>
   </div>
 
   <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
@@ -88,6 +63,7 @@
     <div id="sum" class="badge" style="margin-top:10px;"></div>
   </div>
 
+  <!-- Walk-in -->
   <div class="card">
     <h2>Add walk in</h2>
     <div class="row">
@@ -102,6 +78,7 @@
     </div>
   </div>
 
+  <!-- Closures -->
   <div class="card">
     <h2>Block restaurant</h2>
     <div class="row">
@@ -117,36 +94,44 @@
     <div id="closureList" style="margin-top:10px"></div>
   </div>
 
-  <!-- NEU: Special notices (terminbezogene Hinweise) -->
+  <!-- Special notices (Pflicht-Popup an einem Datum) -->
   <div class="card">
     <h2>Special notices</h2>
     <div class="row">
-      <div><label>Date</label><input id="nDate" type="date"/></div>
-      <div style="flex:1"><label>Message (shown to guests; must accept)</label><input id="nMessage" placeholder="Example: Christmas menu on 24 Dec — set price 1,290 THB per person."/></div>
+      <div style="flex:1;">
+        <label>Date</label>
+        <input id="nDate" type="date"/>
+      </div>
+      <div style="flex:2;">
+        <label>Message (shown to guests; must accept)</label>
+        <input id="nMessage" placeholder="Example: Christmas menu THB 1,200 per guest. Please confirm to proceed."/>
+      </div>
     </div>
     <div class="row">
       <button id="btnNoticeSave" class="btn" type="button">Save notice</button>
       <span id="nMsg" class="badge"></span>
-      <div class="spacer"></div>
     </div>
-    <div id="noticeList" class="badge-list" style="margin-top:10px"></div>
+    <div id="noticeList" style="margin-top:10px;"></div>
   </div>
 </div>
 
 <script>
+  // Helper: today
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-  // Banner aus /api/config
-  (async function loadCfg(){
+  // Fill header banner/logo from /api/config
+  (async()=>{
     try{
-      const r = await fetch("/api/config"); const cfg = await r.json();
-      const hero = document.getElementById("heroImg");
-      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || "/logo-hero.png";
+      const r = await fetch('/api/config'); const cfg = await r.json();
+      const hero = document.getElementById('heroBanner');
+      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
+      hero.alt = cfg.brand || 'Banner';
     }catch{}
   })();
 
   document.getElementById("fltDate").value = today();
   document.getElementById("wDate").value = today();
+  document.getElementById("nDate").value = today();
 
   function fillWalkInTimes(){
     const sel = document.getElementById("wTime");
@@ -187,7 +172,7 @@
         <td>${row.discount ? row.discount + "%" : ""}</td>
         <td class="col-walkin">${row.isWalkIn ? "yes" : ""}</td>
         <td class="col-actions actions-cell">
-          <span class="btn-group">
+          <span class="btn-group vstack">
             <button class="btn-danger btn-sm" data-del="${row.id}" type="button">Delete</button>
             <button class="btn btn-sm" data-ns="${row.id}" type="button">No show</button>
           </span>
@@ -223,6 +208,7 @@
     if(r.ok){ m.textContent="Saved"; loadList(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
   });
 
+  // Closures
   async function loadClosures(){
     const r = await fetch("/api/admin/closure");
     const list = await r.json();
@@ -264,32 +250,34 @@
     if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
   });
 
-  /* ───── Notices (Admin) ───── */
+  // SPECIAL NOTICES: speichern + auflisten
   async function loadNotices(){
-    const r = await fetch("/api/admin/notices");
+    const r = await fetch('/api/admin/notices');
     const list = await r.json();
-    const box = document.getElementById("noticeList");
+    const box = document.getElementById('noticeList');
     box.innerHTML = "";
-    list.forEach(x=>{
-      const d = document.createElement("div");
-      d.className="badge";
-      d.textContent = `${x.date} — ${x.message}`;
-      const btn = document.createElement("button");
-      btn.textContent = "remove"; btn.className = "btn-plain btn-sm"; btn.type="button";
-      btn.onclick = async ()=>{ await fetch(`/api/admin/notice/${x.id}`, {method:"DELETE"}); loadNotices(); };
-      d.appendChild(btn);
+    list.forEach(n=>{
+      const d = document.createElement('div');
+      d.className = 'badge line';
+      d.innerHTML = `<b>${n.date}</b> — ${n.message}`;
+      const b = document.createElement('button');
+      b.className = 'btn-plain btn-sm';
+      b.textContent = 'remove';
+      b.onclick = async()=>{ await fetch(`/api/admin/notices/${n.id}`, {method:'DELETE'}); loadNotices(); };
+      d.appendChild(b);
       box.appendChild(d);
     });
   }
   loadNotices();
 
-  document.getElementById("btnNoticeSave").addEventListener("click", async ()=>{
-    const d = document.getElementById("nDate").value;
-    const msg = document.getElementById("nMessage").value.trim();
-    const m = document.getElementById("nMsg");
-    if(!d || !msg){ m.textContent="Date and message required"; return; }
-    const r = await fetch("/api/admin/notice", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ date:d, message:msg }) });
-    if(r.ok){ m.textContent="Saved"; document.getElementById("nMessage").value=""; loadNotices(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  document.getElementById('btnNoticeSave').addEventListener('click', async ()=>{
+    const date = document.getElementById('nDate').value;
+    const message = document.getElementById('nMessage').value.trim();
+    const msg = document.getElementById('nMsg');
+    msg.textContent = '';
+    if(!date || !message){ msg.textContent = 'Date and message required'; return; }
+    const r = await fetch('/api/admin/notice', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ date, message }) });
+    if(r.ok){ msg.textContent='Saved'; loadNotices(); } else { const e = await r.json().catch(()=>({})); msg.textContent = e.error || 'Error'; }
   });
 </script>
 </body>
