@@ -5,139 +5,100 @@
   <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
-
   <style>
-    .hero-wrap{
-      max-width:1200px;
-      margin:0 auto 14px auto;
-      display:flex;
-      justify-content:center;
-    }
-    .hero{
-      display:block;
-      width:auto;
-      height:auto;
-      max-width:100%;
-      max-height:clamp(220px, 32vw, 360px);
-      background:#e9dfcf;
-      border-radius:12px;
-      box-shadow:0 8px 28px rgba(0,0,0,.18);
-    }
-    @media (max-width:520px){
-      .hero{ max-height:220px; }
-      /* Mobile input tweaks */
-      input[type="date"]{
-        font-size:16px;
-        padding:6px;
-      }
-      select, input{
-        font-size:16px;
-      }
-    }
-
-    .guest-line{display:flex;align-items:center;gap:10px;}
-    .guest-extra{
-      font-size:13px;background:#b3822f;color:#fff;border:0;border-radius:6px;
-      padding:4px 10px;cursor:pointer;transition:background .2s;
-    }
-    .guest-extra:hover{background:#8a6626;}
-    .inline-help{font-size:12px;opacity:.7;margin-top:2px;}
-
-    .modal-backdrop{
-      position:fixed;inset:0;background:rgba(0,0,0,.55);
-      z-index:9999;display:none;align-items:center;justify-content:center;
-    }
-    .modal-card{
-      background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;
-      max-width:620px;width:92%;padding:22px;
-      box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;
-    }
-    .modal-title{font-weight:700;margin:0 0 6px 0;}
-    .modal-text{margin:6px 0 14px 0;}
-    .modal-btn{
-      background:#b3822f;color:#fff;border:0;border-radius:8px;
-      padding:10px 16px;font-weight:700;cursor:pointer;
-    }
-
-    nav{display:none;}
-    #statusText{display:none;}
+    /* Banner wie Admin */
+    .hero-wrap{max-width:1200px;margin:16px auto 8px auto;display:flex;justify-content:center;}
+    .hero{display:block;width:auto;height:auto;max-width:100%;
+      max-height:clamp(220px, 32vw, 360px);background:#e9dfcf;border-radius:12px;
+      box-shadow:0 8px 28px rgba(0,0,0,.18);}
+    @media (max-width:520px){ .hero{ max-height:220px; } }
+    /* Formularfeinschliff */
+    .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:760px){ .row-3,.row-2{grid-template-columns:1fr} }
+    #toast{position:fixed;left:16px;right:16px;bottom:18px;z-index:9999;display:none}
+    #toast > div{background:#333;color:#fff;padding:12px 16px;border-radius:10px;box-shadow:0 8px 26px rgba(0,0,0,.25)}
+    /* Mobile: Date-Feld nicht zu riesig */
+    input[type="date"]{font-size:16px}
+    /* 11+ Button */
+    #btnMore{background:#b3822f;color:#fff;border:0;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer}
+    #btnMore:hover{opacity:.95}
+    /* Hidden helper */
+    .hidden{display:none}
   </style>
 </head>
-
 <body>
 <div class="container">
 
+  <!-- Banner -->
   <div class="hero-wrap">
     <img id="heroImg" class="hero" src="/logo-hero.png" alt="Röstiland"/>
   </div>
 
-  <nav><a class="active" href="/">Reservation</a> <a href="/admin">Admin</a></nav>
+  <h1 style="text-align:center">Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
+  <p style="text-align:center;opacity:.9">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
 
-  <h1 id="brand">Reservation</h1>
-  <p id="venueInfo" class="muted"></p>
-
-  <div class="card">
+  <div class="card" style="max-width:980px;margin:12px auto">
     <h2>Book a table</h2>
 
-    <div class="row">
-      <div><label>Date</label><input id="rDate" type="date"/></div>
-
+    <div class="row-3">
+      <div>
+        <label>Date</label>
+        <input id="rDate" type="date"/>
+      </div>
       <div>
         <label>Guests</label>
-        <div class="guest-line">
-          <select id="rGuests">
-            <option value="1">1</option>
-            <option value="2" selected>2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-          </select>
-          <button id="btnGroup" type="button" class="guest-extra">11+ guests</button>
+        <div class="row-2" style="grid-template-columns: 1fr auto;">
+          <select id="rGuests"></select>
+          <button id="btnMore" type="button">11+ guests</button>
         </div>
-        <div class="inline-help">For larger groups please contact us directly.</div>
+        <div style="font-size:12px;opacity:.8;margin-top:6px">For larger groups please contact us directly.</div>
       </div>
-
-      <div><label>Time</label><select id="rTime"></select></div>
+      <div>
+        <label>Time</label>
+        <select id="rTime"></select>
+      </div>
     </div>
 
-    <div class="row">
-      <div><label>First name</label><input id="rFirstName" autocomplete="given-name"/></div>
-      <div><label>Last name</label><input id="rLastName" autocomplete="family-name"/></div>
+    <div class="row-2" style="margin-top:10px">
+      <div>
+        <label>First name</label>
+        <input id="rFirstName" />
+      </div>
+      <div>
+        <label>Last name</label>
+        <input id="rLastName" />
+      </div>
     </div>
 
-    <div class="row">
-      <div><label>Email</label><input id="rEmail" type="email" autocomplete="email"/></div>
-      <div><label>Phone</label><input id="rPhone" type="tel" autocomplete="tel"/></div>
+    <div class="row-2" style="margin-top:10px">
+      <div>
+        <label>Email</label>
+        <input id="rEmail" type="email" />
+      </div>
+      <div>
+        <label>Phone</label>
+        <input id="rPhone" />
+      </div>
     </div>
 
-    <label>Notes</label><input id="rNotes" placeholder="Optional"/>
+    <label style="margin-top:10px">Notes</label>
+    <input id="rNotes" placeholder="Optional"/>
 
-    <div class="row">
+    <div class="row" style="margin-top:12px">
       <button id="btnReserve" class="btn" type="button">Reserve</button>
-      <span id="msg" class="badge"></span>
+      <span id="rMsg" class="badge"></span>
       <div class="spacer"></div>
-      <small class="muted" id="statusText"></small>
+      <!-- Versteckt: wir zeigen keine 'Available times' mehr -->
+      <span id="slotCount" class="badge hidden"></span>
     </div>
   </div>
 </div>
 
-<!-- Success Modal -->
-<div id="success-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="success-title">
-  <div class="modal-card">
-    <div id="success-title" class="modal-title">Reservation received</div>
-    <div class="modal-text">
-      You will get a confirmation email shortly. Please also check your spam folder.
-    </div>
-    <button class="modal-btn" type="button" onclick="hideSuccess()">OK</button>
-  </div>
-</div>
+<!-- Success toast -->
+<div id="toast"><div id="toastText">Reservation received.</div></div>
 
-<!-- Loyalty Modal -->
+<!-- Loyalty Modal (Fireworks) -->
 <div id="loyalty-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;">
     <canvas id="fw-canvas" width="480" height="180" style="width:100%;height:180px;display:block;border-radius:10px;margin-bottom:10px;"></canvas>
@@ -146,51 +107,199 @@
   </div>
 </div>
 
+<!-- Notice Modal -->
+<div id="notice-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:560px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);">
+    <div style="font-weight:700;margin-bottom:8px;">Please confirm</div>
+    <div id="notice-text" style="margin-bottom:12px;"></div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <input id="notice-accept" type="checkbox"/> I confirm and would like to continue
+    </label>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button type="button" class="btn-plain" onclick="hideNotice()">Cancel</button>
+      <button type="button" class="btn" id="notice-continue">Continue</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  const pad2 = n => String(n).padStart(2,"0");
-  const today = ()=>{const d=new Date();return`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;}
+  // Config -> Banner (falls Header URL gesetzt)
+  fetch("/api/config").then(r=>r.json()).then(cfg=>{
+    const hero=document.getElementById("heroImg");
+    if(cfg && (cfg.mailHeaderUrl || cfg.mailLogoUrl)){
+      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl;
+    }
+  }).catch(()=>{});
 
-  const elDate=document.getElementById("rDate");elDate.value=today();
-  const elTime=document.getElementById("rTime");
-  const elGuests=document.getElementById("rGuests");
-  const elMsg=document.getElementById("msg");
-  const heroImg=document.getElementById("heroImg");
-  let CFG={};
+  const elDate = document.getElementById("rDate");
+  const elGuests = document.getElementById("rGuests");
+  const elTime = document.getElementById("rTime");
+  const elMsg = document.getElementById("rMsg");
+  const slotCount = document.getElementById("slotCount");
 
-  async function loadConfig(){
-    try{
-      const r=await fetch("/api/config");
-      CFG=await r.json();
-      document.getElementById("brand").textContent=`Reservation — ${CFG.brand}`;
-      document.getElementById("venueInfo").textContent=`${CFG.address} • ${CFG.phone}`;
-      heroImg.src=CFG.mailHeaderUrl||CFG.mailLogoUrl||"/logo-hero.png";
-    }catch{}
+  function today(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+
+  // init
+  elDate.value = today();
+
+  // Guests list 1..10
+  function fillGuests(){
+    elGuests.innerHTML = "";
+    for(let i=1;i<=10;i++){
+      const o=document.createElement("option");
+      o.value=String(i); o.textContent=String(i);
+      elGuests.appendChild(o);
+    }
+    elGuests.value="2";
   }
-  loadConfig();
+  fillGuests();
 
+  // 11+ button
+  document.getElementById("btnMore").addEventListener("click", ()=>{
+    const cfgTel = "+66 077 270 675";
+    const cfgEmail = "info@noxamasamui.com";
+    alert(`For groups of 11 or more, please contact us directly.\n\nPhone: ${cfgTel}\nEmail: ${cfgEmail}`);
+  });
+
+  // Load slots
   async function loadSlots(){
-    elTime.innerHTML="";
-    elMsg.textContent="";
+    const d = elDate.value || today();
+    const g = Number(elGuests.value||1);
     try{
-      const d=elDate.value||today();
-      const g=Number(elGuests.value||2);
-      const r=await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
-      const slots=await r.json();
-      for(const s of slots){
-        if(s.allowed){
+      const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
+      const list = await r.json();
+      elTime.innerHTML = "";
+      let open = 0;
+      list.forEach(s=>{
+        if(s.allowed && s.canReserve){
           const opt=document.createElement("option");
-          opt.value=s.time;opt.textContent=s.time;
-          elTime.appendChild(opt);
+          opt.value=s.time; opt.textContent=s.time;
+          elTime.appendChild(opt); open++;
         }
+      });
+      if(open===0){
+        const opt=document.createElement("option");
+        opt.value=""; opt.textContent="No free slots";
+        elTime.appendChild(opt);
       }
-    }catch{}
+      // wir zeigen keine Zahl mehr: slotCount.classList.add("hidden");
+    }catch{
+      elTime.innerHTML = "";
+      const opt=document.createElement("option");
+      opt.value=""; opt.textContent="Error";
+      elTime.appendChild(opt);
+    }
   }
-  elDate.addEventListener("change",loadSlots);
-  elGuests.addEventListener("change",loadSlots);
+  elDate.addEventListener("change", async ()=>{ await checkNoticeFor(elDate.value||today()); loadSlots(); });
+  elGuests.addEventListener("change", loadSlots);
   loadSlots();
 
-  document.getElementById("btnReserve").addEventListener("click",async()=>{
-    elMsg.textContent="Sending…";
+  // Toast
+  function showToast(msg){
+    const box=document.getElementById("toast");
+    document.getElementById("toastText").textContent = msg || "Reservation received.";
+    box.style.display="block";
+    setTimeout(()=>{ box.style.display="none"; }, 3600);
+  }
+
+  // Loyalty fireworks
+  let fwTimer=null;
+  function startFireworks(){
+    const c = document.getElementById('fw-canvas');
+    const ctx = c.getContext('2d');
+    const W = c.width, H = c.height;
+    const particles=[];
+    function boom(){
+      for(let i=0;i<60;i++){
+        const a = Math.random()*Math.PI*2;
+        const sp = 1.5+Math.random()*2.5;
+        particles.push({x:W/2,y:H/2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:60,color:`hsl(${Math.floor(Math.random()*360)},90%,60%)`});
+      }
+    }
+    function tick(){
+      ctx.fillStyle="rgba(255,248,240,.25)";
+      ctx.fillRect(0,0,W,H);
+      for(let i=particles.length-1;i>=0;i--){
+        const p=particles[i];
+        p.x+=p.vx; p.y+=p.vy; p.vy+=0.02; p.life--;
+        ctx.fillStyle=p.color;
+        ctx.beginPath(); ctx.arc(p.x,p.y,2,0,Math.PI*2); ctx.fill();
+        if(p.life<=0) particles.splice(i,1);
+      }
+      if (Math.random()<0.04) boom();
+    }
+    boom();
+    fwTimer = setInterval(tick, 16);
+  }
+  function stopFireworks(){ if(fwTimer){ clearInterval(fwTimer); fwTimer=null; } }
+  function showLoyaltyModal(tier){
+    const txt = document.getElementById('loyalty-text');
+    if (tier === 15) txt.textContent = 'Congratulations! From now on you receive a 15% loyalty thank-you.';
+    else if (tier === 10) txt.textContent = 'Great news! From now on you receive a 10% loyalty thank-you.';
+    else txt.textContent = 'You made our day! From now on you receive a 5% loyalty thank-you.';
+    document.getElementById('loyalty-modal').style.display = 'flex';
+    startFireworks();
+  }
+  function hideLoyaltyModal(){
+    document.getElementById('loyalty-modal').style.display = 'none';
+    stopFireworks();
+  }
+
+  // Success handler (also used by fireworks)
+  function showSuccess(){
+    showToast("Reservation received. You will get a confirmation email shortly. Please also check your spam folder.");
+  }
+
+  // Loyalty hook (called after booking if unlocked)
+  function handleBookingSuccess(json){
+    if (json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)){
+      showLoyaltyModal(json.nowUnlockedTier);
+    } else {
+      showSuccess();
+    }
+  }
+
+  // ───── Date Notice (must confirm)
+  let currentNotice = null;
+  let noticeAccepted = false;
+
+  async function checkNoticeFor(dateYmd){
+    try{
+      const r = await fetch(`/api/notices?date=${encodeURIComponent(dateYmd)}`);
+      const js = await r.json();
+      currentNotice = js && js.message ? js : null;
+      noticeAccepted = false;
+    }catch{ currentNotice = null; noticeAccepted = false; }
+  }
+  function showNotice(){
+    if(!currentNotice) return;
+    document.getElementById("notice-text").textContent = currentNotice.message;
+    document.getElementById("notice-accept").checked = false;
+    document.getElementById("notice-modal").style.display = "flex";
+  }
+  function hideNotice(){ document.getElementById("notice-modal").style.display = "none"; }
+  document.getElementById("notice-continue").addEventListener("click", ()=>{
+    const ok = document.getElementById("notice-accept").checked;
+    if(!ok) return;
+    noticeAccepted = true;
+    hideNotice();
+    doSubmitReservation();
+  });
+
+  (async ()=>{ await checkNoticeFor(elDate.value||today()); })();
+
+  // Submit
+  document.getElementById("btnReserve").addEventListener("click", async ()=>{
+    elMsg.textContent="";
+    if(currentNotice && !noticeAccepted){
+      showNotice();
+      return;
+    }
+    await doSubmitReservation();
+  });
+
+  async function doSubmitReservation(){
+    elMsg.textContent="Sending...";
     const payload={
       date:elDate.value||today(),
       time:elTime.value,
@@ -205,42 +314,8 @@
       const r=await fetch("/api/reservations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const json=await r.json();
       if(!r.ok){elMsg.textContent=json.error||"Error";return;}
-      elMsg.textContent="";showSuccess();handleBookingSuccess(json);loadSlots();
-    }catch{elMsg.textContent="Network error";}
-  });
-
-  document.getElementById("btnGroup").addEventListener("click",()=>{
-    const d=elDate.value||today();const t=elTime.value||"";
-    const to=CFG.email||"info@noxamasamui.com";
-    const subject=encodeURIComponent("Group reservation request (11+ guests)");
-    const body=encodeURIComponent(`Hello Röstiland,\n\nI would like to request a table for a group of 11+ guests.\n\nPreferred date: ${d}\nPreferred time: ${t}\n\nMy details:\nName: ${document.getElementById("rFirstName").value} ${document.getElementById("rLastName").value}\nEmail: ${document.getElementById("rEmail").value}\nPhone: ${document.getElementById("rPhone").value}\nNotes: ${document.getElementById("rNotes").value}\n\nThank you!`);
-    window.location.href=`mailto:${to}?subject=${subject}&body=${body}`;
-  });
-
-  function showSuccess(){document.getElementById("success-modal").style.display="flex";}
-  function hideSuccess(){document.getElementById("success-modal").style.display="none";}
-
-  function showLoyaltyModal(tier){
-    const txt=document.getElementById('loyalty-text');
-    if(tier===15)txt.textContent='Congratulations! From now on you receive a 15 percent loyalty thank-you.';
-    else if(tier===10)txt.textContent='Congratulations! From now on you receive a 10 percent loyalty thank-you.';
-    else txt.textContent='Congratulations! From now on you receive a 5 percent loyalty thank-you.';
-    document.getElementById('loyalty-modal').style.display='flex';
-    startFireworks();
-  }
-  function hideLoyaltyModal(){document.getElementById('loyalty-modal').style.display='none';stopFireworks();}
-  let fwTimer=null;
-  function startFireworks(){
-    const c=document.getElementById('fw-canvas');const ctx=c.getContext('2d');const W=c.width,H=c.height;const particles=[];
-    function boom(){for(let i=0;i<60;i++){const a=Math.random()*Math.PI*2;const sp=1.5+Math.random()*2.5;particles.push({x:W/2,y:H/2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:60,color:`hsl(${Math.floor(Math.random()*360)},90%,60%)`});}}
-    function tick(){ctx.fillStyle="rgba(255,248,240,.25)";ctx.fillRect(0,0,W,H);for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.02;p.life--;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,2,0,Math.PI*2);ctx.fill();if(p.life<=0)particles.splice(i,1);}if(Math.random()<0.04)boom();}
-    boom();fwTimer=setInterval(tick,16);
-  }
-  function stopFireworks(){if(fwTimer){clearInterval(fwTimer);fwTimer=null;}}
-  function handleBookingSuccess(json){
-    if(json&&(json.nowUnlockedTier===5||json.nowUnlockedTier===10||json.nowUnlockedTier===15)){
-      showLoyaltyModal(json.nowUnlockedTier);
-    }
+      elMsg.textContent=""; showSuccess(); handleBookingSuccess(json); loadSlots();
+    }catch{ elMsg.textContent="Network error"; }
   }
 </script>
 </body>
