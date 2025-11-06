@@ -52,10 +52,7 @@ model Closure {
 
 model Notice {
   id        String   @id @default(cuid())
-  date      String   // YYYY-MM-DD
+  date      String   @unique   // <-- NEU: eindeutig je Datum
   message   String
   createdAt DateTime @default(now())
-
-  // exakt eine Notice pro Datum
-  @@unique([date])
 }
