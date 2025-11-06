@@ -29,19 +29,19 @@ const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
 const VENUE_EMAIL = process.env.VENUE_EMAIL || "info@noxamasamui.com";
 
 const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "/logo-hero.png";
-const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";
+const MAIL_HEADER_URL = process.env.MAIL_HEADER_URL || "";  // 1200x400 Banner
 const FROM_NAME = process.env.MAIL_FROM_NAME || BRAND_NAME;
 const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
-const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 0);
+const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 8);
 
 const ADMIN_TO =
   String(process.env.ADMIN_EMAIL || "") ||
@@ -124,8 +124,6 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
-
-  // Basisdauer
   const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
   const end = addMinutes(start, minutes);
 
@@ -139,6 +137,30 @@ async function slotAllowed(date: string, time: string){
   if(blocked) return { ok:false, reason:"Blocked" };
 
   return { ok:true, norm, start, end, open, close, minutes };
+}
+
+/* ─────────────────────── Loyalty helpers ─────────────────────────── */
+function loyaltyDiscountFor(visit: number): number {
+  if (visit >= 15) return 15;
+  if (visit >= 10) return 10;
+  if (visit >= 5) return 5;
+  return 0;
+}
+function loyaltyTeaseNext(visit: number): 0 | 5 | 10 | 15 {
+  if (visit === 4) return 5;
+  if (visit === 9) return 10;
+  if (visit === 14) return 15;
+  return 0;
+}
+function loyaltyUnlockedNow(visit: number): 0 | 5 | 10 | 15 {
+  if (visit === 5) return 5;
+  if (visit === 10) return 10;
+  if (visit === 15) return 15;
+  return 0;
+}
+function ordinal(n:number){
+  const v=n%100; if(v>=11&&v<=13) return `${n}th`;
+  const u=n%10; if(u===1) return `${n}st`; if(u===2) return `${n}nd`; if(u===3) return `${n}rd`; return `${n}th`;
 }
 
 /* ───────────────────────────── Mail-Templates ──────────────────────────── */
@@ -160,23 +182,64 @@ function emailHeader(logoUrl:string){
     </div>`;
 }
 
-function confirmationHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;cancelUrl:string;}){
+/** Confirmation mail – jetzt MIT Besuchsnummer; Teaser 4/9/14; Feierblock 5/10/15 */
+function confirmationHtml(p:{
+  firstName:string; name:string; date:string; time:string; guests:number;
+  cancelUrl:string; visitNo:number; currentDiscount:number;
+}){
   const header = emailHeader(MAIL_LOGO_URL);
+
+  let reward = "";
+  if (p.currentDiscount === 15) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 Thank you so much! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">15% loyalty thank-you</b>.</div>
+      </div>`;
+  } else if (p.currentDiscount === 10) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 Great news! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">10% loyalty thank-you</b>.</div>
+      </div>`;
+  } else if (p.currentDiscount === 5) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 You made our day! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">5% loyalty thank-you</b>.</div>
+      </div>`;
+  }
+
+  const tease = loyaltyTeaseNext(p.visitNo);
+  const teaser = tease ? `
+    <div style="margin:16px 0;padding:12px 14px;background:#eef7ff;border:1px solid #cfe3ff;border-radius:10px;text-align:center;">
+      <div style="font-size:18px;margin-bottom:6px;">Heads-up ✨</div>
+      <div style="font-size:15px;">On your next visit you will receive a <b>${tease}% loyalty thank-you</b>.</div>
+    </div>` : "";
+
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
     ${header}
     <h2 style="text-align:center;margin:6px 0 14px 0;">Your Reservation at ${BRAND_NAME}</h2>
     <p>Hi ${p.firstName} ${p.name},</p>
     <p>Thank you for your reservation. We look forward to welcoming you.</p>
+
     <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
       <p style="margin:0;"><b>Date</b> ${p.date}</p>
       <p style="margin:0;"><b>Time</b> ${p.time}</p>
       <p style="margin:0;"><b>Guests</b> ${p.guests}</p>
       <p style="margin:0;"><b>Address</b> ${VENUE_ADDRESS}</p>
     </div>
+
+    <p style="margin:10px 0 0 0;text-align:center;opacity:.95;">This is your <b>${ordinal(p.visitNo)}</b> visit.</p>
+
+    ${reward}
+    ${teaser}
+
     <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
       <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
     </div>
+
     <p style="margin-top:18px;text-align:center;">
       <a href="${p.cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a>
     </p>
@@ -233,46 +296,6 @@ app.get("/api/config", (_req,res)=>{
   });
 });
 
-/* ─────────────────────── DayNotice/Notice Endpoints ────────────────────── */
-// Admin: Liste & Delete (nach createdAt sortiert)
-app.get("/api/admin/daynotice", async (_req, res) => {
-  const list = await prisma.notice.findMany({ orderBy: [{ createdAt: "desc" }] });
-  res.json(list);
-});
-app.delete("/api/admin/daynotice/:id", async (req, res) => {
-  await prisma.notice.delete({ where: { id: req.params.id } });
-  res.json({ ok: true });
-});
-// Admin: create/update – nach date suchen, dann per id updaten oder neu anlegen
-app.post("/api/admin/daynotice", async (req, res) => {
-  const { date, message } = req.body || {};
-  const norm = normalizeYmd(String(date||""));
-  if (!norm) return res.status(400).json({ error: "Invalid date" });
-
-  const existing = await prisma.notice.findFirst({ where: { date: norm } });
-  if (existing) {
-    const updated = await prisma.notice.update({
-      where: { id: existing.id },
-      data: { message: String(message || "") }
-    });
-    return res.json(updated);
-  } else {
-    const created = await prisma.notice.create({
-      data: { date: norm, message: String(message || "") }
-    });
-    return res.json(created);
-  }
-});
-// Public: Einzelabfrage für Popup
-app.get("/api/daynotice", async (req, res) => {
-  const date = String(req.query.date || "");
-  const norm = normalizeYmd(date);
-  if (!norm) return res.json(null);
-  const dn = await prisma.notice.findFirst({ where: { date: norm } });
-  if (!dn) return res.json(null);
-  res.json({ message: dn.message || "" });
-});
-
 /* ───────────────────────────── Slots API ───────────────────────────────── */
 app.get("/api/slots", async (req,res)=>{
   const date = normalizeYmd(String(req.query.date || ""));
@@ -282,7 +305,7 @@ app.get("/api/slots", async (req,res)=>{
   const times = slotListForDay();
   const out:any[] = [];
 
-  let anyAvailable = false;
+  let anyOpen = false;
   for(const t of times){
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
@@ -292,15 +315,20 @@ app.get("/api/slots", async (req,res)=>{
     const sums = await sumsForInterval(date, allow.start!, allow.end!);
     const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
     const canReserve = leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
-    if (canReserve) anyAvailable = true;
+    if (canReserve) anyOpen = true;
     out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
   }
 
-  if (!anyAvailable) {
-    if (SUNDAY_CLOSED && isSunday(date)) {
+  if (!anyOpen && out.length > 0) {
+    const sunday = SUNDAY_CLOSED && isSunday(date);
+    if (sunday) {
       out.forEach(s => s.reason = "Closed on Sunday");
     } else {
-      out.forEach(s => { if (!s.allowed) s.reason = "Fully booked for this date. Please choose another day."; });
+      out.forEach(s => {
+        if (s.reason === "Blocked" || s.reason == null) {
+          s.reason = "Fully booked for this date. Please choose another day.";
+        }
+      });
     }
   }
 
@@ -336,12 +364,29 @@ app.post("/api/reservations", async (req,res)=>{
       },
     });
 
+    // Loyalty: Besuchsnummer (confirmed + noshow, inkl. dieser Buchung)
+    const visitNo = await prisma.reservation.count({
+      where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
+    });
+    const currentDiscount = loyaltyDiscountFor(visitNo);
+    const unlocked = loyaltyUnlockedNow(visitNo);
+    const teaseNext = loyaltyTeaseNext(visitNo);
+
+    // Guest mail (mit Besuchsnummer, Teaser 4/9/14, Feierblock 5/10/15)
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
-      firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests, cancelUrl
+      firstName: created.firstName,
+      name: created.name,
+      date: created.date,
+      time: created.time,
+      guests: created.guests,
+      cancelUrl,
+      visitNo,
+      currentDiscount,
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
+    // Admin Info (knapp)
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -350,7 +395,15 @@ app.post("/api/reservations", async (req,res)=>{
       try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
     }
 
-    res.json({ ok:true, reservation: created });
+    // Response fuer Frontend (Popup bei Freischaltung 5/10/15)
+    res.json({
+      ok: true,
+      reservation: created,
+      visitNo,
+      discount: currentDiscount,
+      nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15
+      nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
+    });
   }catch(err){
     console.error("reservation error:", err);
     res.status(500).json({ error: "Failed to create reservation" });
@@ -366,12 +419,14 @@ app.get("/cancel/:token", async (req,res)=>{
   if (!already) {
     await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
 
+    // guest
     if (r.email && r.email !== "walkin@noxama.local") {
       const gHtml = canceledGuestHtml({
         firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests, rebookUrl: `${BASE_URL}/`,
       });
       try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch {}
     }
+    // admin
     if (ADMIN_TO) {
       const aHtml = canceledAdminHtml({
         firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
@@ -409,7 +464,24 @@ app.get("/api/admin/reservations", async (req,res)=>{
     const where:any = date ? { date } : {};
     list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
   }
-  res.json(list);
+
+  // Loyalty-Felder ergänzen: visitCount + discount je E-Mail
+  const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
+  const counts = new Map<string, number>();
+  await Promise.all(emails.map(async em => {
+    const c = await prisma.reservation.count({
+      where: { email: em, status: { in: ["confirmed", "noshow"] } },
+    });
+    counts.set(em, c);
+  }));
+
+  const enriched = list.map(r => {
+    const vc = r.email ? (counts.get(r.email) || 0) : 0;
+    const disc = loyaltyDiscountFor(vc);
+    return { ...r, visitCount: vc, discount: disc };
+  });
+
+  res.json(enriched);
 });
 app.delete("/api/admin/reservations/:id", async (req,res)=>{
   await prisma.reservation.delete({ where: { id: req.params.id } });
@@ -577,6 +649,10 @@ setInterval(async ()=>{
       const html = confirmationHtml({
         firstName:r.firstName, name:r.name, date:r.date, time:r.time, guests:r.guests,
         cancelUrl: `${BASE_URL}/cancel/${r.cancelToken}`,
+        visitNo: await prisma.reservation.count({
+          where: { email: r.email, status: { in: ["confirmed", "noshow"] } },
+        }),
+        currentDiscount: 0
       });
       try{
         await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html);
