@@ -104,6 +104,21 @@ fetch("/api/config").then(r=>r.json()).then(c=>{
   document.getElementById("venuePhone").textContent   = c.phone || "";
   document.getElementById("venueEmail").textContent   = c.email || "";
 });
+<script>
+(async function initConfigAndGuests() {
+  const cfg = await fetch('/api/config').then(r => r.json());
+  window.APP_CFG = cfg;
+
+  const sel = document.getElementById('guests');
+  sel.innerHTML = '';
+  for (let i = 1; i <= (cfg.maxOnlineGuests || 10); i++) {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = String(i);
+    sel.appendChild(opt);
+  }
+})();
+</script>
 
 document.getElementById("date").value = todayISO();
 for(let i=1;i<=48;i++){ const o=document.createElement("option"); o.value=o.textContent=String(i); document.getElementById("guests").appendChild(o); }
