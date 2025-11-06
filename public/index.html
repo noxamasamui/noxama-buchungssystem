@@ -6,30 +6,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
   <style>
-    /* Banner-Styling: schlank, responsiv */
+    /* Banner */
     .hero-wrap{max-width:1200px;margin:0 auto 14px auto}
     .hero{
-      width:100%; height:220px; object-fit:cover; display:block;
-      border-radius:12px; box-shadow:0 10px 35px rgba(0,0,0,.18);
+      width:100%; height:210px; object-fit:cover; display:block;
+      border-radius:12px; box-shadow:0 8px 28px rgba(0,0,0,.18);
       background:#e9dfcf;
     }
-    .logo{display:none} /* altes Logo-Element bleibt fuer Fallback vorhanden */
-    .inline-help{font-size:12px;opacity:.7}
-    .link-like{background:transparent;border:0;color:#0b66d4;cursor:pointer;padding:0 6px}
-    .link-like:hover{text-decoration:underline}
-    @media (min-width:900px){ .hero{height:260px} }
+    @media (min-width:900px){ .hero{height:240px} }
+
+    /* Guests field + 11+ Button */
+    .guest-line{display:flex;align-items:center;gap:10px}
+    .guest-line input{max-width:100px}
+    .guest-extra{
+      font-size:13px;
+      background:#b3822f;
+      color:#fff;
+      border:0;
+      border-radius:6px;
+      padding:4px 10px;
+      cursor:pointer;
+      transition:background .2s;
+    }
+    .guest-extra:hover{background:#8a6626}
+    .inline-help{font-size:12px;opacity:.7;margin-top:2px}
   </style>
 </head>
 <body>
 <div class="container">
 
-  <!-- Banner oben -->
+  <!-- Banner -->
   <div class="hero-wrap">
     <img id="heroImg" class="hero" src="/logo-hero.png" alt="Röstiland"/>
   </div>
-
-  <!-- altes Logo bleibt, wird aber per JS als Fallback befuellt, falls kein Header-Bild vorhanden ist -->
-  <img class="logo" src="/logo-hero.png" alt="Logo" style="width:190px;height:auto;margin:0 auto 8px auto;display:block;"/>
 
   <nav><a class="active" href="/">Reservation</a> <a href="/admin">Admin</a></nav>
 
@@ -43,10 +52,9 @@
       <div><label>Time</label><select id="rTime"></select></div>
       <div>
         <label>Guests</label>
-        <div class="row" style="gap:8px;align-items:center">
-          <input id="rGuests" type="number" min="1" max="48" value="2" style="max-width:110px"/>
-          <!-- NEW: 11+ Button -->
-          <button id="btnGroup" type="button" class="link-like">11+ guests?</button>
+        <div class="guest-line">
+          <input id="rGuests" type="number" min="1" max="48" value="2"/>
+          <button id="btnGroup" type="button" class="guest-extra">11+ guests</button>
         </div>
         <div class="inline-help">For larger groups please contact us directly.</div>
       </div>
@@ -92,24 +100,16 @@
   const elStatus = document.getElementById("statusText");
   const heroImg = document.getElementById("heroImg");
 
-  let CFG = { brand:"", address:"", phone:"", email:"", maxOnlineGuests:10, mailLogoUrl:"", mailHeaderUrl:"" };
+  let CFG = {};
 
   async function loadConfig(){
     try{
       const r = await fetch("/api/config");
       CFG = await r.json();
-
       document.getElementById("brand").textContent = `Reservation — ${CFG.brand}`;
       document.getElementById("venueInfo").textContent = `${CFG.address} • ${CFG.phone}`;
       elGuests.max = String(CFG.maxOnlineGuests || 10);
-
-      // Banner zuerst aus Header, sonst Logo als Fallback
-      if (CFG.mailHeaderUrl) heroImg.src = CFG.mailHeaderUrl;
-      else if (CFG.mailLogoUrl) heroImg.src = CFG.mailLogoUrl;
-
-      // Altes Logo-Element als Fallback, bleibt aber unsichtbar
-      const logo = document.querySelector(".logo");
-      if (logo && CFG.mailLogoUrl) logo.src = CFG.mailLogoUrl;
+      heroImg.src = CFG.mailHeaderUrl || CFG.mailLogoUrl || "/logo-hero.png";
     }catch{}
   }
   loadConfig();
@@ -173,26 +173,18 @@
     }
   });
 
-  // NEW: 11+ guests Kontakt
+  // 11+ guests Anfrage
   document.getElementById("btnGroup").addEventListener("click", ()=>{
     const d = elDate.value || today();
     const t = elTime.value || "";
-    const head = encodeURIComponent(`Group reservation request (11+ guests)`);
+    const to = CFG.email || "info@noxamasamui.com";
+    const subject = encodeURIComponent("Group reservation request (11+ guests)");
     const body = encodeURIComponent(
       `Hello Röstiland,\n\nI would like to request a table for a group of 11+ guests.\n\nPreferred date: ${d}\nPreferred time: ${t}\n\nMy details:\nName: ${document.getElementById("rFirstName").value} ${document.getElementById("rLastName").value}\nEmail: ${document.getElementById("rEmail").value}\nPhone: ${document.getElementById("rPhone").value}\nNotes: ${document.getElementById("rNotes").value}\n\nThank you!`
     );
-    const to = CFG.email || "info@noxamasamui.com";
-    // Oeffne E-Mail Composer
-    window.location.href = `mailto:${to}?subject=${head}&body=${body}`;
-    // Optional: als Fallback eine Tel-Option anzeigen
-    setTimeout(()=>{
-      if (confirm("Prefer to call us directly?")){
-        window.location.href = `tel:${(CFG.phone || "+66 077 270 675").replace(/\s+/g,"")}`;
-      }
-    }, 500);
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
   });
 
-  // Toast statt Alert
   function showToast(msg){
     const t = document.createElement("div");
     t.textContent = msg;
@@ -201,7 +193,6 @@
     setTimeout(()=>{ t.style.transition="opacity .4s"; t.style.opacity="0"; setTimeout(()=>t.remove(),400); }, 2600);
   }
 
-  // Loyalty Modal wie zuvor
   function showLoyaltyModal(tier){
     const txt = document.getElementById('loyalty-text');
     if (tier === 15) txt.textContent = 'Herzlichen Glueckwunsch! Ab sofort erhaeltst du 15 Prozent Loyalty Danke.';
@@ -226,7 +217,6 @@
     boom(); fwTimer=setInterval(tick,16);
   }
   function stopFireworks(){ if(fwTimer){ clearInterval(fwTimer); fwTimer=null; } }
-
   function handleBookingSuccess(json){
     if (json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)){
       showLoyaltyModal(json.nowUnlockedTier);
