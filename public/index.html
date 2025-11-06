@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/style.css"/>
 
   <style>
-    /* ================= Banner (kein Crop, komplette Grafik sichtbar) ================= */
+    /* ================= Banner (no crop) ================= */
     .hero-wrap{
       max-width:1200px;
       margin:0 auto 14px auto;
@@ -15,14 +15,11 @@
       justify-content:center;
     }
     .hero{
-      /* Bild immer vollständig zeigen */
       display:block;
-      width:auto;           /* breite passt sich der erlaubten Höhe/Max-Breite an */
-      height:auto;          /* hält Seitenverhältnis */
-      max-width:100%;       /* nie breiter als Container */
-      max-height:clamp(220px, 32vw, 360px); /* verhindert zu hohe Darstellung, bleibt responsiv */
-
-      /* Optik */
+      width:auto;
+      height:auto;
+      max-width:100%;
+      max-height:clamp(220px, 32vw, 360px);
       background:#e9dfcf;
       border-radius:12px;
       box-shadow:0 8px 28px rgba(0,0,0,.18);
@@ -57,17 +54,22 @@
       background:#b3822f; color:#fff; border:0; border-radius:8px;
       padding:10px 16px; font-weight:700; cursor:pointer;
     }
+
+    /* ================= HIDE: Nav + Available times ================= */
+    nav { display:none; }           /* <— Reservation/Admin ausblenden */
+    #statusText { display:none; }   /* <— "Available times: …" ausblenden */
   </style>
 </head>
 
 <body>
 <div class="container">
 
-  <!-- Banner: zeigt das Bild vollständig, ohne Zuschnitt -->
+  <!-- Banner -->
   <div class="hero-wrap">
     <img id="heroImg" class="hero" src="/logo-hero.png" alt="Röstiland"/>
   </div>
 
+  <!-- (wird per CSS versteckt) -->
   <nav><a class="active" href="/">Reservation</a> <a href="/admin">Admin</a></nav>
 
   <h1 id="brand">Reservation</h1>
@@ -108,7 +110,7 @@
       <button id="btnReserve" class="btn" type="button">Reserve</button>
       <span id="msg" class="badge"></span>
       <div class="spacer"></div>
-      <small class="muted" id="statusText"></small>
+      <small class="muted" id="statusText"></small> <!-- per CSS versteckt -->
     </div>
   </div>
 </div>
@@ -134,11 +136,9 @@
 </div>
 
 <script>
-  /* ---------- Utilities ---------- */
   const pad2 = n => String(n).padStart(2,"0");
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
 
-  /* ---------- Elements ---------- */
   const elDate = document.getElementById("rDate"); elDate.value = today();
   const elTime = document.getElementById("rTime");
   const elGuests = document.getElementById("rGuests");
@@ -147,7 +147,6 @@
   const heroImg = document.getElementById("heroImg");
   let CFG = {};
 
-  /* ---------- Public Config ---------- */
   async function loadConfig(){
     try{
       const r = await fetch("/api/config");
@@ -155,17 +154,15 @@
       document.getElementById("brand").textContent = `Reservation — ${CFG.brand}`;
       document.getElementById("venueInfo").textContent = `${CFG.address} • ${CFG.phone}`;
       elGuests.max = String(CFG.maxOnlineGuests || 10);
-      /* Bildquelle aus Env; CSS sorgt dafür, dass NICHT zugeschnitten wird */
       heroImg.src = CFG.mailHeaderUrl || CFG.mailLogoUrl || "/logo-hero.png";
     }catch{}
   }
   loadConfig();
 
-  /* ---------- Slots ---------- */
   async function loadSlots(){
     elTime.innerHTML = "";
     elMsg.textContent = "";
-    elStatus.textContent = "Loading slots…";
+    if (elStatus) elStatus.textContent = "Loading slots…";
     try{
       const d = elDate.value || today();
       const g = Number(elGuests.value || 2);
@@ -179,14 +176,15 @@
           elTime.appendChild(opt); openCount++;
         }
       }
-      elStatus.textContent = openCount ? `Available times: ${openCount}` : "No availability";
-    }catch{ elStatus.textContent = "Failed to load slots"; }
+      if (elStatus) elStatus.textContent = openCount ? `Available times: ${openCount}` : "No availability";
+    }catch{
+      if (elStatus) elStatus.textContent = "Failed to load slots";
+    }
   }
   elDate.addEventListener("change", loadSlots);
   elGuests.addEventListener("change", loadSlots);
   loadSlots();
 
-  /* ---------- Book ---------- */
   document.getElementById("btnReserve").addEventListener("click", async ()=>{
     elMsg.textContent = "Sending…";
     const payload = {
@@ -214,7 +212,6 @@
     }catch{ elMsg.textContent = "Network error"; }
   });
 
-  /* ---------- 11+ guests ---------- */
   document.getElementById("btnGroup").addEventListener("click", ()=>{
     const d = elDate.value || today();
     const t = elTime.value || "";
@@ -226,11 +223,9 @@
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
   });
 
-  /* ---------- Success modal ---------- */
   function showSuccess(){ document.getElementById("success-modal").style.display = "flex"; }
   function hideSuccess(){ document.getElementById("success-modal").style.display = "none"; }
 
-  /* ---------- Loyalty modal (English) ---------- */
   function showLoyaltyModal(tier){
     const txt = document.getElementById('loyalty-text');
     if (tier === 15) txt.textContent = 'Congratulations! From now on you receive a 15 percent loyalty thank-you.';
