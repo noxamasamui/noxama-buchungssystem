@@ -1,189 +1,215 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin — Reservations</title>
-<link rel="stylesheet" href="/style.css">
+  <meta charset="utf-8"/>
+  <title>Admin — RÖSTILAND BY NOXAMA SAMUI</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
 </head>
 <body>
-  <!-- Logo-Banner -->
-  <img class="banner" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI">
+<div class="container">
+  <img class="logo" src="/logo-hero.png" alt="Logo"/>
+  <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
+  <h1>Admin</h1>
 
-  <div class="container">
-    <h1>Admin</h1>
-
-    <!-- Filter / Export -->
-    <div class="card">
-      <div class="row row-2">
-        <div>
-          <label>Date filter</label>
-          <input id="filterDate" type="date">
+  <div class="card">
+    <h2>All reservations</h2>
+    <div class="toolbar">
+      <div class="row">
+        <div><label>Date filter</label><input id="fltDate" type="date"/></div>
+        <div><label>View</label>
+          <select id="view"><option value="day">day</option><option value="week" selected>week</option><option value="month">month</option></select>
         </div>
+        <button class="btn" id="btnLoad" type="button">Load</button>
+        <div class="spacer"></div>
         <div>
-          <label>View</label>
-          <select id="filterView">
-            <option value="day">day</option>
-            <option value="week">week</option>
-            <option value="month">month</option>
+          <label>Export</label>
+          <select id="period">
+            <option value="daily">daily</option>
+            <option value="weekly" selected>weekly</option>
+            <option value="monthly">monthly</option>
+            <option value="yearly">yearly</option>
           </select>
+          <button class="btn" id="btnExport" type="button">Excel</button>
         </div>
-      </div>
-
-      <div class="actions" style="margin-top:10px">
-        <button id="btnLoad" class="btn btn-primary">Load</button>
-        <select id="exportRange">
-          <option value="weekly">weekly</option>
-          <option value="daily">daily</option>
-          <option value="monthly">monthly</option>
-          <option value="yearly">yearly</option>
-        </select>
-        <button id="btnExport" class="btn">Excel</button>
       </div>
     </div>
 
-    <!-- Hinweise (Day Notice) -->
-    <div class="card">
-      <h2>Day notice</h2>
-      <div class="row row-2">
-        <div>
-          <label>Date</label>
-          <input id="nDate" type="date">
-        </div>
-        <div>
-          <label>Message</label>
-          <input id="nMsg" placeholder="e.g. Christmas menu …">
-        </div>
-      </div>
-      <div class="actions" style="margin-top:10px">
-        <button id="nSave" class="btn btn-primary">Save / Update</button>
-      </div>
-
-      <div id="noticeList" class="small" style="margin-top:10px"></div>
-    </div>
-
-    <!-- Reservations -->
-    <div class="card">
-      <h2>All reservations</h2>
-      <table class="table" id="tbl">
+    <div class="table-wrap">
+      <table id="tbl">
         <thead>
-          <tr>
-            <th>DATE</th><th>TIME</th><th>NAME</th><th>EMAIL</th><th>PHONE</th>
-            <th>GUESTS</th><th>STATUS</th><th>NOTES</th><th>WALK IN</th><th>ACTION</th>
-          </tr>
+        <tr>
+          <th class="col-date">Date</th>
+          <th class="col-time">Time</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th class="col-phone">Phone</th>
+          <th class="col-guests">Guests</th>
+          <th>Status</th>
+          <th>Notes</th>
+          <th>Visit</th>
+          <th>Discount</th>
+          <th class="col-walkin">Walk in</th>
+          <th class="col-actions">Action</th>
+        </tr>
         </thead>
-        <tbody id="tbody"></tbody>
+        <tbody></tbody>
       </table>
+    </div>
+    <div id="sum" class="badge" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Add walk in</h2>
+    <div class="row">
+      <div><label>Date</label><input id="wDate" type="date"/></div>
+      <div><label>Time</label><select id="wTime"></select></div>
+      <div><label>Guests</label><input id="wGuests" type="number" min="1" max="48" value="2"/></div>
+    </div>
+    <label>Notes</label><input id="wNotes"/>
+    <div class="row">
+      <button id="btnWalk" class="btn" type="button">Save walk in</button>
+      <span id="wMsg" class="badge"></span>
     </div>
   </div>
 
+  <div class="card">
+    <h2>Block restaurant</h2>
+    <div class="row">
+      <div><label>Start</label><input id="cStart" type="datetime-local"/></div>
+      <div><label>End</label><input id="cEnd" type="datetime-local"/></div>
+      <div><label>Reason</label><input id="cReason"/></div>
+    </div>
+    <div class="row">
+      <button id="btnBlock" class="btn" type="button">Create block</button>
+      <button id="btnBlockDayPicker" class="btn-plain" type="button">Block day (from Start)</button>
+      <span id="cMsg" class="badge"></span>
+    </div>
+    <div id="closureList" style="margin-top:10px"></div>
+  </div>
+</div>
+
 <script>
-function ymd(d){ return d.toISOString().slice(0,10); }
-function todayLocal(){ const t=new Date(); t.setHours(0,0,0,0); return t; }
+  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-async function loadList(){
-  const d = document.getElementById('filterDate').value;
-  const v = document.getElementById('filterView').value;
-  const res = await fetch('/api/admin/reservations?date=' + encodeURIComponent(d) + '&view=' + encodeURIComponent(v));
-  const list = await res.json();
+  document.getElementById("fltDate").value = today();
+  document.getElementById("wDate").value = today();
 
-  const tb = document.getElementById('tbody');
-  tb.innerHTML = '';
-  list.forEach(function(r){
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td>'+r.date+'</td>'+
-      '<td>'+r.time+'</td>'+
-      '<td>'+escapeHtml(r.firstName)+' '+escapeHtml(r.name)+'</td>'+
-      '<td>'+escapeHtml(r.email)+'</td>'+
-      '<td>'+(r.phone?escapeHtml(r.phone):'')+'</td>'+
-      '<td>'+r.guests+'</td>'+
-      '<td>'+r.status+'</td>'+
-      '<td>'+(r.notes?escapeHtml(r.notes):'')+'</td>'+
-      '<td>'+(r.isWalkIn?'yes':'-')+'</td>'+
-      '<td class="actions">'+
-        '<button class="btn small" data-act="noshow" data-id="'+r.id+'">No show</button> '+
-        '<button class="btn small" data-act="delete" data-id="'+r.id+'">Delete</button>'+
-      '</td>';
-    tb.appendChild(tr);
-  });
-}
-
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
-// Button-Delegation
-document.getElementById('tbody').addEventListener('click', async function(e){
-  const target = e.target;
-  if (!(target && target.tagName === 'BUTTON')) return;
-  const id = target.getAttribute('data-id');
-  const act = target.getAttribute('data-act');
-  if (!id || !act) return;
-
-  if (act === 'delete') {
-    if (!confirm('Delete reservation?')) return;
-    const res = await fetch('/api/admin/reservations/' + encodeURIComponent(id), { method:'DELETE' });
-    if (res.ok) loadList();
-  } else if (act === 'noshow') {
-    const res = await fetch('/api/admin/reservations/' + encodeURIComponent(id) + '/noshow', { method:'POST' });
-    if (res.ok) loadList();
+  function fillWalkInTimes(){
+    const sel = document.getElementById("wTime");
+    sel.innerHTML = "";
+    const from = 10*60, to = 22*60;
+    for(let m=from;m<=to;m+=15){
+      const hh=String(Math.floor(m/60)).padStart(2,"0");
+      const mm=String(m%60).padStart(2,"0");
+      const opt=document.createElement("option");
+      opt.value=`${hh}:${mm}`; opt.textContent=opt.value;
+      sel.appendChild(opt);
+    }
   }
-});
+  fillWalkInTimes();
 
-// Filter/Export
-document.getElementById('btnLoad').addEventListener('click', loadList);
-document.getElementById('btnExport').addEventListener('click', function(){
-  const date = document.getElementById('filterDate').value;
-  const period = document.getElementById('exportRange').value;
-  window.location.href = '/api/export?date=' + encodeURIComponent(date) + '&period=' + encodeURIComponent(period);
-});
+  async function loadList(){
+    const d = document.getElementById("fltDate").value || today();
+    const v = document.getElementById("view").value || "week";
+    const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${v}`);
+    const data = await r.json();
+    const tb = document.querySelector("#tbl tbody");
+    tb.innerHTML = "";
+    let totalGuests = 0;
 
-// Day notice: Save/Update + Liste
-document.getElementById('nSave').addEventListener('click', async function(){
-  const date = document.getElementById('nDate').value;
-  const message = document.getElementById('nMsg').value;
-  if (!date) { alert('Choose a date'); return; }
-  const res = await fetch('/api/admin/daynotice', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ date, message })
-  });
-  if (res.ok) { await loadNotices(); alert('Saved'); }
-});
-
-async function loadNotices(){
-  const r = await fetch('/api/admin/daynotice');
-  const list = await r.json();
-  const box = document.getElementById('noticeList');
-  if (!list.length){
-    box.innerHTML = '<span class="small">No notices yet</span>';
-    return;
-  }
-  box.innerHTML = list.map(function(n){
-    return '<div class="notice" style="margin:6px 0;display:flex;justify-content:space-between;gap:12px">'+
-      '<div><b>'+n.date+'</b> — '+escapeHtml(n.message||'')+'</div>'+
-      '<button class="btn small" data-del="'+n.id+'">Delete</button>'+
-    '</div>';
-  }).join('');
-
-  Array.prototype.forEach.call(box.querySelectorAll('button[data-del]'), function(btn){
-    btn.addEventListener('click', async function(){
-      const id = btn.getAttribute('data-del');
-      if (!confirm('Delete notice?')) return;
-      const res = await fetch('/api/admin/daynotice/' + encodeURIComponent(id), { method:'DELETE' });
-      if (res.ok) loadNotices();
+    data.forEach(row=>{
+      totalGuests += row.guests;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="col-date">${row.date}</td>
+        <td class="col-time">${row.time}</td>
+        <td>${row.firstName} ${row.name}</td>
+        <td>${row.email || ""}</td>
+        <td class="col-phone">${row.phone || ""}</td>
+        <td class="col-guests">${row.guests}</td>
+        <td>${row.status}</td>
+        <td>${row.notes || ""}</td>
+        <td>${row.visitCount ?? ""}</td>
+        <td>${row.discount ? row.discount + "%" : ""}</td>
+        <td class="col-walkin">${row.isWalkIn ? "yes" : ""}</td>
+        <td class="col-actions actions-cell">
+          <span class="btn-group">
+            <button class="btn-danger btn-sm" data-del="${row.id}" type="button">Delete</button>
+            <button class="btn btn-sm" data-ns="${row.id}" type="button">No show</button>
+          </span>
+        </td>`;
+      tb.appendChild(tr);
     });
-  });
-}
 
-(async function init(){
-  const t = todayLocal();
-  document.getElementById('filterDate').value = ymd(t);
-  document.getElementById('nDate').value = ymd(t);
-  await loadList();
-  await loadNotices();
-})();
+    document.getElementById("sum").textContent = `Total bookings: ${data.length}   Total guests: ${totalGuests}`;
+
+    tb.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", async ()=>{
+      await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"}); loadList();
+    }));
+    tb.querySelectorAll("[data-ns]").forEach(b=>b.addEventListener("click", async ()=>{
+      await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"}); loadList();
+    }));
+  }
+  document.getElementById("btnLoad").addEventListener("click", loadList);
+  document.getElementById("view").addEventListener("change", loadList);
+  loadList();
+
+  document.getElementById("btnExport").addEventListener("click", ()=>{
+    const p = document.getElementById("period").value;
+    const d = document.getElementById("fltDate").value || today();
+    window.location.href = `/api/export?period=${p}&date=${encodeURIComponent(d)}`;
+  });
+
+  document.getElementById("btnWalk").addEventListener("click", async ()=>{
+    const d = document.getElementById("wDate").value || today();
+    const t = document.getElementById("wTime").value;
+    const payload = { date:d, time:t, guests:Number(document.getElementById("wGuests").value), notes:document.getElementById("wNotes").value };
+    const r = await fetch("/api/admin/walkin", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+    const m = document.getElementById("wMsg");
+    if(r.ok){ m.textContent="Saved"; loadList(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  });
+
+  async function loadClosures(){
+    const r = await fetch("/api/admin/closure");
+    const list = await r.json();
+    const box = document.getElementById("closureList");
+    box.innerHTML = "";
+    list.forEach(x=>{
+      const d = document.createElement("div");
+      d.className = "badge";
+      const s = new Date(x.startTs).toLocaleString();
+      const e = new Date(x.endTs).toLocaleString();
+      d.textContent = `${s} — ${e} (${x.reason})`;
+      const btn = document.createElement("button");
+      btn.textContent = "remove"; btn.className = "btn-plain btn-sm"; btn.type="button";
+      btn.onclick = async ()=>{ await fetch(`/api/admin/closure/${x.id}`, {method:"DELETE"}); loadClosures(); };
+      d.appendChild(btn);
+      box.appendChild(d);
+    });
+  }
+  loadClosures();
+
+  document.getElementById("btnBlock").addEventListener("click", async ()=>{
+    const payload = {
+      startTs: document.getElementById("cStart").value,
+      endTs: document.getElementById("cEnd").value,
+      reason: document.getElementById("cReason").value
+    };
+    const r = await fetch("/api/admin/closure", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+    const m = document.getElementById("cMsg");
+    if(r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  });
+
+  document.getElementById("btnBlockDayPicker").addEventListener("click", async ()=>{
+    const val = document.getElementById("cStart").value;
+    if(!val){ alert("Set 'Start' first"); return; }
+    const d = new Date(val); const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const reason = document.getElementById("cReason").value || "Closed";
+    const r = await fetch("/api/admin/closure/day", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ date: iso, reason }) });
+    const m = document.getElementById("cMsg");
+    if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  });
 </script>
 </body>
 </html>
