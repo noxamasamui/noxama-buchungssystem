@@ -4,213 +4,206 @@
   <meta charset="utf-8"/>
   <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="/style.css"/>
+  <link rel="icon" href="/favicon.ico"/>
   <style>
-    /* Mini-Ergänzungen nur für den Notice-Kasten & Toast */
-    .notice-box{
-      background:#fff7e8;border:1px solid #efd7ad;border-radius:10px;
-      padding:10px 12px;margin:8px 0 2px 0;font-size:14px; color:#5a452e;
+    :root{
+      --bg:#d8c4a9; --paper:#fbf2e6; --ink:#3a2f28; --gold:#b3822f; --line:#e0d7c5;
     }
-    .notice-accept{ display:flex; align-items:center; gap:8px; margin-top:8px; }
-    .toast {
-      position: fixed; left: 50%; transform: translateX(-50%);
-      bottom: 18px; background: rgba(40,40,40,.92); color:#fff; padding:12px 18px;
-      border-radius:10px; font-weight:600; box-shadow:0 6px 18px rgba(0,0,0,.2);
-      z-index: 9999; max-width: 92vw;
-    }
-    .toast.hide { display:none; }
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Georgia,'Times New Roman',serif;}
+    .container{max-width:980px;margin:0 auto;padding:12px;}
+    .hero{background:#efe2cf;border:1px solid var(--line);border-radius:10px;padding:10px;margin:14px auto;display:flex;justify-content:center}
+    .hero img{width:100%;max-width:680px;height:auto;border-radius:8px;display:block}
+    h1{font-size:36px;text-align:center;margin:10px 0 0 0}
+    .meta{font-size:14px;text-align:center;opacity:.9;margin:4px 0 16px 0}
+    .card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:0 8px 26px rgba(0,0,0,.08)}
+    label{display:block;font-weight:700;margin:10px 0 6px 0}
+    input,select{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-family:inherit}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row3{display:grid;grid-template-columns:1fr auto 1fr;gap:12px}
+    .btn{background:var(--gold);color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer}
+    #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#333;color:#fff;padding:12px 18px;border-radius:10px;display:none;z-index:9999}
+    #noticeWrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;align-items:center;justify-content:center}
+    #noticeBox{background:#fff8f0;border:1px solid var(--line);border-radius:12px;max-width:540px;width:92%;padding:18px}
+    #noticeText{margin:8px 0 10px 0}
+    .guestsLine{display:flex;gap:10px;align-items:center}
+    .pill{background:#e9d3aa;border:1px solid #d2b06f;color:#533; padding:9px 12px;border-radius:8px;cursor:pointer;font-weight:700}
+    .pill:hover{filter:brightness(.96)}
+    @media (max-width:720px){ .row,.row3{grid-template-columns:1fr} .hero img{max-width:520px} }
   </style>
 </head>
 <body>
 <div class="container">
+  <div class="hero"><img id="heroImg" alt="Banner"></div>
 
-  <!-- Banner/Header (geladen aus /api/config) -->
-  <div class="hero-wrap">
-    <img id="heroBanner" class="hero-banner" alt="Banner" />
-  </div>
+  <h1 id="brandTitle">Reservation</h1>
+  <div class="meta" id="meta"></div>
 
-  <nav><a class="active" href="/">Reservation</a> <a href="/admin">Admin</a></nav>
-
-  <h1 class="page-title">Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
-  <div class="address-line" id="venueLine"></div>
-
-  <div class="card" style="max-width:980px;margin-inline:auto;">
+  <div class="card">
     <h2>Book a table</h2>
 
-    <form id="frm">
-      <div class="form-grid">
-        <div class="field">
-          <label>Date</label>
-          <input id="date" type="date" required>
-        </div>
+    <label>Date</label>
+    <input id="date" type="date"/>
 
-        <div class="field">
-          <label>Guests</label>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <input id="guests" type="number" min="1" value="2" required style="width:110px"/>
-            <button id="btnPlus10" type="button" class="btn" style="padding:8px 12px;">11+ guests</button>
-          </div>
-          <div style="font-size:12px;opacity:.8;margin-top:6px;">For larger groups please contact us directly.</div>
-
-          <!-- Special notice (dynamisch) -->
-          <div id="noticeWrap" class="notice-box" style="display:none;">
-            <div id="noticeText"></div>
-            <label class="notice-accept">
-              <input id="noticeAccept" type="checkbox"> I accept
-            </label>
-          </div>
+    <div class="row3">
+      <div>
+        <label>Guests</label>
+        <div class="guestsLine">
+          <input id="guests" type="number" min="1" max="10" value="2" style="max-width:120px">
+          <button id="btn11" type="button" class="pill">11+ guests</button>
         </div>
-
-        <div class="field">
-          <label>Time</label>
-          <select id="time" required></select>
-        </div>
-
-        <div class="field">
-          <label>First name</label>
-          <input id="firstName" required/>
-        </div>
-        <div class="field">
-          <label>Last name</label>
-          <input id="lastName" required/>
-        </div>
-
-        <div class="field">
-          <label>Email</label>
-          <input id="email" type="email" required/>
-        </div>
-        <div class="field">
-          <label>Phone</label>
-          <input id="phone" />
-        </div>
-
-        <div class="field" style="grid-column:1/-1;">
-          <label>Notes</label>
-          <input id="notes" placeholder="Optional"/>
-        </div>
+        <div style="font-size:12px;opacity:.8;margin-top:6px;">For larger groups please contact us directly.</div>
       </div>
-
-      <div style="margin-top:12px;">
-        <button id="btnReserve" type="submit" class="btn">Reserve</button>
+      <div></div>
+      <div>
+        <label>Time</label>
+        <select id="time"></select>
       </div>
-    </form>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>First name</label>
+        <input id="firstName"/>
+      </div>
+      <div>
+        <label>Last name</label>
+        <input id="lastName"/>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Email</label>
+        <input id="email" type="email"/>
+      </div>
+      <div>
+        <label>Phone</label>
+        <input id="phone"/>
+      </div>
+    </div>
+
+    <label>Notes</label>
+    <input id="notes" placeholder="Optional"/>
+
+    <div id="noticeAck" style="display:none;margin:12px 0;">
+      <label style="font-weight:400">
+        <input id="noticeCheck" type="checkbox"> <span id="noticeLabel"></span>
+      </label>
+    </div>
+
+    <button id="reserve" class="btn" type="button" style="margin-top:10px;">Reserve</button>
+    <div id="avail" style="text-align:right;font-size:12px;opacity:.8;margin-top:6px;"></div>
   </div>
 </div>
 
-<!-- Toast -->
-<div id="toast" class="toast hide"></div>
+<div id="toast"></div>
+
+<!-- Notice modal (if you prefer a blocking modal before checkbox; we use checkbox inline) -->
+<div id="noticeWrap">
+  <div id="noticeBox">
+    <div style="font-weight:700">Important information</div>
+    <div id="noticeText"></div>
+    <button id="noticeOk" class="btn" type="button">OK</button>
+  </div>
+</div>
 
 <script>
-  // Helper
-  const pad2 = n => String(n).padStart(2,'0');
-  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+  const $ = id => document.getElementById(id);
+  const state = {brand:"", address:"", phone:"", email:"", maxOnline:10, notice:null};
 
-  // Banner + Venue-Zeile
-  (async()=>{
-    try{
-      const r = await fetch('/api/config'); const cfg = await r.json();
-      const hero = document.getElementById('heroBanner');
-      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
-      hero.alt = cfg.brand || 'Banner';
-      document.getElementById('venueLine').textContent =
-        `${cfg.address} • ${cfg.phone}`;
-    }catch{}
-  })();
+  // hero + contact
+  async function loadConfig(){
+    const r = await fetch("/api/config"); const c = await r.json();
+    state.brand = c.brand; state.address=c.address; state.phone=c.phone; state.email=c.email; state.maxOnline=c.maxOnlineGuests||10;
+    $("brandTitle").textContent = `Reservation — ${state.brand}`;
+    $("meta").textContent = `${state.address} • ${state.phone}`;
+    $("heroImg").src = c.mailHeaderUrl || c.mailLogoUrl || "/logo-hero.png";
+  }
 
-  // Date init
-  const dateEl = document.getElementById('date');
-  dateEl.value = today();
+  // date helpers
+  function today(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+  $("date").value = today();
 
-  // Times dynamisch (via /api/slots)
-  const timeEl = document.getElementById('time');
+  // fill times
   async function loadTimes(){
-    const d = dateEl.value;
-    const g = Number(document.getElementById('guests').value || 2);
-    timeEl.innerHTML = '';
+    const d = $("date").value; const g = Number($("guests").value||2);
     const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
-    const list = await r.json();
-    list.filter(x=>x.canReserve).forEach(x => {
-      const opt = document.createElement('option');
-      opt.value = x.time; opt.textContent = x.time;
-      timeEl.appendChild(opt);
+    const data = await r.json();
+    const sel = $("time"); sel.innerHTML="";
+    let open=0;
+    data.forEach(s=>{
+      const o=document.createElement("option");
+      o.value=s.time; o.textContent=s.time + (s.left?` — ${s.left} left`:"");
+      if(!s.canReserve) o.disabled=true; else open++;
+      sel.appendChild(o);
     });
+    $("avail").textContent = `Available times: ${open}`;
+    await checkNoticeForDate();
   }
 
-  // Special notice holen
-  const noticeWrap = document.getElementById('noticeWrap');
-  const noticeText = document.getElementById('noticeText');
-  const noticeAccept = document.getElementById('noticeAccept');
-  async function loadNotice(){
-    noticeWrap.style.display = 'none';
-    noticeAccept.checked = false;
-    const d = dateEl.value;
+  $("date").addEventListener("change", loadTimes);
+  $("guests").addEventListener("change", ()=>{ const n=Number($("guests").value||2); if(n<1) $("guests").value=1; if(n>state.maxOnline) $("guests").value=state.maxOnline; loadTimes(); });
+
+  // 11+ button
+  $("btn11").addEventListener("click", ()=>{
+    const msg = `For groups of 11 or more, please contact us directly:\n\nPhone: ${state.phone}\nEmail: ${state.email}`;
+    alert(msg);
+  });
+
+  // notice logic (inline checkbox)
+  async function checkNoticeForDate(){
+    const d = $("date").value;
     const r = await fetch(`/api/notice?date=${encodeURIComponent(d)}`);
-    const n = await r.json();
-    if(n && n.message){
-      noticeText.textContent = n.message;
-      noticeWrap.style.display = '';
+    const note = await r.json();
+    state.notice = note;
+    if(note && note.message){
+      $("noticeAck").style.display = "block";
+      $("noticeLabel").textContent = note.message + " (please confirm)";
+    }else{
+      $("noticeAck").style.display = "none";
+      $("noticeCheck").checked = false;
     }
   }
 
-  // Initial
-  await loadTimes();
-  await loadNotice();
-
-  dateEl.addEventListener('change', async ()=>{
-    await loadTimes();
-    await loadNotice();
-  });
-  document.getElementById('guests').addEventListener('change', loadTimes);
-
-  // 11+ Button
-  document.getElementById('btnPlus10').addEventListener('click', ()=>{
-    window.location.href = 'tel:+66077270675';
-  });
-
-  // Toast helper
-  function showToast(msg){
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.remove('hide');
-    setTimeout(()=> t.classList.add('hide'), 3600);
+  // toast
+  function toast(msg){
+    const t=$("toast"); t.textContent=msg; t.style.display="block";
+    setTimeout(()=>t.style.display="none", 4200);
   }
 
-  // Submit
-  document.getElementById('frm').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-
-    // Falls Notice aktiv, Checkbox Pflicht
-    if(noticeWrap.style.display !== 'none' && !noticeAccept.checked){
-      showToast('Please accept the notice to proceed.');
-      return;
-    }
-
+  // reservation submit
+  $("reserve").addEventListener("click", async ()=>{
     const payload = {
-      date: dateEl.value,
-      time: timeEl.value,
-      firstName: document.getElementById('firstName').value.trim(),
-      name: document.getElementById('lastName').value.trim(),
-      email: document.getElementById('email').value.trim(),
-      phone: document.getElementById('phone').value.trim(),
-      guests: Number(document.getElementById('guests').value || 2),
-      notes: document.getElementById('notes').value.trim()
+      date:$("date").value, time:$("time").value,
+      firstName:$("firstName").value.trim(),
+      name:$("lastName").value.trim(),
+      email:$("email").value.trim(),
+      phone:$("phone").value.trim(),
+      guests:Number($("guests").value||2),
+      notes:$("notes").value.trim(),
+      noticeAccepted: $("noticeAck").style.display==="block" ? $("noticeCheck").checked : true
     };
-
-    const r = await fetch('/api/reservations', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
-    });
-    if(!r.ok){
-      const e = await r.json().catch(()=>({}));
-      showToast(e.error || 'Booking failed');
+    if($("noticeAck").style.display==="block" && !$("noticeCheck").checked){
+      alert("Please confirm the special notice first.");
       return;
     }
+    const r = await fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+    const json = await r.json();
+    if(!r.ok){ toast(json.error || "Error"); return; }
 
-    // Erfolgs-Toast EN (wie gewünscht)
-    showToast('Reservation received. You will get a confirmation email shortly. Please also check your spam folder.');
+    // Loyalty popup (fireworks handled server side – here keep the nice toast)
+    if (json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)){
+      toast(`Congratulations! You have unlocked a ${json.nowUnlockedTier}% loyalty thank-you.`);
+    }else{
+      toast("Reservation received. You will get a confirmation email shortly. Please also check your spam folder.");
+    }
 
-    // kleine Pause, dann zurück auf Start
-    setTimeout(()=>{ window.location.href = '/'; }, 2000);
+    // reset / reload times
+    loadTimes();
   });
+
+  // init
+  loadConfig().then(loadTimes);
 </script>
 </body>
 </html>
