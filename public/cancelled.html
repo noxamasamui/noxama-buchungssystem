@@ -2,30 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Reservation canceled</title>
+  <title>Reservation canceled — RÖSTILAND BY NOXAMA SAMUI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="/style.css"/>
+  <style>
+    body{
+      margin:0;
+      background:#d6c7b2;
+      font-family:Georgia, "Times New Roman", serif;
+      color:#3a2f28;
+    }
+    .hero{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      padding:40px 0 20px 0;
+      background:#d6c7b2;
+    }
+    .hero img{
+      width:280px;         /* vorher größer – jetzt dezente Größe */
+      max-width:80%;
+      height:auto;
+      border:0;
+      outline:none;
+    }
+    .card{
+      max-width:600px;
+      margin:20px auto 60px auto;
+      background:#fff8f0;
+      border:1px solid #e0d7c5;
+      border-radius:14px;
+      padding:20px;
+      box-shadow:0 2px 4px rgba(0,0,0,0.05);
+    }
+    h2{ margin-top:0; }
+    a{
+      color:#5a2bb5;
+      text-decoration:underline;
+      text-underline-offset:2px;
+    }
+  </style>
 </head>
 <body>
-<header class="hero">
-  <img id="heroLogo" src="/logo-hero.png" alt="RÖSTILAND by NOXAMA SAMUI"/>
-</header>
+  <div class="hero">
+    <img src="/logo-hero.png" alt="RÖSTILAND BY NOXAMA SAMUI"/>
+  </div>
 
-<main class="container">
   <div class="card">
     <h2>Reservation canceled</h2>
     <p>Your reservation has been canceled. We hope this goodbye is only for now.</p>
-    <div class="actions">
-      <a class="btn primary" href="/">Back to booking</a>
-    </div>
+    <p><a href="/">Back to booking</a></p>
   </div>
-</main>
-
-<script>
-fetch("/api/config").then(r=>r.json()).then(c=>{
-  if (c.mailHeaderUrl) document.getElementById("heroLogo").src = c.mailHeaderUrl;
-  else if (c.mailLogoUrl) document.getElementById("heroLogo").src = c.mailLogoUrl;
-}).catch(()=>{});
-</script>
 </body>
 </html>
