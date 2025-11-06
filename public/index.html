@@ -8,9 +8,9 @@
 </head>
 <body>
   <div class="container">
-    <!-- Hero Logo (full-bleed within card width) -->
+    <!-- Hero Logo -->
     <div class="hero">
-      <img src="/logo-hero.png" alt="RÖSTILAND BY NOXAMA SAMUI"/>
+      <img id="heroLogo" src="/logo-hero.png" alt="RÖSTILAND BY NOXAMA SAMUI"/>
     </div>
 
     <h1 class="page-title">Book a Table</h1>
@@ -96,7 +96,7 @@
   <div id="successModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-body">
       <h3>Thank you!</h3>
-      <p>Your reservation has been received. You will get a confirmation email shortly.  
+      <p>Your reservation has been received. You will get a confirmation email shortly.
         If you don’t see it, please check your spam folder.</p>
       <button id="closeSuccess" class="btn">OK</button>
     </div>
@@ -111,10 +111,9 @@ const todayISO = ()=>{
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 };
 function openModal(id, title, text){
-  qs("#" + id + " #infoTitle") && (qs("#" + id + " #infoTitle").textContent = title || "");
-  qs("#" + id + " #infoText") && (qs("#" + id + " #infoText").textContent = text || "");
+  if (qs("#" + id + " #infoTitle")) qs("#" + id + " #infoTitle").textContent = title || "";
+  if (qs("#" + id + " #infoText"))  qs("#" + id + " #infoText").textContent  = text || "";
   qs("#" + id).classList.remove("hidden");
-  // prevent background scroll
   document.body.classList.add("modal-open");
 }
 function closeModal(id){
@@ -122,12 +121,18 @@ function closeModal(id){
   document.body.classList.remove("modal-open");
 }
 
-/* ---------- load contact config ---------- */
+/* ---------- load contact config + set hero logo ---------- */
 let VENUE = { brand:"", address:"", phone:"", email:"", maxOnlineGuests:10, mailLogoUrl:"", mailHeaderUrl:"" };
 
 fetch("/api/config").then(r=>r.json()).then(c=>{
   VENUE = c || VENUE;
-  // address link (clickable)
+
+  // hero logo chooses banner if available, then logo-hero, then /logo.png
+  const hero = qs("#heroLogo");
+  hero.src = VENUE.mailHeaderUrl || "/logo-hero.png";
+  hero.onerror = ()=>{ hero.src = "/logo.png"; };
+
+  // address link
   qs("#venueAddress").textContent = VENUE.address || "";
   const mapQ = encodeURIComponent(VENUE.address || "");
   qs("#venueAddressLink").href = mapQ ? `https://www.google.com/maps/search/?api=1&query=${mapQ}` : "#";
@@ -141,7 +146,7 @@ fetch("/api/config").then(r=>r.json()).then(c=>{
   qs("#venueEmail").textContent = VENUE.email || "";
   qs("#venueEmail").href = VENUE.email ? `mailto:${VENUE.email}` : "#";
 
-  // large party link
+  // 11+ mailto
   const subject = encodeURIComponent("Group booking (11+ guests)");
   qs("#largeParty").href = VENUE.email ? `mailto:${VENUE.email}?subject=${subject}` : "#";
 });
@@ -149,7 +154,7 @@ fetch("/api/config").then(r=>r.json()).then(c=>{
 /* ---------- form init ---------- */
 qs("#date").value = todayISO();
 
-// guests: 1..10
+// guests 1..10
 const selGuests = qs("#guests");
 for(let i=1;i<=10;i++){
   const o=document.createElement("option");
@@ -158,7 +163,6 @@ for(let i=1;i<=10;i++){
 }
 
 let selectedTime = null;
-let lastSlots = [];
 
 /* ---------- slots loader ---------- */
 async function loadSlots() {
@@ -168,18 +172,15 @@ async function loadSlots() {
   const g = Number(qs("#guests").value || 1);
   const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
   const data = await r.json();
-  lastSlots = data;
 
   const box = qs("#slots");
   const banner = qs("#dayInfo");
   box.innerHTML = "";
 
-  // Only show times that canReserve === true
-  const allowed = data.filter(s => s.canReserve === true);
+  // Only render actually available slots
+  const available = data.filter(s => s.canReserve === true);
 
-  // all unavailable -> show nice popup, with reason
-  const allUnavailable = allowed.length === 0;
-  if (allUnavailable) {
+  if (available.length === 0) {
     const reasons = (data || []).map(s => s.reason || "").join(" | ").toLowerCase();
     if (reasons.includes("closed on sunday")) {
       openModal("infoModal", "Closed on Sunday",
@@ -191,38 +192,35 @@ async function loadSlots() {
       openModal("infoModal", "Fully booked",
         "This date is fully booked. Please choose another day. We would love to welcome you soon.");
     } else {
-      // generic
       openModal("infoModal", "Not available",
         "No time slots available for this date and party size. Please try another day.");
     }
     banner.classList.add("hidden");
     banner.textContent = "";
-  } else {
-    // hide day banner; render only available buttons
-    banner.classList.add("hidden");
-    banner.textContent = "";
-
-    allowed.forEach(s=>{
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "slot";
-      b.textContent = s.time;
-      b.onclick = ()=>{
-        qsa(".slot.active").forEach(x=>x.classList.remove("active"));
-        b.classList.add("active");
-        selectedTime = s.time;
-        qs("#book").disabled = false;
-      };
-      box.appendChild(b);
-    });
+    return;
   }
+
+  banner.classList.add("hidden");
+  banner.textContent = "";
+
+  available.forEach(s=>{
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "slot";
+    b.textContent = s.time;
+    b.onclick = ()=>{
+      qsa(".slot.active").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      selectedTime = s.time;
+      qs("#book").disabled = false;
+    };
+    box.appendChild(b);
+  });
 }
 
 qs("#reload").onclick = loadSlots;
 qs("#date").addEventListener("change", loadSlots);
 qs("#guests").addEventListener("change", loadSlots);
-
-// initial
 loadSlots();
 
 /* ---------- friendly error mapping ---------- */
@@ -245,7 +243,6 @@ qs("#book").onclick = async ()=>{
   const phone = qs("#phone").value.trim();
   const guests = Number(qs("#guests").value);
   const notes = qs("#notes").value.trim();
-  const m = qs("#msg");
 
   if(!selectedTime){
     openModal("infoModal", "Select a time", "Please choose a time slot to proceed.");
@@ -256,7 +253,6 @@ qs("#book").onclick = async ()=>{
     return;
   }
 
-  m.textContent = "";
   const payload = { date:d, time:selectedTime, firstName, name, email, phone, guests, notes };
   const r = await fetch("/api/reservations", {
     method:"POST",
