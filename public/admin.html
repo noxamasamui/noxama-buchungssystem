@@ -6,24 +6,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
   <style>
-    .hero-wrap{max-width:900px;margin:20px auto 10px auto;display:flex;justify-content:center}
+    .hero-wrap{max-width:900px;margin:20px auto 10px;display:flex;justify-content:center}
     .hero{display:block;max-width:560px;width:100%;height:auto;background:#e9dfcf;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18)}
-    .toolbar{display:flex;gap:10px;align-items:center}
+    .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     table.admin{width:100%;border-collapse:collapse}
-    table.admin th, table.admin td{padding:8px 10px;border-bottom:1px solid #eadfcd;vertical-align:top}
-    table.admin th{font-weight:700;text-align:left}
-    .pill{display:inline-block;background:#b3822f;color:#fff;border-radius:16px;padding:4px 10px;font-size:12px}
+    table.admin th,table.admin td{padding:8px 10px;border-bottom:1px solid #eadfcd;vertical-align:top}
+    table.admin th{text-align:left}
+    .pill{display:inline-block;background:#888;color:#fff;border-radius:14px;padding:2px 8px;font-size:12px;margin-left:6px}
     .btn-small{padding:6px 10px;border-radius:8px}
     .muted2{opacity:.7}
     .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media (max-width:760px){ .grid-2{grid-template-columns:1fr} }
+    @media (max-width:760px){.grid-2{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
 <div class="container">
 
   <div class="hero-wrap">
-    <img id="hero" class="hero" src="/logo-hero.png" alt="Logo"/>
+    <img id="hero" class="hero" src="/logo-hero.png" alt="Logo"
+         onerror="this.style.display='none'"/>
   </div>
 
   <h1 id="brandH">Admin</h1>
@@ -44,7 +45,9 @@
         </select>
       </div>
       <button id="btnLoad" class="btn" type="button">Load</button>
+
       <div class="spacer"></div>
+
       <div>
         <label>Export</label>
         <select id="expSel">
@@ -58,12 +61,12 @@
     </div>
 
     <div style="overflow:auto;margin-top:12px">
-      <table class="admin" id="tbl">
+      <table class="admin">
         <thead>
-          <tr>
-            <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
-            <th>Guests</th><th>Status</th><th class="muted2">Visit</th><th class="muted2">Discount</th><th>Action</th>
-          </tr>
+        <tr>
+          <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
+          <th>Guests</th><th>Status</th><th class="muted2">Visit</th><th class="muted2">Discount</th><th>Action</th>
+        </tr>
         </thead>
         <tbody id="tbody"></tbody>
       </table>
@@ -79,7 +82,7 @@
       </div>
       <div>
         <label>Message (shown to guests; must accept)</label>
-        <input id="nMsg" placeholder="e.g. Christmas menu — fixed price THB ..."/>
+        <input id="nMsg" placeholder="e.g. Christmas menu — fixed price THB …"/>
       </div>
     </div>
     <div class="row" style="margin-top:10px">
@@ -91,107 +94,114 @@
 </div>
 
 <script>
-  const pad2 = n => String(n).padStart(2,"0");
-  const todayYmd = () => { const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
-  const toYmd = (val) => {
+  // -------- helpers
+  function pad2(n){return String(n).padStart(2,"0")}
+  function todayYmd(){const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`}
+  function toYmd(val){
     const s=String(val||"").trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(s)) {
-      const [dd,mm,yy]=s.split(".").map(Number); return `${yy}-${pad2(mm)}-${pad2(dd)}`;
-    }
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+    if(/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(s)){const [dd,mm,yy]=s.split(".").map(Number);return `${yy}-${pad2(mm)}-${pad2(dd)}`}
     return todayYmd();
-  };
+  }
 
+  const elHero=document.getElementById("hero");
+  const elBrand=document.getElementById("brandH");
   const elFD=document.getElementById("fDate");
   const elFV=document.getElementById("fView");
   const elTB=document.getElementById("tbody");
-  const elHero=document.getElementById("hero");
-  const elBrand=document.getElementById("brandH");
   const elNS=document.getElementById("nStatus");
 
-  elFD.value = todayYmd();
+  elFD.value=todayYmd();
+  document.getElementById("nDate").value=todayYmd();
 
-  async function loadConfig(){
+  // -------- config: logo, brand
+  (async function loadConfig(){
     try{
-      const r=await fetch("/api/config"); const cfg=await r.json();
-      elHero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || "/logo-hero.png";
-      elBrand.textContent = `Admin — ${cfg.brand}`;
-    }catch{}
-  }
-  loadConfig();
+      const r=await fetch("/api/config");
+      const cfg=await r.json();
+      elBrand.textContent=`Admin — ${cfg.brand||"RÖSTILAND BY NOXAMA SAMUI"}`;
+      const src = cfg.mailHeaderUrl || cfg.mailLogoUrl || "/logo-hero.png";
+      elHero.src = src;
+    }catch(e){}
+  })();
 
+  // -------- reservations list
   async function loadReservations(){
-    elTB.innerHTML = "";
+    elTB.innerHTML="";
     const d = elFD.value || todayYmd();
     const v = elFV.value || "day";
-    const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${encodeURIComponent(v)}`);
-    const list = await r.json();
-
-    for(const it of list){
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${it.date}</td>
-        <td>${it.time}</td>
-        <td>${it.firstName} ${it.name} ${it.isWalkIn ? '<span class="pill" style="margin-left:6px;background:#888">walk-in</span>' : ''}</td>
-        <td>${it.email||""}</td>
-        <td>${it.phone||""}</td>
-        <td>${it.guests}</td>
-        <td>${it.status}</td>
-        <td class="muted2">${it.visitCount ?? ""}</td>
-        <td class="muted2">${it.discount ? it.discount + '%' : ''}</td>
-        <td>
-          <button class="btn-small" data-del="${it.id}">Delete</button>
-          <button class="btn-small" data-ns="${it.id}">No show</button>
-        </td>
-      `;
-      elTB.appendChild(tr);
+    try{
+      const r=await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${encodeURIComponent(v)}`);
+      const list=await r.json();
+      for(const it of list){
+        const tr=document.createElement("tr");
+        tr.innerHTML = `
+          <td>${it.date}</td>
+          <td>${it.time}</td>
+          <td>${it.firstName} ${it.name}${it.isWalkIn?'<span class="pill">walk-in</span>':''}</td>
+          <td>${it.email||""}</td>
+          <td>${it.phone||""}</td>
+          <td>${it.guests}</td>
+          <td>${it.status}</td>
+          <td class="muted2">${it.visitCount!=null?it.visitCount:""}</td>
+          <td class="muted2">${it.discount?it.discount+'%':""}</td>
+          <td>
+            <button class="btn-small" data-del="${it.id}">Delete</button>
+            <button class="btn-small" data-ns="${it.id}">No show</button>
+          </td>`;
+        elTB.appendChild(tr);
+      }
+    }catch(e){
+      console.error(e);
     }
   }
   document.getElementById("btnLoad").addEventListener("click", loadReservations);
+  // initial load
   loadReservations();
 
-  document.getElementById("tbl").addEventListener("click", async (e)=>{
-    const t = e.target as HTMLElement;
-    if (!t) return;
-    const del = t.getAttribute("data-del");
-    const ns  = t.getAttribute("data-ns");
-    if (del){
-      if (!confirm("Delete this reservation?")) return;
-      const r = await fetch(`/api/admin/reservations/${encodeURIComponent(del)}`, { method:"DELETE" });
-      if (r.ok) loadReservations();
-    } else if (ns){
-      const r = await fetch(`/api/admin/reservations/${encodeURIComponent(ns)}/noshow`, { method:"POST" });
-      if (r.ok) loadReservations();
+  // row actions
+  document.querySelector("table.admin").addEventListener("click", async (ev)=>{
+    const t=ev.target;
+    if(!t || !t.getAttribute) return;
+    const del=t.getAttribute("data-del");
+    const ns=t.getAttribute("data-ns");
+    if(del){
+      if(!confirm("Delete this reservation?"))return;
+      const r=await fetch(`/api/admin/reservations/${encodeURIComponent(del)}`,{method:"DELETE"});
+      if(r.ok) loadReservations();
+    }else if(ns){
+      const r=await fetch(`/api/admin/reservations/${encodeURIComponent(ns)}/noshow`,{method:"POST"});
+      if(r.ok) loadReservations();
     }
   });
 
-  document.getElementById("btnExport").addEventListener("click", ()=>{
-    const period = (document.getElementById("expSel") as HTMLSelectElement).value || "weekly";
-    const d = elFD.value || todayYmd();
-    window.location.href = `/api/export?period=${encodeURIComponent(period)}&date=${encodeURIComponent(d)}`;
+  // export
+  document.getElementById("btnExport").addEventListener("click",()=>{
+    const period=document.getElementById("expSel").value||"weekly";
+    const d=elFD.value||todayYmd();
+    window.location.href=`/api/export?period=${encodeURIComponent(period)}&date=${encodeURIComponent(d)}`;
   });
 
-  // ───────── Special notice save
+  // notice
   document.getElementById("btnSaveNotice").addEventListener("click", async ()=>{
-    const dateUi = (document.getElementById("nDate") as HTMLInputElement).value || todayYmd();
-    const ymd = toYmd(dateUi);
-    const msg = (document.getElementById("nMsg") as HTMLInputElement).value.trim();
-    elNS.textContent = "Saving…";
+    const ymd = toYmd(document.getElementById("nDate").value||todayYmd());
+    const msg = (document.getElementById("nMsg").value||"").trim();
+    elNS.textContent="Saving…";
     try{
-      const r = await fetch("/api/admin/notice", {
+      const r=await fetch("/api/admin/notice",{
         method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ date: ymd, message: msg })
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({date:ymd,message:msg})
       });
-      if (!r.ok){
-        const j = await r.json().catch(()=>({}));
-        elNS.textContent = j?.error || "Failed to save notice";
+      if(!r.ok){
+        const j=await r.json().catch(()=>({}));
+        elNS.textContent=j&&j.error?j.error:"Failed to save notice";
         return;
       }
-      elNS.textContent = "Saved";
-      setTimeout(()=>elNS.textContent="", 1500);
-    }catch{
-      elNS.textContent = "Failed to save notice";
+      elNS.textContent="Saved";
+      setTimeout(()=>elNS.textContent="",1500);
+    }catch(e){
+      elNS.textContent="Failed to save notice";
     }
   });
 </script>
