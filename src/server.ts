@@ -35,13 +35,8 @@ const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
-
-/* NEW: durations from ENV to prevent overbooking across overlap */
-const LUNCH_MINUTES = num(process.env.LUNCH_MINUTES, 90);
-const DINNER_MINUTES = num(process.env.DINNER_MINUTES, 150);
-const DINNER_START_HOUR = num(process.env.DINNER_START_HOUR, 17);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
@@ -99,12 +94,6 @@ function capacityOnlineLeft(reserved:number, walkins:number){
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
 }
 
-/* Duration used to compute overlap window per booking */
-function logicalSlotMinutes(hhmm: string): number {
-  const hh = Number(hhmm.split(":")[0]);
-  return hh >= DINNER_START_HOUR ? DINNER_MINUTES : LUNCH_MINUTES;
-}
-
 /* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
@@ -121,6 +110,11 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
+function slotDuration(date:string, time:string){
+  const t = localDateFrom(date,time);
+  const next = addMinutes(t, SLOT_INTERVAL);
+  return differenceInMinutes(next, t);
+}
 
 /* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
 async function slotAllowed(date: string, time: string){
@@ -130,9 +124,7 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
-
-  // use lunch/dinner minutes for overlap window
-  const minutes = logicalSlotMinutes(time);
+  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
   const end = addMinutes(start, minutes);
 
   const {y,m,d}=splitYmd(norm);
@@ -145,6 +137,28 @@ async function slotAllowed(date: string, time: string){
   if(blocked) return { ok:false, reason:"Blocked" };
 
   return { ok:true, norm, start, end, open, close, minutes };
+}
+
+/* ─────────────────────── Loyalty helpers (NEU) ─────────────────────────── */
+function loyaltyDiscountFor(visit: number): number {
+  if (visit >= 15) return 15;
+  if (visit >= 10) return 10;
+  if (visit >= 5) return 5;
+  return 0;
+}
+/** Ankuendigung: 4→5, 9→10, 14→15 */
+function loyaltyTeaseNext(visit: number): 0 | 5 | 10 | 15 {
+  if (visit === 4) return 5;
+  if (visit === 9) return 10;
+  if (visit === 14) return 15;
+  return 0;
+}
+/** Freigeschaltet genau bei 5/10/15 (fuer Popup) */
+function loyaltyUnlockedNow(visit: number): 0 | 5 | 10 | 15 {
+  if (visit === 5) return 5;
+  if (visit === 10) return 10;
+  if (visit === 15) return 15;
+  return 0;
 }
 
 /* ───────────────────────────── Mail-Templates ──────────────────────────── */
@@ -166,23 +180,64 @@ function emailHeader(logoUrl:string){
     </div>`;
 }
 
-function confirmationHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;cancelUrl:string;}){
+/** Confirmation mail mit Loyalty: Teaser bei 4/9/14; Feierblock ab 5/10/15 (jetzt aktiv) */
+function confirmationHtml(p:{
+  firstName:string; name:string; date:string; time:string; guests:number;
+  cancelUrl:string; visitNo:number; currentDiscount:number;
+}){
   const header = emailHeader(MAIL_LOGO_URL);
+
+  // Feierlicher Block bei 5 / 10 / 15 (JETZT aktiv)
+  let reward = "";
+  if (p.currentDiscount === 15) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 Thank you so much! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">15% loyalty thank-you</b>.</div>
+      </div>`;
+  } else if (p.currentDiscount === 10) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 Great news! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">10% loyalty thank-you</b>.</div>
+      </div>`;
+  } else if (p.currentDiscount === 5) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 You made our day! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">5% loyalty thank-you</b>.</div>
+      </div>`;
+  }
+
+  // Teaser exakt bei Besuch 4/9/14
+  const tease = loyaltyTeaseNext(p.visitNo);
+  const teaser = tease ? `
+    <div style="margin:16px 0;padding:12px 14px;background:#eef7ff;border:1px solid #cfe3ff;border-radius:10px;text-align:center;">
+      <div style="font-size:18px;margin-bottom:6px;">Heads-up ✨</div>
+      <div style="font-size:15px;">On your next visit you will receive a <b>${tease}% loyalty thank-you</b>.</div>
+    </div>` : "";
+
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
     ${header}
     <h2 style="text-align:center;margin:6px 0 14px 0;">Your Reservation at ${BRAND_NAME}</h2>
     <p>Hi ${p.firstName} ${p.name},</p>
     <p>Thank you for your reservation. We look forward to welcoming you.</p>
+
     <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
       <p style="margin:0;"><b>Date</b> ${p.date}</p>
       <p style="margin:0;"><b>Time</b> ${p.time}</p>
       <p style="margin:0;"><b>Guests</b> ${p.guests}</p>
       <p style="margin:0;"><b>Address</b> ${VENUE_ADDRESS}</p>
     </div>
+
+    ${reward}
+    ${teaser}
+
     <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
       <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
     </div>
+
     <p style="margin-top:18px;text-align:center;">
       <a href="${p.cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a>
     </p>
@@ -248,6 +303,7 @@ app.get("/api/slots", async (req,res)=>{
   const times = slotListForDay();
   const out:any[] = [];
 
+  let anyOpen = false;
   for(const t of times){
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
@@ -257,18 +313,21 @@ app.get("/api/slots", async (req,res)=>{
     const sums = await sumsForInterval(date, allow.start!, allow.end!);
     const leftOnline = capacityOnlineLeft(sums.reserved, sums.walkins);
     const canReserve = leftOnline >= guests && sums.total + guests <= MAX_SEATS_TOTAL;
+    if (canReserve) anyOpen = true;
     out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
   }
 
-  // falls komplett keine Slots wählbar: freundliche Reason für Frontend
-  if (out.every(s=>!s.allowed)) {
-    // Sonntag
-    const {y,m,d} = splitYmd(date);
-    const isSun = localDate(y,m,d).getDay() === 0 && SUNDAY_CLOSED;
-    if (isSun) {
+  // Falls gar kein Slot buchbar: Grund sauber formulieren
+  if (!anyOpen && out.length > 0) {
+    const sunday = SUNDAY_CLOSED && isSunday(date);
+    if (sunday) {
       out.forEach(s => s.reason = "Closed on Sunday");
     } else {
-      out.forEach(s => s.reason = "Fully booked for this date. Please choose another day.");
+      out.forEach(s => {
+        if (s.reason === "Blocked" || s.reason == null) {
+          s.reason = "Fully booked for this date. Please choose another day.";
+        }
+      });
     }
   }
 
@@ -304,14 +363,29 @@ app.post("/api/reservations", async (req,res)=>{
       },
     });
 
-    // Guest mail
+    // Loyalty: Besuchsnummer (confirmed + noshow, inkl. dieser Buchung)
+    const visitNo = await prisma.reservation.count({
+      where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
+    });
+    const currentDiscount = loyaltyDiscountFor(visitNo);
+    const unlocked = loyaltyUnlockedNow(visitNo);
+    const teaseNext = loyaltyTeaseNext(visitNo);
+
+    // Guest mail (mit Loyalty-Block ab 5/10/15; Teaser bei 4/9/14)
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
-      firstName: created.firstName, name: created.name, date: created.date, time: created.time, guests: created.guests, cancelUrl
+      firstName: created.firstName,
+      name: created.name,
+      date: created.date,
+      time: created.time,
+      guests: created.guests,
+      cancelUrl,
+      visitNo,
+      currentDiscount,
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // Admin notice
+    // Admin Info (knapp)
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -320,7 +394,15 @@ app.post("/api/reservations", async (req,res)=>{
       try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
     }
 
-    res.json({ ok:true, reservation: created });
+    // Response fuer Frontend (Popup bei Freischaltung 5/10/15)
+    res.json({
+      ok: true,
+      reservation: created,
+      visitNo,
+      discount: currentDiscount,
+      nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15
+      nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
+    });
   }catch(err){
     console.error("reservation error:", err);
     res.status(500).json({ error: "Failed to create reservation" });
@@ -383,12 +465,10 @@ app.get("/api/admin/reservations", async (req,res)=>{
   }
   res.json(list);
 });
-
 app.delete("/api/admin/reservations/:id", async (req,res)=>{
   await prisma.reservation.delete({ where: { id: req.params.id } });
   res.json({ ok:true });
 });
-
 app.post("/api/admin/reservations/:id/noshow", async (req,res)=>{
   const r = await prisma.reservation.update({ where: { id: req.params.id }, data: { status:"noshow" }});
   res.json(r);
@@ -413,7 +493,7 @@ app.post("/api/admin/walkin", async (req,res)=>{
       open = localDate(y,m,d, OPEN_HOUR,0,0);
       close = localDate(y,m,d, CLOSE_HOUR,0,0);
       if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
-      const minutes = Math.max(15, Math.min(logicalSlotMinutes(String(time)), differenceInMinutes(close, start)));
+      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
       startTs = start; endTs = addMinutes(start, minutes); if (endTs > close) endTs = close;
     }
 
@@ -450,7 +530,6 @@ app.post("/api/admin/closure", async (req,res)=>{
     res.status(500).json({ error: "Failed to create block" });
   }
 });
-
 app.post("/api/admin/closure/day", async (req,res)=>{
   try{
     const date = normalizeYmd(String(req.body.date || ""));
@@ -466,7 +545,6 @@ app.post("/api/admin/closure/day", async (req,res)=>{
     res.status(500).json({ error: "Failed to block day" });
   }
 });
-
 app.get("/api/admin/closure", async (_req,res)=>{
   try{
     const list = await prisma.closure.findMany({ orderBy: { startTs:"desc" } });
@@ -476,10 +554,22 @@ app.get("/api/admin/closure", async (_req,res)=>{
     res.status(500).json({ error: "Failed to load blocks" });
   }
 });
-
 app.delete("/api/admin/closure/:id", async (req,res)=>{
-  try{ await prisma.reservation.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
+  try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
   catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
+});
+
+/* ───────────────────────────── Admin: Reset ────────────────────────────── */
+app.post("/api/admin/reset", async (req,res)=>{
+  try{
+    const { key } = req.body || {};
+    if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
+    await prisma.reservation.deleteMany({});
+    res.json({ ok:true });
+  }catch(err){
+    console.error("reset error:", err);
+    res.status(500).json({ error: "Failed to reset" });
+  }
 });
 
 /* ───────────────────────────────── Export ──────────────────────────────── */
@@ -541,6 +631,10 @@ setInterval(async ()=>{
       const html = confirmationHtml({
         firstName:r.firstName, name:r.name, date:r.date, time:r.time, guests:r.guests,
         cancelUrl: `${BASE_URL}/cancel/${r.cancelToken}`,
+        visitNo: await prisma.reservation.count({
+          where: { email: r.email, status: { in: ["confirmed", "noshow"] } },
+        }),
+        currentDiscount: 0 // Reminder bleibt schlicht; wenn du willst, kann ich hier ebenfalls den aktiven Rabatt einblenden
       });
       try{
         await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html);
@@ -557,4 +651,3 @@ async function start(){
   app.listen(PORT, "0.0.0.0", ()=>console.log(`Server running on ${PORT}`));
 }
 start().catch(err=>{ console.error("Fatal start error", err); process.exit(1); });
-
