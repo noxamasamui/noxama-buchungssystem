@@ -6,27 +6,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
   <style>
-    /* Banner */
+    /* Banner: zeigt das ganze Bild, ohne Beschnitt */
     .hero-wrap{max-width:1200px;margin:0 auto 14px auto}
     .hero{
-      width:100%; height:210px; object-fit:cover; display:block;
-      border-radius:12px; box-shadow:0 8px 28px rgba(0,0,0,.18);
-      background:#e9dfcf;
+      width:100%;
+      height:240px;             /* kannst du auf 220/260 anpassen */
+      object-fit:contain;       /* wichtig: kein Zuschneiden mehr */
+      object-position:center;
+      display:block;
+      background:#e9dfcf;       /* sanfte Leinwand als Letterbox */
+      border-radius:12px;
+      box-shadow:0 8px 28px rgba(0,0,0,.18);
     }
-    @media (min-width:900px){ .hero{height:240px} }
+    @media (min-width:900px){ .hero{height:260px} }
 
-    /* Guests field + 11+ Button */
+    /* Guests + 11+ Button */
     .guest-line{display:flex;align-items:center;gap:10px}
     .guest-line input{max-width:100px}
     .guest-extra{
-      font-size:13px;
-      background:#b3822f;
-      color:#fff;
-      border:0;
-      border-radius:6px;
-      padding:4px 10px;
-      cursor:pointer;
-      transition:background .2s;
+      font-size:13px;background:#b3822f;color:#fff;border:0;border-radius:6px;
+      padding:4px 10px;cursor:pointer;transition:background .2s;
     }
     .guest-extra:hover{background:#8a6626}
     .inline-help{font-size:12px;opacity:.7;margin-top:2px}
@@ -47,9 +46,11 @@
 
   <div class="card">
     <h2>Book a table</h2>
+
+    <!-- Reihenfolge: Date -> Guests -> Time -->
     <div class="row">
       <div><label>Date</label><input id="rDate" type="date"/></div>
-      <div><label>Time</label><select id="rTime"></select></div>
+
       <div>
         <label>Guests</label>
         <div class="guest-line">
@@ -58,6 +59,8 @@
         </div>
         <div class="inline-help">For larger groups please contact us directly.</div>
       </div>
+
+      <div><label>Time</label><select id="rTime"></select></div>
     </div>
 
     <div class="row">
@@ -173,7 +176,7 @@
     }
   });
 
-  // 11+ guests Anfrage
+  // 11+ guests Anfrage per Mail
   document.getElementById("btnGroup").addEventListener("click", ()=>{
     const d = elDate.value || today();
     const t = elTime.value || "";
@@ -193,11 +196,12 @@
     setTimeout(()=>{ t.style.transition="opacity .4s"; t.style.opacity="0"; setTimeout(()=>t.remove(),400); }, 2600);
   }
 
+  // Loyalty modal — ENGLISH text
   function showLoyaltyModal(tier){
     const txt = document.getElementById('loyalty-text');
-    if (tier === 15) txt.textContent = 'Herzlichen Glueckwunsch! Ab sofort erhaeltst du 15 Prozent Loyalty Danke.';
-    else if (tier === 10) txt.textContent = 'Herzlichen Glueckwunsch! Ab sofort erhaeltst du 10 Prozent Loyalty Danke.';
-    else txt.textContent = 'Herzlichen Glueckwunsch! Ab sofort erhaeltst du 5 Prozent Loyalty Danke.';
+    if (tier === 15) txt.textContent = 'Congratulations! From now on you receive a 15 percent loyalty thank-you.';
+    else if (tier === 10) txt.textContent = 'Congratulations! From now on you receive a 10 percent loyalty thank-you.';
+    else txt.textContent = 'Congratulations! From now on you receive a 5 percent loyalty thank-you.';
     document.getElementById('loyalty-modal').style.display = 'flex';
     startFireworks();
   }
@@ -217,6 +221,7 @@
     boom(); fwTimer=setInterval(tick,16);
   }
   function stopFireworks(){ if(fwTimer){ clearInterval(fwTimer); fwTimer=null; } }
+
   function handleBookingSuccess(json){
     if (json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)){
       showLoyaltyModal(json.nowUnlockedTier);
