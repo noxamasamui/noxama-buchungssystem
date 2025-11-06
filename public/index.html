@@ -5,39 +5,52 @@
   <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
+
   <style>
-    /* Banner */
-    .hero-wrap{max-width:1200px;margin:0 auto 14px auto}
-    .hero{
-      width:100%;
-      height:240px;
-      object-fit:contain;        /* Start: nichts abschneiden */
-      object-position:center;
-      display:block;
-      background:#e9dfcf;
-      border-radius:12px;
-      box-shadow:0 8px 28px rgba(0,0,0,.18);
+    /* --- Banner --- */
+    .hero-wrap {
+      max-width: 1200px;
+      margin: 0 auto 14px auto;
     }
-    @media (min-width:900px){ .hero{height:260px} }
-
-    /* Guests + 11+ Button */
-    .guest-line{display:flex;align-items:center;gap:10px}
-    .guest-line input{max-width:100px}
-    .guest-extra{
-      font-size:13px;background:#b3822f;color:#fff;border:0;border-radius:6px;
-      padding:4px 10px;cursor:pointer;transition:background .2s;
+    .hero {
+      width: 100%;
+      display: block;
+      object-fit: contain;
+      object-position: center;
+      background: #e9dfcf;
+      border-radius: 12px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.18);
     }
-    .guest-extra:hover{background:#8a6626}
-    .inline-help{font-size:12px;opacity:.7;margin-top:2px}
 
-    /* Success Popup (zentriert) */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:none;align-items:center;justify-content:center}
-    .modal-card{background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:620px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center}
-    .modal-title{font-weight:700;margin:0 0 6px 0}
-    .modal-text{margin:6px 0 14px 0}
-    .modal-btn{background:#b3822f;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer}
+    /* --- Guests + 11+ Button --- */
+    .guest-line { display:flex; align-items:center; gap:10px; }
+    .guest-line input { max-width:100px; }
+    .guest-extra {
+      font-size:13px; background:#b3822f; color:#fff; border:0; border-radius:6px;
+      padding:4px 10px; cursor:pointer; transition:background .2s;
+    }
+    .guest-extra:hover { background:#8a6626; }
+    .inline-help { font-size:12px; opacity:.7; margin-top:2px; }
+
+    /* --- Success Popup --- */
+    .modal-backdrop {
+      position:fixed; inset:0; background:rgba(0,0,0,.55);
+      z-index:9999; display:none; align-items:center; justify-content:center;
+    }
+    .modal-card {
+      background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px;
+      max-width:620px; width:92%; padding:22px;
+      box-shadow:0 10px 35px rgba(0,0,0,.25); text-align:center;
+    }
+    .modal-title { font-weight:700; margin:0 0 6px 0; }
+    .modal-text { margin:6px 0 14px 0; }
+    .modal-btn {
+      background:#b3822f; color:#fff; border:0; border-radius:8px;
+      padding:10px 16px; font-weight:700; cursor:pointer;
+    }
   </style>
 </head>
+
 <body>
 <div class="container">
 
@@ -74,6 +87,7 @@
       <div><label>First name</label><input id="rFirstName" autocomplete="given-name"/></div>
       <div><label>Last name</label><input id="rLastName" autocomplete="family-name"/></div>
     </div>
+
     <div class="row">
       <div><label>Email</label><input id="rEmail" type="email" autocomplete="email"/></div>
       <div><label>Phone</label><input id="rPhone" type="tel" autocomplete="tel"/></div>
@@ -111,7 +125,7 @@
 </div>
 
 <script>
-  const pad2=n=>String(n).padStart(2,"0");
+  const pad2 = n => String(n).padStart(2,"0");
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
 
   const elDate = document.getElementById("rDate"); elDate.value = today();
@@ -120,7 +134,6 @@
   const elMsg = document.getElementById("msg");
   const elStatus = document.getElementById("statusText");
   const heroImg = document.getElementById("heroImg");
-
   let CFG = {};
 
   async function loadConfig(){
@@ -135,22 +148,23 @@
   }
   loadConfig();
 
-  // Banner Auto-Fit: wenn das Bild nicht sehr breit ist, fuelle die Flaeche (cover),
-  // sonst bleibe bei contain (nichts abschneiden)
-  heroImg.addEventListener("load", ()=>{
-    try{
-      const ratio = heroImg.naturalWidth / heroImg.naturalHeight;     // Bild-Seitenverhaeltnis
-      // Banner ist sehr breit (ca. 5:1). Wenn Bild deutlich schmaler als 3.5:1, dann cover.
-      if (ratio < 3.5){
-        heroImg.style.objectFit = "cover";
-        heroImg.style.objectPosition = "center 45%";
-      } else {
-        heroImg.style.objectFit = "contain";
-        heroImg.style.objectPosition = "center";
-      }
-    }catch{}
-  });
+  /* --- Dynamische Bannerhöhe: zeigt Logo vollständig --- */
+  function adjustHero() {
+    if (!heroImg.naturalWidth || !heroImg.naturalHeight) return;
+    const ratio = heroImg.naturalWidth / heroImg.naturalHeight;
+    const wrapWidth = document.querySelector(".hero-wrap").clientWidth;
+    let h = wrapWidth / ratio;
+    const minH = 220, maxH = 360;
+    h = Math.max(minH, Math.min(maxH, h));
+    heroImg.style.height = `${h}px`;
+    heroImg.style.objectFit = "contain";
+    heroImg.style.objectPosition = "center";
+  }
+  heroImg.addEventListener("load", adjustHero);
+  window.addEventListener("resize", adjustHero);
+  if (heroImg.complete) adjustHero();
 
+  /* --- Slots laden --- */
   async function loadSlots(){
     elTime.innerHTML = "";
     elMsg.textContent = "";
@@ -168,19 +182,14 @@
           elTime.appendChild(opt); openCount++;
         }
       }
-      if(openCount===0){
-        elStatus.textContent = slots?.[0]?.reason || "No availability";
-      }else{
-        elStatus.textContent = `Available times: ${openCount}`;
-      }
-    }catch(err){
-      elStatus.textContent = "Failed to load slots";
-    }
+      elStatus.textContent = openCount ? `Available times: ${openCount}` : "No availability";
+    }catch{ elStatus.textContent = "Failed to load slots"; }
   }
   elDate.addEventListener("change", loadSlots);
   elGuests.addEventListener("change", loadSlots);
   loadSlots();
 
+  /* --- Reservieren --- */
   document.getElementById("btnReserve").addEventListener("click", async ()=>{
     elMsg.textContent = "Sending…";
     const payload = {
@@ -202,15 +211,13 @@
       const json = await r.json();
       if(!r.ok){ elMsg.textContent = json.error || "Error"; return; }
       elMsg.textContent = "";
-      showSuccess();          // zentriertes Popup
+      showSuccess();
       handleBookingSuccess(json);
       loadSlots();
-    }catch(e){
-      elMsg.textContent = "Network error";
-    }
+    }catch{ elMsg.textContent = "Network error"; }
   });
 
-  // 11+ guests Anfrage per Mail
+  /* --- 11+ Gäste --- */
   document.getElementById("btnGroup").addEventListener("click", ()=>{
     const d = elDate.value || today();
     const t = elTime.value || "";
@@ -222,17 +229,11 @@
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
   });
 
-  /* ---------- Success Popup ---------- */
-  function showSuccess(){
-    const m = document.getElementById("success-modal");
-    m.style.display = "flex";
-  }
-  function hideSuccess(){
-    const m = document.getElementById("success-modal");
-    m.style.display = "none";
-  }
+  /* --- Popups --- */
+  function showSuccess(){ document.getElementById("success-modal").style.display = "flex"; }
+  function hideSuccess(){ document.getElementById("success-modal").style.display = "none"; }
 
-  /* ---------- Loyalty modal (EN) ---------- */
+  /* --- Loyalty Popup (englisch) --- */
   function showLoyaltyModal(tier){
     const txt = document.getElementById('loyalty-text');
     if (tier === 15) txt.textContent = 'Congratulations! From now on you receive a 15 percent loyalty thank-you.';
@@ -257,7 +258,6 @@
     boom(); fwTimer=setInterval(tick,16);
   }
   function stopFireworks(){ if(fwTimer){ clearInterval(fwTimer); fwTimer=null; } }
-
   function handleBookingSuccess(json){
     if (json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)){
       showLoyaltyModal(json.nowUnlockedTier);
