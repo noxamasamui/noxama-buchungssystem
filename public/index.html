@@ -8,18 +8,16 @@
 
   <style>
     /* --- Banner --- */
-    .hero-wrap {
-      max-width: 1200px;
-      margin: 0 auto 14px auto;
+    .hero-wrap{
+      max-width:1200px;
+      margin:0 auto 14px auto;
     }
-    .hero {
-      width: 100%;
-      display: block;
-      object-fit: contain;
-      object-position: center;
-      background: #e9dfcf;
-      border-radius: 12px;
-      box-shadow: 0 8px 28px rgba(0,0,0,.18);
+    .hero{
+      width:100%;
+      display:block;
+      background:#e9dfcf;
+      border-radius:12px;
+      box-shadow:0 8px 28px rgba(0,0,0,.18);
     }
 
     /* --- Guests + 11+ Button --- */
@@ -148,18 +146,28 @@
   }
   loadConfig();
 
-  /* --- Dynamische Bannerhöhe: zeigt Logo vollständig --- */
-  function adjustHero() {
-    if (!heroImg.naturalWidth || !heroImg.naturalHeight) return;
-    const ratio = heroImg.naturalWidth / heroImg.naturalHeight;
-    const wrapWidth = document.querySelector(".hero-wrap").clientWidth;
-    let h = wrapWidth / ratio;
-    const minH = 220, maxH = 360;
-    h = Math.max(minH, Math.min(maxH, h));
-    heroImg.style.height = `${h}px`;
-    heroImg.style.objectFit = "contain";
-    heroImg.style.objectPosition = "center";
+  /* --- Banner dynamisch --- */
+  const HERO_MODE = "cover"; // "cover" = Banner-Look, "contain" = vollständiges Logo
+
+  function adjustHero(){
+    if(!heroImg.naturalWidth || !heroImg.naturalHeight) return;
+    const wrap = document.querySelector(".hero-wrap");
+    const w = wrap ? wrap.clientWidth : heroImg.clientWidth || 800;
+    let h;
+
+    if (HERO_MODE === "cover") {
+      h = Math.max(260, Math.min(380, Math.round(w / 3.6))); // Banner ca. 3.6:1
+      heroImg.style.objectFit = "cover";
+      heroImg.style.objectPosition = "center 44%";
+    } else {
+      const ratio = heroImg.naturalWidth / heroImg.naturalHeight;
+      h = Math.max(220, Math.min(360, Math.round(w / ratio)));
+      heroImg.style.objectFit = "contain";
+      heroImg.style.objectPosition = "center";
+    }
+    heroImg.style.height = h + "px";
   }
+
   heroImg.addEventListener("load", adjustHero);
   window.addEventListener("resize", adjustHero);
   if (heroImg.complete) adjustHero();
