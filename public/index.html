@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="/style.css"/>
 
   <style>
-    /* ================= Banner (no crop) ================= */
     .hero-wrap{
       max-width:1200px;
       margin:0 auto 14px auto;
@@ -24,52 +23,54 @@
       border-radius:12px;
       box-shadow:0 8px 28px rgba(0,0,0,.18);
     }
-    @media (max-width: 520px){
-      .hero{ max-height: 220px; }
+    @media (max-width:520px){
+      .hero{ max-height:220px; }
+      /* Mobile input tweaks */
+      input[type="date"]{
+        font-size:16px;
+        padding:6px;
+      }
+      select, input{
+        font-size:16px;
+      }
     }
 
-    /* ================= Guests + 11+ Button ================= */
-    .guest-line { display:flex; align-items:center; gap:10px; }
-    .guest-line input { max-width:100px; }
-    .guest-extra {
-      font-size:13px; background:#b3822f; color:#fff; border:0; border-radius:6px;
-      padding:4px 10px; cursor:pointer; transition:background .2s;
+    .guest-line{display:flex;align-items:center;gap:10px;}
+    .guest-extra{
+      font-size:13px;background:#b3822f;color:#fff;border:0;border-radius:6px;
+      padding:4px 10px;cursor:pointer;transition:background .2s;
     }
-    .guest-extra:hover { background:#8a6626; }
-    .inline-help { font-size:12px; opacity:.7; margin-top:2px; }
+    .guest-extra:hover{background:#8a6626;}
+    .inline-help{font-size:12px;opacity:.7;margin-top:2px;}
 
-    /* ================= Success Popup ================= */
-    .modal-backdrop {
-      position:fixed; inset:0; background:rgba(0,0,0,.55);
-      z-index:9999; display:none; align-items:center; justify-content:center;
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(0,0,0,.55);
+      z-index:9999;display:none;align-items:center;justify-content:center;
     }
-    .modal-card {
-      background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px;
-      max-width:620px; width:92%; padding:22px;
-      box-shadow:0 10px 35px rgba(0,0,0,.25); text-align:center;
+    .modal-card{
+      background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;
+      max-width:620px;width:92%;padding:22px;
+      box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;
     }
-    .modal-title { font-weight:700; margin:0 0 6px 0; }
-    .modal-text { margin:6px 0 14px 0; }
-    .modal-btn {
-      background:#b3822f; color:#fff; border:0; border-radius:8px;
-      padding:10px 16px; font-weight:700; cursor:pointer;
+    .modal-title{font-weight:700;margin:0 0 6px 0;}
+    .modal-text{margin:6px 0 14px 0;}
+    .modal-btn{
+      background:#b3822f;color:#fff;border:0;border-radius:8px;
+      padding:10px 16px;font-weight:700;cursor:pointer;
     }
 
-    /* ================= HIDE: Nav + Available times ================= */
-    nav { display:none; }           /* <— Reservation/Admin ausblenden */
-    #statusText { display:none; }   /* <— "Available times: …" ausblenden */
+    nav{display:none;}
+    #statusText{display:none;}
   </style>
 </head>
 
 <body>
 <div class="container">
 
-  <!-- Banner -->
   <div class="hero-wrap">
     <img id="heroImg" class="hero" src="/logo-hero.png" alt="Röstiland"/>
   </div>
 
-  <!-- (wird per CSS versteckt) -->
   <nav><a class="active" href="/">Reservation</a> <a href="/admin">Admin</a></nav>
 
   <h1 id="brand">Reservation</h1>
@@ -78,14 +79,24 @@
   <div class="card">
     <h2>Book a table</h2>
 
-    <!-- Reihenfolge: Date -> Guests -> Time -->
     <div class="row">
       <div><label>Date</label><input id="rDate" type="date"/></div>
 
       <div>
         <label>Guests</label>
         <div class="guest-line">
-          <input id="rGuests" type="number" min="1" max="48" value="2"/>
+          <select id="rGuests">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
           <button id="btnGroup" type="button" class="guest-extra">11+ guests</button>
         </div>
         <div class="inline-help">For larger groups please contact us directly.</div>
@@ -110,7 +121,7 @@
       <button id="btnReserve" class="btn" type="button">Reserve</button>
       <span id="msg" class="badge"></span>
       <div class="spacer"></div>
-      <small class="muted" id="statusText"></small> <!-- per CSS versteckt -->
+      <small class="muted" id="statusText"></small>
     </div>
   </div>
 </div>
@@ -137,121 +148,97 @@
 
 <script>
   const pad2 = n => String(n).padStart(2,"0");
-  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+  const today = ()=>{const d=new Date();return`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;}
 
-  const elDate = document.getElementById("rDate"); elDate.value = today();
-  const elTime = document.getElementById("rTime");
-  const elGuests = document.getElementById("rGuests");
-  const elMsg = document.getElementById("msg");
-  const elStatus = document.getElementById("statusText");
-  const heroImg = document.getElementById("heroImg");
-  let CFG = {};
+  const elDate=document.getElementById("rDate");elDate.value=today();
+  const elTime=document.getElementById("rTime");
+  const elGuests=document.getElementById("rGuests");
+  const elMsg=document.getElementById("msg");
+  const heroImg=document.getElementById("heroImg");
+  let CFG={};
 
   async function loadConfig(){
     try{
-      const r = await fetch("/api/config");
-      CFG = await r.json();
-      document.getElementById("brand").textContent = `Reservation — ${CFG.brand}`;
-      document.getElementById("venueInfo").textContent = `${CFG.address} • ${CFG.phone}`;
-      elGuests.max = String(CFG.maxOnlineGuests || 10);
-      heroImg.src = CFG.mailHeaderUrl || CFG.mailLogoUrl || "/logo-hero.png";
+      const r=await fetch("/api/config");
+      CFG=await r.json();
+      document.getElementById("brand").textContent=`Reservation — ${CFG.brand}`;
+      document.getElementById("venueInfo").textContent=`${CFG.address} • ${CFG.phone}`;
+      heroImg.src=CFG.mailHeaderUrl||CFG.mailLogoUrl||"/logo-hero.png";
     }catch{}
   }
   loadConfig();
 
   async function loadSlots(){
-    elTime.innerHTML = "";
-    elMsg.textContent = "";
-    if (elStatus) elStatus.textContent = "Loading slots…";
+    elTime.innerHTML="";
+    elMsg.textContent="";
     try{
-      const d = elDate.value || today();
-      const g = Number(elGuests.value || 2);
-      const r = await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
-      const slots = await r.json();
-      let openCount = 0;
+      const d=elDate.value||today();
+      const g=Number(elGuests.value||2);
+      const r=await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
+      const slots=await r.json();
       for(const s of slots){
         if(s.allowed){
-          const opt = document.createElement("option");
-          opt.value = s.time; opt.textContent = s.time;
-          elTime.appendChild(opt); openCount++;
+          const opt=document.createElement("option");
+          opt.value=s.time;opt.textContent=s.time;
+          elTime.appendChild(opt);
         }
       }
-      if (elStatus) elStatus.textContent = openCount ? `Available times: ${openCount}` : "No availability";
-    }catch{
-      if (elStatus) elStatus.textContent = "Failed to load slots";
-    }
+    }catch{}
   }
-  elDate.addEventListener("change", loadSlots);
-  elGuests.addEventListener("change", loadSlots);
+  elDate.addEventListener("change",loadSlots);
+  elGuests.addEventListener("change",loadSlots);
   loadSlots();
 
-  document.getElementById("btnReserve").addEventListener("click", async ()=>{
-    elMsg.textContent = "Sending…";
-    const payload = {
-      date: elDate.value || today(),
-      time: elTime.value,
-      firstName: document.getElementById("rFirstName").value.trim(),
-      name: document.getElementById("rLastName").value.trim(),
-      email: document.getElementById("rEmail").value.trim(),
-      phone: document.getElementById("rPhone").value.trim(),
-      guests: Number(elGuests.value || 0),
-      notes: document.getElementById("rNotes").value.trim()
+  document.getElementById("btnReserve").addEventListener("click",async()=>{
+    elMsg.textContent="Sending…";
+    const payload={
+      date:elDate.value||today(),
+      time:elTime.value,
+      firstName:document.getElementById("rFirstName").value.trim(),
+      name:document.getElementById("rLastName").value.trim(),
+      email:document.getElementById("rEmail").value.trim(),
+      phone:document.getElementById("rPhone").value.trim(),
+      guests:Number(elGuests.value||0),
+      notes:document.getElementById("rNotes").value.trim()
     };
     try{
-      const r = await fetch("/api/reservations", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(payload)
-      });
-      const json = await r.json();
-      if(!r.ok){ elMsg.textContent = json.error || "Error"; return; }
-      elMsg.textContent = "";
-      showSuccess();
-      handleBookingSuccess(json);
-      loadSlots();
-    }catch{ elMsg.textContent = "Network error"; }
+      const r=await fetch("/api/reservations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const json=await r.json();
+      if(!r.ok){elMsg.textContent=json.error||"Error";return;}
+      elMsg.textContent="";showSuccess();handleBookingSuccess(json);loadSlots();
+    }catch{elMsg.textContent="Network error";}
   });
 
-  document.getElementById("btnGroup").addEventListener("click", ()=>{
-    const d = elDate.value || today();
-    const t = elTime.value || "";
-    const to = CFG.email || "info@noxamasamui.com";
-    const subject = encodeURIComponent("Group reservation request (11+ guests)");
-    const body = encodeURIComponent(
-      `Hello Röstiland,\n\nI would like to request a table for a group of 11+ guests.\n\nPreferred date: ${d}\nPreferred time: ${t}\n\nMy details:\nName: ${document.getElementById("rFirstName").value} ${document.getElementById("rLastName").value}\nEmail: ${document.getElementById("rEmail").value}\nPhone: ${document.getElementById("rPhone").value}\nNotes: ${document.getElementById("rNotes").value}\n\nThank you!`
-    );
-    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+  document.getElementById("btnGroup").addEventListener("click",()=>{
+    const d=elDate.value||today();const t=elTime.value||"";
+    const to=CFG.email||"info@noxamasamui.com";
+    const subject=encodeURIComponent("Group reservation request (11+ guests)");
+    const body=encodeURIComponent(`Hello Röstiland,\n\nI would like to request a table for a group of 11+ guests.\n\nPreferred date: ${d}\nPreferred time: ${t}\n\nMy details:\nName: ${document.getElementById("rFirstName").value} ${document.getElementById("rLastName").value}\nEmail: ${document.getElementById("rEmail").value}\nPhone: ${document.getElementById("rPhone").value}\nNotes: ${document.getElementById("rNotes").value}\n\nThank you!`);
+    window.location.href=`mailto:${to}?subject=${subject}&body=${body}`;
   });
 
-  function showSuccess(){ document.getElementById("success-modal").style.display = "flex"; }
-  function hideSuccess(){ document.getElementById("success-modal").style.display = "none"; }
+  function showSuccess(){document.getElementById("success-modal").style.display="flex";}
+  function hideSuccess(){document.getElementById("success-modal").style.display="none";}
 
   function showLoyaltyModal(tier){
-    const txt = document.getElementById('loyalty-text');
-    if (tier === 15) txt.textContent = 'Congratulations! From now on you receive a 15 percent loyalty thank-you.';
-    else if (tier === 10) txt.textContent = 'Congratulations! From now on you receive a 10 percent loyalty thank-you.';
-    else txt.textContent = 'Congratulations! From now on you receive a 5 percent loyalty thank-you.';
-    document.getElementById('loyalty-modal').style.display = 'flex';
+    const txt=document.getElementById('loyalty-text');
+    if(tier===15)txt.textContent='Congratulations! From now on you receive a 15 percent loyalty thank-you.';
+    else if(tier===10)txt.textContent='Congratulations! From now on you receive a 10 percent loyalty thank-you.';
+    else txt.textContent='Congratulations! From now on you receive a 5 percent loyalty thank-you.';
+    document.getElementById('loyalty-modal').style.display='flex';
     startFireworks();
   }
-  function hideLoyaltyModal(){ document.getElementById('loyalty-modal').style.display = 'none'; stopFireworks(); }
+  function hideLoyaltyModal(){document.getElementById('loyalty-modal').style.display='none';stopFireworks();}
   let fwTimer=null;
   function startFireworks(){
-    const c = document.getElementById('fw-canvas');
-    const ctx = c.getContext('2d');
-    const W = c.width, H = c.height;
-    const particles=[];
-    function boom(){ for(let i=0;i<60;i++){ const a=Math.random()*Math.PI*2; const sp=1.5+Math.random()*2.5; particles.push({x:W/2,y:H/2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:60,color:`hsl(${Math.floor(Math.random()*360)},90%,60%)`}); } }
-    function tick(){
-      ctx.fillStyle="rgba(255,248,240,.25)"; ctx.fillRect(0,0,W,H);
-      for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.02; p.life--; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,2,0,Math.PI*2); ctx.fill(); if(p.life<=0) particles.splice(i,1); }
-      if (Math.random()<0.04) boom();
-    }
-    boom(); fwTimer=setInterval(tick,16);
+    const c=document.getElementById('fw-canvas');const ctx=c.getContext('2d');const W=c.width,H=c.height;const particles=[];
+    function boom(){for(let i=0;i<60;i++){const a=Math.random()*Math.PI*2;const sp=1.5+Math.random()*2.5;particles.push({x:W/2,y:H/2,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:60,color:`hsl(${Math.floor(Math.random()*360)},90%,60%)`});}}
+    function tick(){ctx.fillStyle="rgba(255,248,240,.25)";ctx.fillRect(0,0,W,H);for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.02;p.life--;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,2,0,Math.PI*2);ctx.fill();if(p.life<=0)particles.splice(i,1);}if(Math.random()<0.04)boom();}
+    boom();fwTimer=setInterval(tick,16);
   }
-  function stopFireworks(){ if(fwTimer){ clearInterval(fwTimer); fwTimer=null; } }
+  function stopFireworks(){if(fwTimer){clearInterval(fwTimer);fwTimer=null;}}
   function handleBookingSuccess(json){
-    if (json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)){
+    if(json&&(json.nowUnlockedTier===5||json.nowUnlockedTier===10||json.nowUnlockedTier===15)){
       showLoyaltyModal(json.nowUnlockedTier);
     }
   }
