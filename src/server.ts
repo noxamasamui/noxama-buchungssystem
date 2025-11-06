@@ -583,6 +583,39 @@ app.delete("/api/admin/closure/:id", async (req,res)=>{
   try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
   catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
 });
+// --- Admin: day notice ---
+app.post("/api/admin/notice", async (req, res) => {
+  try {
+    const date = normalizeYmd(String(req.body.date || ""));
+    const message = String(req.body.message || "").trim();
+    if (!date || !message) return res.status(400).json({ error: "Invalid input" });
+    const n = await prisma.notice.create({ data: { date, message } });
+    res.json(n);
+  } catch (e) {
+    console.error("create notice", e);
+    res.status(500).json({ error: "Failed to create notice" });
+  }
+});
+
+app.get("/api/admin/notice", async (_req, res) => {
+  try {
+    const list = await prisma.notice.findMany({ orderBy: { createdAt: "desc" } });
+    res.json(list);
+  } catch (e) {
+    console.error("list notice", e);
+    res.status(500).json({ error: "Failed to load notices" });
+  }
+});
+
+app.delete("/api/admin/notice/:id", async (req, res) => {
+  try {
+    await prisma.notice.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("delete notice", e);
+    res.status(500).json({ error: "Failed to delete notice" });
+  }
+});
 
 /* ───────────────────────────── Admin: Reset ────────────────────────────── */
 app.post("/api/admin/reset", async (req,res)=>{
