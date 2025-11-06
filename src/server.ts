@@ -139,26 +139,28 @@ async function slotAllowed(date: string, time: string){
   return { ok:true, norm, start, end, open, close, minutes };
 }
 
-/* ─────────────────────── Loyalty helpers (NEU) ─────────────────────────── */
+/* ─────────────────────── Loyalty helpers ─────────────────────────── */
 function loyaltyDiscountFor(visit: number): number {
   if (visit >= 15) return 15;
   if (visit >= 10) return 10;
   if (visit >= 5) return 5;
   return 0;
 }
-/** Ankuendigung: 4→5, 9→10, 14→15 */
 function loyaltyTeaseNext(visit: number): 0 | 5 | 10 | 15 {
   if (visit === 4) return 5;
   if (visit === 9) return 10;
   if (visit === 14) return 15;
   return 0;
 }
-/** Freigeschaltet genau bei 5/10/15 (fuer Popup) */
 function loyaltyUnlockedNow(visit: number): 0 | 5 | 10 | 15 {
   if (visit === 5) return 5;
   if (visit === 10) return 10;
   if (visit === 15) return 15;
   return 0;
+}
+function ordinal(n:number){
+  const v=n%100; if(v>=11&&v<=13) return `${n}th`;
+  const u=n%10; if(u===1) return `${n}st`; if(u===2) return `${n}nd`; if(u===3) return `${n}rd`; return `${n}th`;
 }
 
 /* ───────────────────────────── Mail-Templates ──────────────────────────── */
@@ -180,14 +182,13 @@ function emailHeader(logoUrl:string){
     </div>`;
 }
 
-/** Confirmation mail mit Loyalty: Teaser bei 4/9/14; Feierblock ab 5/10/15 (jetzt aktiv) */
+/** Confirmation mail – jetzt MIT Besuchsnummer; Teaser 4/9/14; Feierblock 5/10/15 */
 function confirmationHtml(p:{
   firstName:string; name:string; date:string; time:string; guests:number;
   cancelUrl:string; visitNo:number; currentDiscount:number;
 }){
   const header = emailHeader(MAIL_LOGO_URL);
 
-  // Feierlicher Block bei 5 / 10 / 15 (JETZT aktiv)
   let reward = "";
   if (p.currentDiscount === 15) {
     reward = `
@@ -209,7 +210,6 @@ function confirmationHtml(p:{
       </div>`;
   }
 
-  // Teaser exakt bei Besuch 4/9/14
   const tease = loyaltyTeaseNext(p.visitNo);
   const teaser = tease ? `
     <div style="margin:16px 0;padding:12px 14px;background:#eef7ff;border:1px solid #cfe3ff;border-radius:10px;text-align:center;">
@@ -230,6 +230,8 @@ function confirmationHtml(p:{
       <p style="margin:0;"><b>Guests</b> ${p.guests}</p>
       <p style="margin:0;"><b>Address</b> ${VENUE_ADDRESS}</p>
     </div>
+
+    <p style="margin:10px 0 0 0;text-align:center;opacity:.95;">This is your <b>${ordinal(p.visitNo)}</b> visit.</p>
 
     ${reward}
     ${teaser}
@@ -317,7 +319,6 @@ app.get("/api/slots", async (req,res)=>{
     out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
   }
 
-  // Falls gar kein Slot buchbar: Grund sauber formulieren
   if (!anyOpen && out.length > 0) {
     const sunday = SUNDAY_CLOSED && isSunday(date);
     if (sunday) {
@@ -371,7 +372,7 @@ app.post("/api/reservations", async (req,res)=>{
     const unlocked = loyaltyUnlockedNow(visitNo);
     const teaseNext = loyaltyTeaseNext(visitNo);
 
-    // Guest mail (mit Loyalty-Block ab 5/10/15; Teaser bei 4/9/14)
+    // Guest mail (mit Besuchsnummer, Teaser 4/9/14, Feierblock 5/10/15)
     const cancelUrl = `${BASE_URL}/cancel/${token}`;
     const html = confirmationHtml({
       firstName: created.firstName,
@@ -463,7 +464,24 @@ app.get("/api/admin/reservations", async (req,res)=>{
     const where:any = date ? { date } : {};
     list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
   }
-  res.json(list);
+
+  // Loyalty-Felder ergänzen: visitCount + discount je E-Mail
+  const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
+  const counts = new Map<string, number>();
+  await Promise.all(emails.map(async em => {
+    const c = await prisma.reservation.count({
+      where: { email: em, status: { in: ["confirmed", "noshow"] } },
+    });
+    counts.set(em, c);
+  }));
+
+  const enriched = list.map(r => {
+    const vc = r.email ? (counts.get(r.email) || 0) : 0;
+    const disc = loyaltyDiscountFor(vc);
+    return { ...r, visitCount: vc, discount: disc };
+  });
+
+  res.json(enriched);
 });
 app.delete("/api/admin/reservations/:id", async (req,res)=>{
   await prisma.reservation.delete({ where: { id: req.params.id } });
@@ -634,7 +652,7 @@ setInterval(async ()=>{
         visitNo: await prisma.reservation.count({
           where: { email: r.email, status: { in: ["confirmed", "noshow"] } },
         }),
-        currentDiscount: 0 // Reminder bleibt schlicht; wenn du willst, kann ich hier ebenfalls den aktiven Rabatt einblenden
+        currentDiscount: 0
       });
       try{
         await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html);
