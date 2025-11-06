@@ -6,115 +6,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
   <style>
-    .hero-wrap{max-width:1200px;margin:0 auto 12px auto;display:flex;justify-content:center}
-    .hero{display:block;width:auto;height:auto;max-width:100%;max-height:clamp(140px,24vw,260px);
-          background:#e9dfcf;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18)}
-    nav{display:none}
-    .small{font-size:12px;padding:6px 8px}
-    .table{overflow:auto}
-    .muted{opacity:.7}
-    .chip{display:inline-block;background:#eee;border-radius:12px;padding:2px 8px;margin-left:6px;font-size:12px}
+    .hero-wrap{max-width:900px;margin:20px auto 10px auto;display:flex;justify-content:center}
+    .hero{display:block;max-width:560px;width:100%;height:auto;background:#e9dfcf;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18)}
+    .toolbar{display:flex;gap:10px;align-items:center}
+    table.admin{width:100%;border-collapse:collapse}
+    table.admin th, table.admin td{padding:8px 10px;border-bottom:1px solid #eadfcd;vertical-align:top}
+    table.admin th{font-weight:700;text-align:left}
+    .pill{display:inline-block;background:#b3822f;color:#fff;border-radius:16px;padding:4px 10px;font-size:12px}
+    .btn-small{padding:6px 10px;border-radius:8px}
+    .muted2{opacity:.7}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:760px){ .grid-2{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
 <div class="container">
 
   <div class="hero-wrap">
-    <img id="heroImg" class="hero" src="/logo-hero.png" alt="Röstiland"/>
+    <img id="hero" class="hero" src="/logo-hero.png" alt="Logo"/>
   </div>
 
-  <h1 id="brand">Admin</h1>
+  <h1 id="brandH">Admin</h1>
 
-  <!-- All reservations -->
   <div class="card">
     <h2>All reservations</h2>
-    <div class="row">
+    <div class="toolbar">
       <div>
         <label>Date filter</label>
-        <input id="fltDate" type="date"/>
+        <input id="fDate" type="date"/>
       </div>
       <div>
         <label>View</label>
-        <select id="fltView">
+        <select id="fView">
           <option value="day">day</option>
           <option value="week">week</option>
           <option value="month">month</option>
         </select>
       </div>
       <button id="btnLoad" class="btn" type="button">Load</button>
-    </div>
-
-    <div id="list"></div>
-
-    <div class="row">
+      <div class="spacer"></div>
       <div>
         <label>Export</label>
-        <select id="expPeriod">
+        <select id="expSel">
+          <option value="weekly">weekly</option>
           <option value="daily">daily</option>
-          <option value="weekly" selected>weekly</option>
           <option value="monthly">monthly</option>
           <option value="yearly">yearly</option>
         </select>
+        <button id="btnExport" class="btn" type="button">Excel</button>
       </div>
-      <button id="btnExcel" class="btn" type="button">Excel</button>
+    </div>
+
+    <div style="overflow:auto;margin-top:12px">
+      <table class="admin" id="tbl">
+        <thead>
+          <tr>
+            <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
+            <th>Guests</th><th>Status</th><th class="muted2">Visit</th><th class="muted2">Discount</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
     </div>
   </div>
 
-  <!-- Walk-in -->
-  <div class="card">
-    <h2>Walk-in</h2>
-    <div class="row">
-      <div><label>Date</label><input id="wDate" type="date"/></div>
-      <div><label>Time</label><input id="wTime" type="time" step="900"/></div>
-      <div><label>Guests</label><input id="wGuests" type="number" min="1" max="48" value="2"/></div>
-    </div>
-    <label>Notes</label><input id="wNotes" placeholder="Optional"/>
-    <div class="row">
-      <button id="btnWalkin" class="btn" type="button">Add walk-in</button>
-      <span id="wStatus" class="badge"></span>
-    </div>
-  </div>
-
-  <!-- Blockzeiten -->
-  <div class="card">
-    <h2>Block times / days</h2>
-    <div class="row">
-      <div><label>Start</label><input id="bStart" type="datetime-local"/></div>
-      <div><label>End</label><input id="bEnd" type="datetime-local"/></div>
-      <div style="flex:1"><label>Reason</label><input id="bReason" placeholder="Closed"/></div>
-    </div>
-    <div class="row">
-      <button id="btnBlock" class="btn" type="button">Block time range</button>
-      <span id="bStatus" class="badge"></span>
-    </div>
-
-    <div class="row" style="margin-top:10px">
-      <div><label>Whole day</label><input id="bdDate" type="date"/></div>
-      <div style="flex:1"><label>Reason</label><input id="bdReason" placeholder="Closed"/></div>
-      <button id="btnBlockDay" class="btn" type="button">Block whole day</button>
-    </div>
-
-    <div style="margin-top:12px">
-      <h3 style="margin:6px 0 8px 0;font-size:18px">Existing blocks</h3>
-      <div id="blocks" class="table"></div>
-    </div>
-  </div>
-
-  <!-- Special notices -->
   <div class="card">
     <h2>Special notices</h2>
-    <div class="row">
+    <div class="grid-2">
       <div>
         <label>Date</label>
         <input id="nDate" type="date"/>
       </div>
-      <div style="flex:1">
+      <div>
         <label>Message (shown to guests; must accept)</label>
-        <input id="nMsg" />
+        <input id="nMsg" placeholder="e.g. Christmas menu — fixed price THB ..."/>
       </div>
     </div>
-    <div class="row">
-      <button id="btnNotice" class="btn" type="button">Save notice</button>
+    <div class="row" style="margin-top:10px">
+      <button id="btnSaveNotice" class="btn" type="button">Save notice</button>
       <span id="nStatus" class="badge"></span>
     </div>
   </div>
@@ -123,176 +92,108 @@
 
 <script>
   const pad2 = n => String(n).padStart(2,"0");
-  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+  const todayYmd = () => { const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+  const toYmd = (val) => {
+    const s=String(val||"").trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(s)) {
+      const [dd,mm,yy]=s.split(".").map(Number); return `${yy}-${pad2(mm)}-${pad2(dd)}`;
+    }
+    return todayYmd();
+  };
 
-  // Banner + Brand
-  (async ()=>{
+  const elFD=document.getElementById("fDate");
+  const elFV=document.getElementById("fView");
+  const elTB=document.getElementById("tbody");
+  const elHero=document.getElementById("hero");
+  const elBrand=document.getElementById("brandH");
+  const elNS=document.getElementById("nStatus");
+
+  elFD.value = todayYmd();
+
+  async function loadConfig(){
     try{
       const r=await fetch("/api/config"); const cfg=await r.json();
-      document.getElementById("brand").textContent=`Admin — ${cfg.brand}`;
-      document.getElementById("heroImg").src = cfg.mailHeaderUrl || cfg.mailLogoUrl || "/logo-hero.png";
+      elHero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || "/logo-hero.png";
+      elBrand.textContent = `Admin — ${cfg.brand}`;
     }catch{}
-  })();
+  }
+  loadConfig();
 
-  /* ───── Liste ───── */
-  const elDate=document.getElementById('fltDate'); elDate.value=today();
-  const elView=document.getElementById('fltView');
-  document.getElementById('btnLoad').onclick = loadList;
-
-  async function loadList(){
-    const d = elDate.value || today();
-    const v = elView.value || 'day';
+  async function loadReservations(){
+    elTB.innerHTML = "";
+    const d = elFD.value || todayYmd();
+    const v = elFV.value || "day";
     const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${encodeURIComponent(v)}`);
     const list = await r.json();
-    const wrap = document.getElementById('list');
 
-    if(!Array.isArray(list) || !list.length){ wrap.innerHTML = '<p class="muted">No data</p>'; return; }
-
-    const rows = list.map(x=>`<tr>
-      <td>${x.date}</td><td>${x.time}</td>
-      <td>${x.firstName} ${x.name}${x.isWalkIn?'<span class="chip">walk-in</span>':''}</td>
-      <td>${x.email||""}</td>
-      <td>${x.phone||""}</td>
-      <td>${x.guests}</td>
-      <td>${x.status}</td>
-      <td>${x.notes||""}</td>
-      <td>
-        <button data-id="${x.id}" class="del small">Delete</button>
-        <button data-id="${x.id}" class="noshow small">No show</button>
-      </td>
-    </tr>`).join("");
-
-    wrap.innerHTML = `<div class="table">
-      <table>
-        <thead><tr>
-          <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>Phone</th>
-          <th>Guests</th><th>Status</th><th>Notes</th><th>Action</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-
-    wrap.querySelectorAll("button.del").forEach(b=>{
-      b.onclick=async()=>{ await fetch(`/api/admin/reservations/${b.dataset.id}`,{method:"DELETE"}); loadList(); };
-    });
-    wrap.querySelectorAll("button.noshow").forEach(b=>{
-      b.onclick=async()=>{ await fetch(`/api/admin/reservations/${b.dataset.id}/noshow`,{method:"POST"}); loadList(); };
-    });
+    for(const it of list){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${it.date}</td>
+        <td>${it.time}</td>
+        <td>${it.firstName} ${it.name} ${it.isWalkIn ? '<span class="pill" style="margin-left:6px;background:#888">walk-in</span>' : ''}</td>
+        <td>${it.email||""}</td>
+        <td>${it.phone||""}</td>
+        <td>${it.guests}</td>
+        <td>${it.status}</td>
+        <td class="muted2">${it.visitCount ?? ""}</td>
+        <td class="muted2">${it.discount ? it.discount + '%' : ''}</td>
+        <td>
+          <button class="btn-small" data-del="${it.id}">Delete</button>
+          <button class="btn-small" data-ns="${it.id}">No show</button>
+        </td>
+      `;
+      elTB.appendChild(tr);
+    }
   }
-  loadList();
+  document.getElementById("btnLoad").addEventListener("click", loadReservations);
+  loadReservations();
 
-  // Export
-  document.getElementById('btnExcel').onclick=()=>{
-    const d = elDate.value || today();
-    const p = document.getElementById('expPeriod').value;
-    window.location.href = `/api/export?date=${encodeURIComponent(d)}&period=${encodeURIComponent(p)}`;
-  };
+  document.getElementById("tbl").addEventListener("click", async (e)=>{
+    const t = e.target as HTMLElement;
+    if (!t) return;
+    const del = t.getAttribute("data-del");
+    const ns  = t.getAttribute("data-ns");
+    if (del){
+      if (!confirm("Delete this reservation?")) return;
+      const r = await fetch(`/api/admin/reservations/${encodeURIComponent(del)}`, { method:"DELETE" });
+      if (r.ok) loadReservations();
+    } else if (ns){
+      const r = await fetch(`/api/admin/reservations/${encodeURIComponent(ns)}/noshow`, { method:"POST" });
+      if (r.ok) loadReservations();
+    }
+  });
 
-  /* ───── Walk-in ───── */
-  const wDate=document.getElementById('wDate'); wDate.value=today();
-  const wTime=document.getElementById('wTime'); wTime.value="10:00";
-  const wGuests=document.getElementById('wGuests');
-  const wNotes=document.getElementById('wNotes');
-  const wStatus=document.getElementById('wStatus');
+  document.getElementById("btnExport").addEventListener("click", ()=>{
+    const period = (document.getElementById("expSel") as HTMLSelectElement).value || "weekly";
+    const d = elFD.value || todayYmd();
+    window.location.href = `/api/export?period=${encodeURIComponent(period)}&date=${encodeURIComponent(d)}`;
+  });
 
-  document.getElementById('btnWalkin').onclick=async()=>{
-    wStatus.textContent="";
+  // ───────── Special notice save
+  document.getElementById("btnSaveNotice").addEventListener("click", async ()=>{
+    const dateUi = (document.getElementById("nDate") as HTMLInputElement).value || todayYmd();
+    const ymd = toYmd(dateUi);
+    const msg = (document.getElementById("nMsg") as HTMLInputElement).value.trim();
+    elNS.textContent = "Saving…";
     try{
-      const r=await fetch("/api/admin/walkin",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({date:wDate.value,time:wTime.value,guests:Number(wGuests.value||0),notes:wNotes.value.trim()})
+      const r = await fetch("/api/admin/notice", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ date: ymd, message: msg })
       });
-      const js=await r.json();
-      if(!r.ok){ wStatus.textContent=js.error||"Error"; return; }
-      wStatus.textContent="Saved";
-      loadList();
-      setTimeout(()=>wStatus.textContent="",1500);
-    }catch{ wStatus.textContent="Error"; }
-  };
-
-  /* ───── Blockzeiten ───── */
-  const bStart=document.getElementById('bStart');
-  const bEnd=document.getElementById('bEnd');
-  const bReason=document.getElementById('bReason');
-  const bdDate=document.getElementById('bdDate'); bdDate.value=today();
-  const bdReason=document.getElementById('bdReason');
-  const bStatus=document.getElementById('bStatus');
-
-  document.getElementById('btnBlock').onclick=async()=>{
-    bStatus.textContent="";
-    try{
-      const r=await fetch("/api/admin/closure",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({startTs:bStart.value,endTs:bEnd.value,reason:bReason.value.trim()})
-      });
-      const js=await r.json();
-      if(!r.ok){ bStatus.textContent=js.error||"Error"; return; }
-      bStatus.textContent="Saved";
-      loadBlocks();
-      setTimeout(()=>bStatus.textContent="",1500);
-    }catch{ bStatus.textContent="Error"; }
-  };
-
-  document.getElementById('btnBlockDay').onclick=async()=>{
-    bStatus.textContent="";
-    try{
-      const r=await fetch("/api/admin/closure/day",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({date:bdDate.value,reason:bdReason.value.trim()})
-      });
-      const js=await r.json();
-      if(!r.ok){ bStatus.textContent=js.error||"Error"; return; }
-      bStatus.textContent="Saved";
-      loadBlocks();
-      setTimeout(()=>bStatus.textContent="",1500);
-    }catch{ bStatus.textContent="Error"; }
-  };
-
-  async function loadBlocks(){
-    const r=await fetch("/api/admin/closure"); const list=await r.json();
-    const box=document.getElementById("blocks");
-    if(!Array.isArray(list)||!list.length){ box.innerHTML='<p class="muted">No blocks</p>'; return; }
-    const rows=list.map(c=>`<tr>
-      <td>${new Date(c.startTs).toLocaleString()}</td>
-      <td>${new Date(c.endTs).toLocaleString()}</td>
-      <td>${c.reason||""}</td>
-      <td><button data-id="${c.id}" class="rm small">Delete</button></td>
-    </tr>`).join("");
-    box.innerHTML=`<div class="table"><table>
-      <thead><tr><th>Start</th><th>End</th><th>Reason</th><th></th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
-    box.querySelectorAll("button.rm").forEach(b=>{
-      b.onclick=async()=>{ await fetch(`/api/admin/closure/${b.dataset.id}`,{method:"DELETE"}); loadBlocks(); };
-    });
-  }
-  loadBlocks();
-
-  /* ───── Notices ───── */
-  const nDate=document.getElementById('nDate'); nDate.value=today();
-  const nMsg=document.getElementById('nMsg');
-  const nStatus=document.getElementById('nStatus');
-
-  // Notice für gewähltes Datum vorfüllen
-  async function loadNotice(){
-    nStatus.textContent="";
-    try{
-      const r=await fetch(`/api/admin/notice?date=${encodeURIComponent(nDate.value)}`);
-      const js=await r.json();
-      nMsg.value = js && js.message ? js.message : "";
-    }catch{}
-  }
-  nDate.addEventListener("change", loadNotice);
-  loadNotice();
-
-  document.getElementById('btnNotice').onclick=async()=>{
-    nStatus.textContent="";
-    try{
-      const r=await fetch("/api/admin/notice",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({date:nDate.value,message:nMsg.value.trim()})
-      });
-      const js=await r.json();
-      if(!r.ok){ nStatus.textContent=js.error||"Failed to save notice"; return; }
-      nStatus.textContent="Saved";
-      setTimeout(()=>nStatus.textContent="",1500);
-    }catch{ nStatus.textContent="Failed"; }
-  };
+      if (!r.ok){
+        const j = await r.json().catch(()=>({}));
+        elNS.textContent = j?.error || "Failed to save notice";
+        return;
+      }
+      elNS.textContent = "Saved";
+      setTimeout(()=>elNS.textContent="", 1500);
+    }catch{
+      elNS.textContent = "Failed to save notice";
+    }
+  });
 </script>
 </body>
 </html>
