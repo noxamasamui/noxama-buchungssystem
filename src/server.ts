@@ -516,6 +516,23 @@ app.post("/api/admin/reset", async (req,res)=>{
   }
 });
 
+// Admin: create DayNotice
+app.post("/api/admin/daynotice", async (req, res) => {
+  const { date, startTs, endTs, message } = req.body || {};
+  const norm = normalizeYmd(String(date||""));
+  if (!norm) return res.status(400).json({ error: "Invalid date" });
+  const s = new Date(String(startTs).replace(" ", "T"));
+  const e = new Date(String(endTs).replace(" ", "T"));
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return res.status(400).json({ error: "Invalid range" });
+  const dn = await prisma.dayNotice.upsert({
+    where: { date: norm },
+    create: { date: norm, startTs: s, endTs: e, message: String(message||"") },
+    update: { startTs: s, endTs: e, message: String(message||"") }
+  });
+  res.json(dn);
+});
+
+
 /* ───────────────────────────────── Export ──────────────────────────────── */
 app.get("/api/export", async (req,res)=>{
   try{
