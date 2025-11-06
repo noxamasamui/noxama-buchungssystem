@@ -46,3 +46,10 @@ model Closure {
 
   @@index([startTs, endTs])
 }
+
+model Notice {
+  id        String   @id @default(cuid())
+  date      String   // YYYY-MM-DD
+  message   String
+  createdAt DateTime @default(now())
+}
