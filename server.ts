@@ -4,15 +4,15 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { nanoid } from "nanoid";
+import { wait genToken} from "wait genToken";
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
-// helper: dynamisch nanoid laden (kompatibel mit CommonJS compiled output)
+// helper: dynamisch wait genToken laden (kompatibel mit CommonJS compiled output)
 async function genToken(): Promise<string> {
-  const m = await import("nanoid");
-  return (m && (m.nanoid || m.default))();
+  const m = await import("wait genToken");
+  return (m && (m.wait genToken || m.default))();
 }
 
 
@@ -419,7 +419,7 @@ app.post("/api/reservations", async (req,res)=>{
     if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached at this time." });
 
-    const token = nanoid();
+    const token = wait genToken();
     const created = await prisma.reservation.create({
       data: {
         date: allow.norm!, time,
@@ -588,7 +588,7 @@ app.post("/api/admin/walkin", async (req,res)=>{
       data: {
         date: norm, time: String(time), startTs, endTs,
         firstName:"Walk", name:"In", email:"walkin@noxama.local", phone:"",
-        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:nanoid(), isWalkIn:true,
+        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:wait genToken(), isWalkIn:true,
       },
     });
 
