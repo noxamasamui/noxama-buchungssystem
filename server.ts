@@ -1,8 +1,9 @@
+// src/server.ts
 import express from "express";
 import cors from "cors";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-// nanoid removed to avoid ESM require issues; use genToken() below
+// nanoid wird NICHT statisch importiert wegen ERR_REQUIRE_ESM
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
@@ -92,20 +93,6 @@ function slotListForDay(){ const out:string[]=[]; for(let h=OPEN_HOUR;h<CLOSE_HO
 function capacityOnlineLeft(reserved:number, walkins:number){
   const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER);
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
-}
-
-/* ─────────────────────── genToken: kompatibler nanoid-loader ─────────────────────── */
-/**
- * dynamisch nanoid importieren, damit ESM-only nanoid in CommonJS-Transpilation funktioniert
- * gibt einen kurzen, synchron-ähnlichen Token zurück (Aufruf: await genToken())
- */
-async function genToken(): Promise<string> {
-  const m = await import("nanoid");
-  // m.nanoid ist üblich, manche Exporte liegen unter default
-  const f = (m && (m.nanoid || m.default));
-  if (typeof f === "function") return f();
-  // fallback sicherheit
-  return Math.random().toString(36).slice(2, 10);
 }
 
 /* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
@@ -310,6 +297,19 @@ app.get("/api/config", (_req,res)=>{
   });
 });
 
+/* ───────────────────────────── Dynamic nanoid helper ──────────────────── */
+/**
+ * Dynamically import nanoid at runtime to avoid ERR_REQUIRE_ESM when
+ * running compiled CommonJS code against ESM-only nanoid package.
+ */
+async function generateToken(): Promise<string> {
+  // dynamic import returns module namespace; prefer named export 'nanoid'
+  const mod = await import("nanoid");
+  const fn = (mod && (mod.nanoid || mod.default)) as (...args:any[]) => string;
+  // call without args -> default length token
+  return fn();
+}
+
 /* ───────────────────────────── Slots API ───────────────────────────────── */
 app.get("/api/slots", async (req,res)=>{
   const date = normalizeYmd(String(req.query.date || ""));
@@ -367,7 +367,7 @@ app.post("/api/reservations", async (req,res)=>{
     if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached at this time." });
 
-    const token = await genToken();
+    const token = await generateToken();
     const created = await prisma.reservation.create({
       data: {
         date: allow.norm!, time,
@@ -419,17 +419,17 @@ app.post("/api/reservations", async (req,res)=>{
       nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
     });
   }catch(err){
-  // log full error and stack to server logs for debugging
-  if (err instanceof Error) {
-    console.error("reservation error:", err.stack || err.message);
-  } else {
-    console.error("reservation error (non-error):", err);
-  }
+    // log full error and stack to server logs for debugging
+    if (err instanceof Error) {
+      console.error("reservation error:", err.stack || err.message);
+    } else {
+      console.error("reservation error (non-error):", err);
+    }
 
-  // give client a safe, but helpful details field for debugging
-  const details = (err && (err as any).message) ? (err as any).message : String(err || "unknown error");
-  res.status(500).json({ error: "Failed to create reservation", details });
-}
+    // give client a safe, but helpful details field for debugging
+    const details = (err && (err as any).message) ? (err as any).message : String(err || "unknown error");
+    res.status(500).json({ error: "Failed to create reservation", details });
+  }
 });
 
 /* ─────────────────────────────── Cancel ────────────────────────────────── */
@@ -514,7 +514,7 @@ app.post("/api/admin/reservations/:id/noshow", async (req,res)=>{
   res.json(r);
 });
 
-/* ───────────────────────────── Admin: Walk-in ──────────────────────────── */
+/* ───────────────────────────── Admin: Walk-in ─────────────────────────── */
 app.post("/api/admin/walkin", async (req,res)=>{
   try{
     const { date, time, guests, notes } = req.body;
@@ -540,7 +540,7 @@ app.post("/api/admin/walkin", async (req,res)=>{
     const sums = await sumsForInterval(norm, startTs, endTs);
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached" });
 
-    const token = await genToken();
+    const token = await generateToken();
     const r = await prisma.reservation.create({
       data: {
         date: norm, time: String(time), startTs, endTs,
