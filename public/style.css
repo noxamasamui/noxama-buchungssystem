@@ -1,21 +1,152 @@
-/* --- booking-card specific button (larger) --- */
-.booking-card .btn {
-  padding: 12px 22px;
-  font-size: 16px;
-  border-radius: 10px;
+/* Basis (deine bisherigen Styles, unverändert) */
+html,body{
+  margin:0;
+  padding:0;
+  background:#d8c6aa;
+  color:#3a2f28;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:16px;
+}
+.container{
+  max-width:900px;
+  margin:0 auto;
+  padding:20px;
+}
+h1,h2,h3{
+  font-weight:700;
+  color:#3a2f28;
+}
+h1{
+  font-size:28px;
+  margin-bottom:6px;
+  text-align:center;
+}
+h2{
+  font-size:22px;
+  margin:0 0 10px 0;
+}
+p{
+  margin:4px 0 12px 0;
+}
+a{
+  color:#4c2a91;
+  text-decoration:none;
+}
+a:hover{
+  text-decoration:underline;
+}
+nav{
+  margin-bottom:10px;
+  text-align:center;
+}
+nav a{
+  margin:0 6px;
+  padding:3px 6px;
+  border-radius:4px;
+}
+nav a.active{
+  background:#b3822f;
+  color:#fff;
+}
+.card{
+  background:#fff8f0;
+  border:1px solid #e0d7c5;
+  border-radius:12px;
+  box-shadow:0 6px 20px rgba(0,0,0,.15);
+  padding:20px;
+}
+.row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-bottom:10px;
+}
+.row>div{
+  flex:1 1 200px;
+  min-width:180px;
+}
+label{
+  display:block;
+  font-size:14px;
+  font-weight:700;
+  margin-bottom:3px;
+}
+input,select{
+  width:100%;
+  box-sizing:border-box;
+  padding:8px 10px;
+  border-radius:6px;
+  border:1px solid #c8b99e;
+  font-family:inherit;
+  font-size:15px;
+  background:#fff;
+}
+input:focus,select:focus{
+  outline:none;
+  border-color:#b3822f;
+}
+.btn{
+  background:#b3822f;
+  color:#fff;
+  border:0;
+  border-radius:8px;
+  padding:10px 18px;
+  font-weight:700;
+  cursor:pointer;
+  transition:background .2s;
+}
+.btn:hover{
+  background:#8a6626;
+}
+.badge{
+  font-size:14px;
+  color:#b3822f;
+  font-weight:600;
+}
+.muted{
+  opacity:.8;
+  font-size:14px;
+}
+.spacer{
+  flex:1;
+}
+small{
+  font-size:13px;
+}
+@keyframes fadein{
+  from{opacity:0;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
 }
 
-/* modal centering tweaks if not present */
-#booking-modal > div, #closed-modal > div {
-  max-width: 520px;
-}
+/* ---- Booking-specific small helpers ---- */
+.booking-card { max-width:760px; margin: 18px auto; }
 
-/* ensure booking-card inputs consistent */
-.booking-card input, .booking-card select, .booking-card textarea {
-  box-sizing: border-box;
-}
+/* form grid two column */
+.form-grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+@media (max-width:720px){ .form-grid-2 { grid-template-columns: 1fr; } }
 
-/* mobile fixes already suggested earlier: keep if not present */
+/* full width field */
+.field-wide { grid-column: 1 / -1; }
+
+/* date/time row */
+.row.date-time { display:flex; gap:10px; align-items:flex-start; }
+.row.date-time > div { min-width:0; }
+
+/* --- NEUE STYLES: grössere Book-Button für Sichtbarkeit --- */
+.btn-primary-book {
+  background:#b3822f;
+  color:#fff;
+  border:0;
+  border-radius:10px;
+  padding:12px 20px;
+  font-weight:800;
+  font-size:16px;
+  cursor:pointer;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.12);
+}
+.btn-primary-book:hover { background:#8a6626; transform:translateY(-1px); }
+
+/* -------- mobile fixes: einheitliche feldgroessen (wie zuvor) -------- */
 @media (max-width: 520px) {
   .booking-card input,
   .booking-card select,
@@ -59,6 +190,10 @@
   .card label {
     margin-bottom: 6px;
     font-size: 14px;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    padding: 8px;
+    cursor: pointer;
   }
   .form-grid-2,
   .form-grid-3,
