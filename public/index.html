@@ -40,27 +40,115 @@
       font-weight: 600;
     }
 
-    /* Firework / confetti animation simple */
-    .nox-fireworks {
-      position: relative;
-      height: 160px;
-      margin-top: 8px;
-      overflow: visible;
+<!-- REPLACE existing CSS rules for .nox-fireworks/.nox-confetti and keyframes with this -->
+<style>
+  .nox-fireworks {
+    position: relative;
+    height: 180px;
+    margin-top: 8px;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .nox-confetti {
+    position: absolute;
+    bottom: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    opacity: 0;
+    transform-origin: center;
+    will-change: transform, opacity;
+    animation: nox-confetti-move linear forwards;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.12));
+  }
+  @keyframes nox-confetti-move {
+    0% {
+      transform: translateY(0) translateX(0) rotate(0) scale(0.6);
+      opacity: 1;
     }
-    .nox-confetti {
-      position: absolute;
-      bottom: 0;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
+    10% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-340px) translateX(var(--tx,0px)) rotate(var(--rot,360deg)) scale(1.1);
       opacity: 0;
-      animation: nox-confetti-move 1.4s ease-out forwards;
     }
-    @keyframes nox-confetti-move {
-      0% { transform: translateY(0) scale(0.6); opacity: 1; }
-      30% { opacity: 1; }
-      100% { transform: translateY(-220px) translateX(var(--tx,0px)) rotate(240deg) scale(1); opacity: 0; }
+  }
+</style>
+
+<!-- REPLACE existing showLoyaltyModal(...) with this improved function -->
+<script>
+  function showLoyaltyModal(tier){
+    const title = "You earned a loyalty reward";
+    const html = `
+      <div style="font-family:Georgia,serif;color:#3a2f28;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 Congratulations — loyalty reward unlocked!</div>
+        <div style="font-size:16px;margin-bottom:8px;">You just reached a milestone</div>
+        <div style="background:#fff3df;padding:14px;border-radius:10px;display:inline-block;margin-bottom:8px;">
+          Enjoy a <b style="color:#b3822f;">${tier}%</b> thank-you discount on your next visit
+        </div>
+        <div style="font-size:13px;color:#555;margin-top:8px;">We applied a note to your profile. Thank you for your loyalty</div>
+        <div class="nox-fireworks" id="__nox_fireworks"></div>
+      </div>
+    `;
+    showModal(html, title);
+
+    const container = document.getElementById("__nox_fireworks");
+    if(!container) return;
+
+    // More particles and colors
+    const colors = [
+      '#e74c3c','#f39c12','#f1c40f','#2ecc71','#16a085',
+      '#3498db','#9b59b6','#e67e22','#d35400','#1abc9c',
+      '#c0392b','#8e44ad','#27ae60','#2980b9','#f06292'
+    ];
+
+    const particleCount = 60; // increased particles
+    for(let i=0;i<particleCount;i++){
+      const el = document.createElement("div");
+      el.className = "nox-confetti";
+
+      // random horizontal start (percent)
+      const leftpct = 8 + Math.random()*84;
+      el.style.left = leftpct + '%';
+
+      // random size
+      const size = 6 + Math.round(Math.random()*14);
+      el.style.width = size + 'px';
+      el.style.height = (size * (0.6 + Math.random()*0.9)) + 'px';
+      el.style.borderRadius = Math.random() > 0.5 ? '3px' : (size/2)+'px';
+
+      // random color
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+
+      // random horizontal travel and rotation
+      const tx = (Math.random()*360 - 180) + 'px';
+      const rot = (Math.random()*720 - 360) + 'deg';
+      el.style.setProperty('--tx', tx);
+      el.style.setProperty('--rot', rot);
+
+      // random duration and delay
+      const dur = 1000 + Math.random()*1100; // 1s - 2.1s
+      const delay = Math.random()*260; // up to 260ms
+      el.style.animationDuration = dur + 'ms';
+      el.style.animationDelay = delay + 'ms';
+      el.style.opacity = '0';
+
+      container.appendChild(el);
+
+      // remove after animation ends
+      setTimeout(()=> {
+        try { el.remove(); } catch(e) {}
+      }, dur + delay + 120);
     }
+
+    // subtle burst sound optional (commented out)
+    // const audio = new Audio('/sounds/short-pop.mp3'); audio.play().catch(()=>{});
+  }
+</script>
   </style>
 </head>
 <body>
