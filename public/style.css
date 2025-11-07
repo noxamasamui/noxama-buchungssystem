@@ -375,3 +375,16 @@ img { max-width: 100%; height: auto; display: block; }
   .container { padding-left: 12px; padding-right: 12px; }
   .booking-card { padding: 12px; margin: 12px 8px; }
 }
+/* Confirmation modal fine-tuning */
+#noxama-generic-modal { font-family: Georgia, "Times New Roman", serif; }
+
+/* Larger book button */
+.btn-book {
+  padding: 14px 20px;
+  font-size: 16px;
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+/* If you have a .btn class, prefer using the new .btn-book on the main action */
+
