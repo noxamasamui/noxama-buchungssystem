@@ -1,3 +1,4 @@
+"start": "node start.js"
 {
   "name": "roestiland-reservation",
   "version": "1.0.0",
