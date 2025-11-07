@@ -42,7 +42,7 @@ model Closure {
 
 model Notice {
   id        String   @id @default(cuid())
-  date      String   @unique // YYYY-MM-DD, unique for upsert
+  date      String   // YYYY-MM-DD
   message   String
   createdAt DateTime @default(now())
 }
