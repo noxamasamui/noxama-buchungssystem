@@ -34,6 +34,23 @@ a{
 }
 a:hover{
   text-decoration:underline;
+  /* Admin logo banner kleiner setzen */
+.admin-logo, #admin-logo, .admin-header img {
+  max-width: 480px;
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Reserve Button Styling sicherstellen */
+button[type="submit"], .reserve-btn {
+  padding: 12px 20px;
+  font-size: 16px;
+  border-radius: 8px;
+}
+
 }
 nav{
   margin-bottom:10px;
