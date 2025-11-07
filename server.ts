@@ -413,11 +413,22 @@ app.post("/api/reservations", async (req,res)=>{
       nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15
       nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
     });
-  }catch(err){
+    }catch(err){
     console.error("reservation error:", err);
-    // include details for logs; keep public message generic
-    res.status(500).json({ error: "Failed to create reservation", details: (err && (err.stack || err.message)) || String(err) });
+
+    // sichere Typprüfung für das Error-Objekt damit TypeScript nicht meckert
+    let details: string;
+    if (err instanceof Error) {
+      details = err.stack || err.message || String(err);
+    } else {
+      try { details = JSON.stringify(err); }
+      catch { details = String(err); }
+    }
+
+    // keep public message generic, aber liefere details fuer logs/diagnose
+    res.status(500).json({ error: "Failed to create reservation", details });
   }
+
 });
 
 /* ─────────────────────────────── Cancel ────────────────────────────────── */
