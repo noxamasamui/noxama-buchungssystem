@@ -1,20 +1,12 @@
-// server.ts  (komplett)
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import express from "express";
 import cors from "cors";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { await genToken} from "await genToken";
+// nanoid removed to avoid ESM require issues; use genToken() below
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
-// helper: dynamisch await genToken laden (kompatibel mit CommonJS compiled output)
-async function genToken(): Promise<string> {
-  const m = await import("await genToken");
-  return (m && (m.await genToken || m.default))();
-}
-
 
 dotenv.config();
 
@@ -43,7 +35,7 @@ const FROM_ADDR = process.env.MAIL_FROM_ADDRESS || VENUE_EMAIL;
 
 const OPEN_HOUR = num(process.env.OPEN_HOUR, 10);
 const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
-const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // default slot interval in minutes
+const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
@@ -58,27 +50,6 @@ const ADMIN_TO =
   FROM_ADDR;
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
-
-/* ───────────────────────── Meal-time durations (NEW) ─────────────────────
-   Use environment variables when present:
-     OPEN_LUNCH_START  (HH:MM)  default "10:00"
-     OPEN_LUNCH_END    (HH:MM)  default "16:30"
-     OPEN_LUNCH_DURATION_MIN   default 90
-     OPEN_DINNER_START (HH:MM)  default "17:00"
-     OPEN_DINNER_END   (HH:MM)  default "22:00"
-     OPEN_DINNER_DURATION_MIN  default 150
-
-   If vars are not provided, sensible defaults are used.
-   This ensures a booking at 10:00 blocks the full lunch/dinner duration,
-   preventing overbooking in overlapping time slots.
-────────────────────────────────────────────────────────────────────────---*/
-const OPEN_LUNCH_START_STR = String(process.env.OPEN_LUNCH_START || "10:00");
-const OPEN_LUNCH_END_STR = String(process.env.OPEN_LUNCH_END || "16:30");
-const OPEN_DINNER_START_STR = String(process.env.OPEN_DINNER_START || "17:00");
-const OPEN_DINNER_END_STR = String(process.env.OPEN_DINNER_END || "22:00");
-
-const OPEN_LUNCH_DURATION_MIN = num(process.env.OPEN_LUNCH_DURATION_MIN, 90);
-const OPEN_DINNER_DURATION_MIN = num(process.env.OPEN_DINNER_DURATION_MIN, 150);
 
 /* ────────────────────────────── Mailer (SMTP) ──────────────────────────── */
 const transporter = nodemailer.createTransport({
@@ -116,17 +87,25 @@ function localDate(y:number,m:number,d:number,hh=0,mm=0,ss=0){ return new Date(y
 function localDateFrom(ymd:string, hhmm:string){ const {y,m,d}=splitYmd(ymd); const [hh,mm]=hhmm.split(":").map(Number); return localDate(y,m,d,hh,mm,0); }
 function isSunday(ymd:string){ const {y,m,d}=splitYmd(ymd); return localDate(y,m,d).getDay()===0; }
 
-function parseHourMinute(hhmm:string){
-  const [h, m] = String(hhmm || "00:00").split(":").map(Number);
-  return { h: Number.isFinite(h) ? h : 0, m: Number.isFinite(m) ? m : 0 };
-}
-
-/* ───────────────────────── Slot list & capacity helpers ────────────────── */
 function slotListForDay(){ const out:string[]=[]; for(let h=OPEN_HOUR;h<CLOSE_HOUR;h++){ for(let m=0;m<60;m+=SLOT_INTERVAL){ out.push(`${pad2(h)}:${pad2(m)}`); } } return out; }
 
 function capacityOnlineLeft(reserved:number, walkins:number){
   const effectiveWalkins = Math.max(0, walkins - WALKIN_BUFFER);
   return Math.max(0, MAX_SEATS_RESERVABLE - reserved - effectiveWalkins);
+}
+
+/* ─────────────────────── genToken: kompatibler nanoid-loader ─────────────────────── */
+/**
+ * dynamisch nanoid importieren, damit ESM-only nanoid in CommonJS-Transpilation funktioniert
+ * gibt einen kurzen, synchron-ähnlichen Token zurück (Aufruf: await genToken())
+ */
+async function genToken(): Promise<string> {
+  const m = await import("nanoid");
+  // m.nanoid ist üblich, manche Exporte liegen unter default
+  const f = (m && (m.nanoid || m.default));
+  if (typeof f === "function") return f();
+  // fallback sicherheit
+  return Math.random().toString(36).slice(2, 10);
 }
 
 /* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
@@ -145,40 +124,10 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
-
-/* ───────────────────────── Slot duration logic (CHANGED) ────────────────
-   Previously slotDuration returned SLOT_INTERVAL, which allows bookings
-   to overlap only by that small interval. Now we determine a booking
-   duration that covers the whole lunch/dinner dining duration so overlapping
-   checks correctly block subsequent slots that fall into the same meal period.
-────────────────────────────────────────────────────────────────────────---*/
-function inRangeTime(t: string, fromStr: string, toStr: string){
-  const { h: Ht, m: Mt } = parseHourMinute(t);
-  const { h: Hf, m: Mf } = parseHourMinute(fromStr);
-  const { h: Ht2, m: Mt2 } = parseHourMinute(toStr);
-  const minutes = (hh:number, mm:number)=> hh*60 + mm;
-  const val = minutes(Ht, Mt);
-  const from = minutes(Hf, Mf);
-  const to = minutes(Ht2, Mt2);
-  return val >= from && val < to;
-}
-
-function bookingDurationMinutesFor(date:string, time:string){
-  // choose lunch or dinner duration based on the slot time
-  try{
-    if (inRangeTime(time, OPEN_LUNCH_START_STR, OPEN_LUNCH_END_STR)) return OPEN_LUNCH_DURATION_MIN;
-    if (inRangeTime(time, OPEN_DINNER_START_STR, OPEN_DINNER_END_STR)) return OPEN_DINNER_DURATION_MIN;
-  }catch(e){
-    // fallback to slot interval if something fails
-  }
-  // fallback: if time before noon -> lunch otherwise dinner (best-effort)
-  const hh = Number(time.split(":")[0] || 0);
-  return hh < 15 ? OPEN_LUNCH_DURATION_MIN : OPEN_DINNER_DURATION_MIN;
-}
-
 function slotDuration(date:string, time:string){
-  // Use bookingDurationMinutesFor so a booking blocks the full meal duration
-  return bookingDurationMinutesFor(date, time);
+  const t = localDateFrom(date,time);
+  const next = addMinutes(t, SLOT_INTERVAL);
+  return differenceInMinutes(next, t);
 }
 
 /* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
@@ -189,7 +138,6 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
-  // minutes now reflects the full booking duration for that slot (>= SLOT_INTERVAL)
   const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
   const end = addMinutes(start, minutes);
 
@@ -558,7 +506,7 @@ app.post("/api/admin/reservations/:id/noshow", async (req,res)=>{
   res.json(r);
 });
 
-/* ───────────────────────────── Admin: Walk-in ─────────────────────────── */
+/* ───────────────────────────── Admin: Walk-in ──────────────────────────── */
 app.post("/api/admin/walkin", async (req,res)=>{
   try{
     const { date, time, guests, notes } = req.body;
@@ -584,11 +532,12 @@ app.post("/api/admin/walkin", async (req,res)=>{
     const sums = await sumsForInterval(norm, startTs, endTs);
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached" });
 
+    const token = await genToken();
     const r = await prisma.reservation.create({
       data: {
         date: norm, time: String(time), startTs, endTs,
         firstName:"Walk", name:"In", email:"walkin@noxama.local", phone:"",
-        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:await genToken(), isWalkIn:true,
+        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:token, isWalkIn:true,
       },
     });
 
