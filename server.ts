@@ -38,15 +38,6 @@ const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
 const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
-// add after existing OPEN_HOUR/CLOSE_HOUR/SLOT_INTERVAL definitions
-const OPEN_LUNCH_DURATION_MIN = num(process.env.OPEN_LUNCH_DURATION_MIN, 90);   // typical 90min table duration for lunch
-const OPEN_DINNER_DURATION_MIN = num(process.env.OPEN_DINNER_DURATION_MIN, 150); // typical 150min for dinner
-const OPEN_LUNCH_START = process.env.OPEN_LUNCH_START || "10:00";
-const OPEN_LUNCH_END = process.env.OPEN_LUNCH_END || "16:30";
-const OPEN_DINNER_START = process.env.OPEN_DINNER_START || "17:00";
-const OPEN_DINNER_END = process.env.OPEN_DINNER_END || "22:00";
-
-
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
@@ -104,12 +95,19 @@ function capacityOnlineLeft(reserved:number, walkins:number){
 }
 
 /* ───────────── DB-Queries: overlaps / sums / duration per slot ────────── */
+/** NOTE: changed comparisons to include boundary equality to avoid adjacent-slot overbooking.
+ *  This treats reservations that end exactly at `start` or start exactly at `end` as overlapping.
+ *  Minimal invasive change to prevent double-booking across adjacent slots.
+ */
 async function overlapping(dateYmd: string, start: Date, end: Date) {
   return prisma.reservation.findMany({
     where: {
       date: dateYmd,
       status: { in: ["confirmed", "noshow"] },
-      AND: [{ startTs: { lt: end } }, { endTs: { gt: start } }],
+      AND: [
+        { startTs: { lte: end } },     // was lt: end  -> now lte: end  (include equality)
+        { endTs:   { gte: start } },   // was gt: start -> now gte: start (include equality)
+      ],
     },
   });
 }
@@ -133,23 +131,7 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
- // determine typical reservation duration depending on time (lunch/dinner windows)
-let durationMin = SLOT_INTERVAL; // fallback
-try {
-  // lexicographic compare works with "HH:MM" format
-  const tstr = String(time || "00:00");
-  if (tstr >= OPEN_DINNER_START && tstr < OPEN_DINNER_END) {
-    durationMin = OPEN_DINNER_DURATION_MIN;
-  } else if (tstr >= OPEN_LUNCH_START && tstr < OPEN_LUNCH_END) {
-    durationMin = OPEN_LUNCH_DURATION_MIN;
-  } else {
-    durationMin = Math.max(OPEN_LUNCH_DURATION_MIN, OPEN_DINNER_DURATION_MIN);
-  }
-} catch (e) {
-  durationMin = SLOT_INTERVAL;
-}
-const minutes = Math.max(SLOT_INTERVAL, durationMin);
-
+  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
   const end = addMinutes(start, minutes);
 
   const {y,m,d}=splitYmd(norm);
@@ -272,7 +254,7 @@ function confirmationHtml(p:{
   </div>`;
 }
 
-function canceledGuestHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;rebookUrl:string;}){
+function canceledGuestHtml(p:{firstName:string;name:string;date:string;time:string;guests:number;rebookUrl:string;}){ /* same as before */ 
   const header = emailHeader(MAIL_LOGO_URL);
   return `
   <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
@@ -536,16 +518,7 @@ app.post("/api/admin/walkin", async (req,res)=>{
       open = localDate(y,m,d, OPEN_HOUR,0,0);
       close = localDate(y,m,d, CLOSE_HOUR,0,0);
       if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
-     // Use same duration logic as online slots so walkins occupy full table duration
-let durationMin = SLOT_INTERVAL;
-try {
-  const tstr = String(time || "00:00");
-  if (tstr >= OPEN_DINNER_START && tstr < OPEN_DINNER_END) durationMin = OPEN_DINNER_DURATION_MIN;
-  else if (tstr >= OPEN_LUNCH_START && tstr < OPEN_LUNCH_END) durationMin = OPEN_LUNCH_DURATION_MIN;
-  else durationMin = Math.max(OPEN_LUNCH_DURATION_MIN, OPEN_DINNER_DURATION_MIN);
-} catch(e) { durationMin = SLOT_INTERVAL; }
-const minutes = Math.max(SLOT_INTERVAL, Math.min(durationMin, differenceInMinutes(close, start)));
-
+      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
       startTs = start; endTs = addMinutes(start, minutes); if (endTs > close) endTs = close;
     }
 
