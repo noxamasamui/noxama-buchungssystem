@@ -280,6 +280,150 @@
   }
 })();
 </script>
+<script>
+(async function(){
+  // Helper modal (simple, self-contained)
+  function showModal(htmlContent, title = "") {
+    // remove existing
+    const ex = document.getElementById("__noxama_modal");
+    if (ex) ex.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "__noxama_modal";
+    overlay.style.position = "fixed";
+    overlay.style.left = "0";
+    overlay.style.top = "0";
+    overlay.style.width = "100%";
+    overlay.style.height = "100%";
+    overlay.style.zIndex = "99999";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.background = "rgba(0,0,0,0.4)";
+
+    const box = document.createElement("div");
+    box.style.maxWidth = "640px";
+    box.style.width = "calc(100% - 40px)";
+    box.style.background = "#fff";
+    box.style.borderRadius = "12px";
+    box.style.padding = "18px";
+    box.style.boxShadow = "0 8px 30px rgba(0,0,0,0.25)";
+    box.style.textAlign = "center";
+
+    if (title) {
+      const h = document.createElement("h3");
+      h.textContent = title;
+      h.style.marginTop = "0";
+      box.appendChild(h);
+    }
+
+    const inner = document.createElement("div");
+    inner.innerHTML = htmlContent;
+    box.appendChild(inner);
+
+    const btnWrap = document.createElement("div");
+    btnWrap.style.marginTop = "12px";
+    const ok = document.createElement("button");
+    ok.textContent = "Okay";
+    ok.style.padding = "10px 16px";
+    ok.style.borderRadius = "8px";
+    ok.style.border = "none";
+    ok.style.background = "#b3822f";
+    ok.style.color = "#fff";
+    ok.onclick = ()=> overlay.remove();
+    btnWrap.appendChild(ok);
+    box.appendChild(btnWrap);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
+
+  // ---------- Date selection: immediate check ----------
+  const dateInput = document.querySelector('input[type="date"]#date') || document.querySelector('input[type="date"]');
+  // If your page uses a different id, adapt selector above
+  if (dateInput) {
+    dateInput.addEventListener("change", async function(){
+      try {
+        const date = this.value;
+        if (!date) return;
+        const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=1`, {cache:"no-store"});
+        if (!resp.ok) return;
+        const slots = await resp.json();
+        if (!Array.isArray(slots) || slots.length === 0) return;
+
+        // If all slots are not allowed (and reasons indicate closed/blocked), show popup
+        const allNotAllowed = slots.every(s => !s.allowed);
+        if (!allNotAllowed) return;
+
+        // Inspect reasons and choose message
+        const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
+        // prefer Sunday/Closed reason
+        let reasonText = reasons.find(r => r.toLowerCase().includes("sunday")) || reasons[0] || "This day is not available";
+        // Friendly message
+        const friendly = `
+          <div style="font-family:Georgia,serif;color:#3a2f28;">
+            <div style="font-size:20px;margin-bottom:8px;">Oh no — this day is not available</div>
+            <div style="margin-bottom:10px;">${reasonText}</div>
+            <div>Please pick another day — we would love to welcome you.</div>
+          </div>`;
+        showModal(friendly, "Reservation not possible");
+      } catch(e) {
+        // silently ignore
+        console.error("date-check", e);
+      }
+    });
+  }
+
+  // ---------- After booking: show loyalty popup when server signals it ----------
+  // Hook form submit (assumes your booking form has id="bookingForm" or similar)
+  const bookingForm = document.querySelector("form#bookingForm") || document.querySelector("form");
+  if (bookingForm) {
+    bookingForm.addEventListener("submit", async function(ev){
+      ev.preventDefault();
+      // gather form data
+      const fd = new FormData(this as HTMLFormElement);
+      const payload:any = {};
+      fd.forEach((v,k)=> payload[k] = v);
+
+      try{
+        const r = await fetch("/api/reservations", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify(payload)
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          // show error nicely
+          const err = j.error || "Reservation failed";
+          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">${err}</div>`, "Oops");
+          return;
+        }
+
+        // On success: if server suggests a loyalty popup, show it
+        if (j.showLoyaltyPopup && j.loyaltyPopupHtml) {
+          // Animated/celebratory wrapper (you can adjust)
+          const celebratory = `
+            <div style="padding:8px;">
+              <div style="font-size:28px;margin-bottom:8px;">🎆 Congratulations 🎆</div>
+              ${j.loyaltyPopupHtml}
+            </div>`;
+          showModal(celebratory, "You earned a loyalty reward");
+        } else {
+          // generic success confirmation
+          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">Your reservation is confirmed. Thank you!</div>`, "Reservation confirmed");
+        }
+
+        // optionally: redirect back to site after a while
+        // setTimeout(()=> window.location.href = "/", 2500);
+      }catch(e){
+        console.error(e);
+        showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">Failed to submit reservation</div>`, "Error");
+      }
+    });
+  }
+
+})();
+</script>
 
 </body>
 </html>
