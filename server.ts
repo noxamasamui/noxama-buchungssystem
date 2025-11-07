@@ -9,6 +9,12 @@ import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
+// helper: dynamisch nanoid laden (kompatibel mit CommonJS compiled output)
+async function genToken(): Promise<string> {
+  const m = await import("nanoid");
+  return (m && (m.nanoid || m.default))();
+}
+
 
 dotenv.config();
 
