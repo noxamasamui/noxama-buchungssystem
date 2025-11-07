@@ -536,7 +536,16 @@ app.post("/api/admin/walkin", async (req,res)=>{
       open = localDate(y,m,d, OPEN_HOUR,0,0);
       close = localDate(y,m,d, CLOSE_HOUR,0,0);
       if (isNaN(start.getTime()) || start < open) return res.status(400).json({ error: "Slot not available." });
-      const minutes = Math.max(15, Math.min(slotDuration(norm, String(time)), differenceInMinutes(close, start)));
+     // Use same duration logic as online slots so walkins occupy full table duration
+let durationMin = SLOT_INTERVAL;
+try {
+  const tstr = String(time || "00:00");
+  if (tstr >= OPEN_DINNER_START && tstr < OPEN_DINNER_END) durationMin = OPEN_DINNER_DURATION_MIN;
+  else if (tstr >= OPEN_LUNCH_START && tstr < OPEN_LUNCH_END) durationMin = OPEN_LUNCH_DURATION_MIN;
+  else durationMin = Math.max(OPEN_LUNCH_DURATION_MIN, OPEN_DINNER_DURATION_MIN);
+} catch(e) { durationMin = SLOT_INTERVAL; }
+const minutes = Math.max(SLOT_INTERVAL, Math.min(durationMin, differenceInMinutes(close, start)));
+
       startTs = start; endTs = addMinutes(start, minutes); if (endTs > close) endTs = close;
     }
 
