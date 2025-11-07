@@ -9,7 +9,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate",
-    "start": "node dist/server.js",
+    "start": "node start.js",
     "clean": "rimraf dist"
   },
   "dependencies": {
