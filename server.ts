@@ -1,15 +1,23 @@
-// src/server.ts
+// server.ts
 import express from "express";
 import cors from "cors";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-// nanoid wird NICHT statisch importiert wegen ERR_REQUIRE_ESM
+// nanoid removed (ESM causing require() error)
+import { randomBytes } from "crypto";
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
 
 dotenv.config();
+
+/* Minimal secure id generator (replaces nanoid) */
+function generateId(size = 21): string {
+  // base64url-like output trimmed to requested length
+  const buf = randomBytes(Math.ceil((size * 3) / 4));
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "").slice(0, size);
+}
 
 /* ───────────────────────── App / Prisma / Static ───────────────────────── */
 const app = express();
@@ -297,19 +305,6 @@ app.get("/api/config", (_req,res)=>{
   });
 });
 
-/* ───────────────────────────── Dynamic nanoid helper ──────────────────── */
-/**
- * Dynamically import nanoid at runtime to avoid ERR_REQUIRE_ESM when
- * running compiled CommonJS code against ESM-only nanoid package.
- */
-async function generateToken(): Promise<string> {
-  // dynamic import returns module namespace; prefer named export 'nanoid'
-  const mod = await import("nanoid");
-  const fn = (mod && (mod.nanoid || mod.default)) as (...args:any[]) => string;
-  // call without args -> default length token
-  return fn();
-}
-
 /* ───────────────────────────── Slots API ───────────────────────────────── */
 app.get("/api/slots", async (req,res)=>{
   const date = normalizeYmd(String(req.query.date || ""));
@@ -367,7 +362,7 @@ app.post("/api/reservations", async (req,res)=>{
     if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached at this time." });
 
-    const token = await generateToken();
+    const token = generateId();
     const created = await prisma.reservation.create({
       data: {
         date: allow.norm!, time,
@@ -419,16 +414,9 @@ app.post("/api/reservations", async (req,res)=>{
       nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
     });
   }catch(err){
-    // log full error and stack to server logs for debugging
-    if (err instanceof Error) {
-      console.error("reservation error:", err.stack || err.message);
-    } else {
-      console.error("reservation error (non-error):", err);
-    }
-
-    // give client a safe, but helpful details field for debugging
-    const details = (err && (err as any).message) ? (err as any).message : String(err || "unknown error");
-    res.status(500).json({ error: "Failed to create reservation", details });
+    console.error("reservation error:", err);
+    // include details for logs; keep public message generic
+    res.status(500).json({ error: "Failed to create reservation", details: (err && (err.stack || err.message)) || String(err) });
   }
 });
 
@@ -540,12 +528,11 @@ app.post("/api/admin/walkin", async (req,res)=>{
     const sums = await sumsForInterval(norm, startTs, endTs);
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached" });
 
-    const token = await generateToken();
     const r = await prisma.reservation.create({
       data: {
         date: norm, time: String(time), startTs, endTs,
         firstName:"Walk", name:"In", email:"walkin@noxama.local", phone:"",
-        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:token, isWalkIn:true,
+        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:generateId(), isWalkIn:true,
       },
     });
 
