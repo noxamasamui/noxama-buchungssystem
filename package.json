@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "description": "Booking/reservation backend for RÖSTILAND BY NOXAMA SAMUI",
   "main": "dist/server.js",
-  "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
-    "postinstall": "prisma generate",
-    "start": "node dist/server.js",
-    "lint": "eslint . --ext .ts,.js",
-    "clean": "rimraf dist"
-  },
+ "scripts": {
+  "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+  "build": "tsc",
+  "prisma:generate": "prisma generate",
+  "prisma:migrate:deploy": "prisma migrate deploy",
+  "postinstall": "prisma generate",
+  "start": "node dist/server.js",
+  "clean": "rimraf dist"
+ }
+
   "keywords": [
     "booking",
     "reservation",
