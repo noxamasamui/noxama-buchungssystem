@@ -38,6 +38,15 @@ const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
 const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
+// add after existing OPEN_HOUR/CLOSE_HOUR/SLOT_INTERVAL definitions
+const OPEN_LUNCH_DURATION_MIN = num(process.env.OPEN_LUNCH_DURATION_MIN, 90);   // typical 90min table duration for lunch
+const OPEN_DINNER_DURATION_MIN = num(process.env.OPEN_DINNER_DURATION_MIN, 150); // typical 150min for dinner
+const OPEN_LUNCH_START = process.env.OPEN_LUNCH_START || "10:00";
+const OPEN_LUNCH_END = process.env.OPEN_LUNCH_END || "16:30";
+const OPEN_DINNER_START = process.env.OPEN_DINNER_START || "17:00";
+const OPEN_DINNER_END = process.env.OPEN_DINNER_END || "22:00";
+
+
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
@@ -124,7 +133,23 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
-  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
+ // determine typical reservation duration depending on time (lunch/dinner windows)
+let durationMin = SLOT_INTERVAL; // fallback
+try {
+  // lexicographic compare works with "HH:MM" format
+  const tstr = String(time || "00:00");
+  if (tstr >= OPEN_DINNER_START && tstr < OPEN_DINNER_END) {
+    durationMin = OPEN_DINNER_DURATION_MIN;
+  } else if (tstr >= OPEN_LUNCH_START && tstr < OPEN_LUNCH_END) {
+    durationMin = OPEN_LUNCH_DURATION_MIN;
+  } else {
+    durationMin = Math.max(OPEN_LUNCH_DURATION_MIN, OPEN_DINNER_DURATION_MIN);
+  }
+} catch (e) {
+  durationMin = SLOT_INTERVAL;
+}
+const minutes = Math.max(SLOT_INTERVAL, durationMin);
+
   const end = addMinutes(start, minutes);
 
   const {y,m,d}=splitYmd(norm);
