@@ -132,6 +132,92 @@
 
 <!-- include the loyalty modal script if you want popup on unlock -->
 <script src="/loyalty.js"></script>
+<!-- Automatic compacting helper
+     Fügt CSS-Klassen hinzu, damit die neue style.css das Formular kompakter darstellt.
+     Minimal, nicht-invasiv: IDs und input-names bleiben unverändert.
+-->
+<script>
+(function(){
+  try{
+    // 1) find the booking card by heading text (Book a table / Book a table / Reservation form)
+    const cards = Array.from(document.querySelectorAll('.card, .booking-card, section, form, div'));
+    let bookingCard = cards.find(c => {
+      const h = c.querySelector && c.querySelector('h2, h1, h3');
+      return h && /book a table|reservation/i.test(h.textContent);
+    });
+    // fallback: first form-like .card that contains an input[type=date] or label "Date"
+    if(!bookingCard){
+      bookingCard = Array.from(document.querySelectorAll('.card')).find(c => c.querySelector('input[type="date"], input[type=date], select'));
+    }
+    if(!bookingCard) return;
+
+    // add wrapper classes
+    bookingCard.classList.add('booking-card','booking-compact');
+
+    // helper: find label by prefix text (case-insensitive)
+    const findLabel = (prefix)=>{
+      return Array.from(bookingCard.querySelectorAll('label')).find(l=>{
+        return l.textContent && l.textContent.trim().toLowerCase().startsWith(prefix.toLowerCase());
+      });
+    };
+
+    // 2) Group first/last into a 2-column grid if both present
+    const lblFirst = findLabel('first name');
+    const lblLast = findLabel('last name');
+    if(lblFirst && lblLast && lblFirst.parentElement && lblLast.parentElement){
+      const parent = lblFirst.parentElement.parentElement;
+      const wrap = document.createElement('div');
+      wrap.className = 'form-grid-2';
+      parent.insertBefore(wrap, lblFirst.parentElement);
+      wrap.appendChild(lblFirst.parentElement);
+      wrap.appendChild(lblLast.parentElement);
+    }
+
+    // 3) Group email/phone into 2-column
+    const lblEmail = findLabel('email');
+    const lblPhone = findLabel('phone');
+    if(lblEmail && lblPhone && lblEmail.parentElement && lblPhone.parentElement){
+      const parent = lblEmail.parentElement.parentElement;
+      const wrap = document.createElement('div');
+      wrap.className = 'form-grid-2';
+      parent.insertBefore(wrap, lblEmail.parentElement);
+      wrap.appendChild(lblEmail.parentElement);
+      wrap.appendChild(lblPhone.parentElement);
+    }
+
+    // 4) Make Date / Guests / Time aligned in one row if the markup allows
+    const lblDate = findLabel('date');
+    const lblGuests = findLabel('guests');
+    const lblTime = findLabel('time');
+    if(lblDate && (lblGuests || lblTime)){
+      const parent = lblDate.parentElement.parentElement;
+      // try to insert a row container
+      const row = document.createElement('div');
+      row.className = 'row date-time';
+      parent.insertBefore(row, lblDate.parentElement);
+      row.appendChild(lblDate.parentElement);
+      if(lblGuests && lblGuests.parentElement) row.appendChild(lblGuests.parentElement);
+      if(lblTime && lblTime.parentElement) row.appendChild(lblTime.parentElement);
+    }
+
+    // 5) Make notes full width
+    const lblNotes = findLabel('notes');
+    if(lblNotes && lblNotes.parentElement){
+      lblNotes.parentElement.classList.add('field-wide');
+    }
+
+    // 6) Slight visual niceness: reduce large margins on inputs inside bookingCard
+    Array.from(bookingCard.querySelectorAll('input, select, textarea')).forEach(el=>{
+      el.style.boxSizing = 'border-box';
+    });
+
+    // Done
+  }catch(e){
+    // fail silently but log for debugging
+    console.error('layout helper error', e);
+  }
+})();
+</script>
 
 </body>
 </html>
