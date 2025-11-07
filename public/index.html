@@ -7,105 +7,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
 </head>
 <body>
-<div class="container">
-  <!-- Banner -->
-  <div class="hero-wrap" style="text-align:center;margin-bottom:18px;">
-    <img id="heroBanner" class="hero-banner" alt="Logo banner" style="max-width:760px;width:92%;height:auto;border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.15);"/>
+  <div class="hero-wrap" style="text-align:center;margin-top:18px;">
+    <img id="heroBanner" class="hero-banner" alt="Logo banner" style="max-width:640px;width:76%;border-radius:12px;box-shadow:0 25px 50px rgba(0,0,0,.18);"/>
   </div>
 
-  <h1 style="text-align:center;">Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
-  <p style="text-align:center;margin-bottom:20px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
+  <div class="container">
+    <h1 style="text-align:center;margin-top:8px;">Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
+    <p style="text-align:center;margin-top:6px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
 
-  <div class="card booking-card booking-compact" style="max-width:760px;margin:0 auto 40px;padding:22px;">
-    <h2>Book a table</h2>
+    <div class="card booking-card booking-compact" style="max-width:760px;margin:18px auto;padding:18px;">
+      <h2>Book a table</h2>
 
-    <div class="row date-time">
-      <div style="flex:1 1 200px;">
-        <label>Date</label>
-        <input id="resDate" type="date"/>
+      <div class="row date-time">
+        <div style="flex:1 1 220px;">
+          <label>Date</label>
+          <input id="rDate" type="date"/>
+        </div>
+        <div style="flex:0 0 110px;">
+          <label>Guests</label>
+          <select id="rGuests">
+            <!-- default options -->
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+            <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+          </select>
+        </div>
+        <div style="flex:0 0 140px;">
+          <label>Time</label>
+          <select id="rTime"></select>
+        </div>
       </div>
-      <div style="flex:1 1 140px;">
-        <label>Guests</label>
-        <select id="resGuests">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6">6</option>
-          <option value="7">7</option>
-          <option value="8">8</option>
-          <option value="9">9</option>
-          <option value="10">10</option>
-        </select>
-      </div>
-      <div style="flex:1 1 160px;">
-        <label>Time</label>
-        <select id="resTime"></select>
-      </div>
-    </div>
 
-    <div class="row form-grid-2" style="margin-top:8px;">
-      <div>
-        <label>First name</label>
-        <input id="resFirst" type="text"/>
+      <div class="row form-grid-2" style="margin-top:6px;">
+        <div>
+          <label>First name</label>
+          <input id="rFirst" type="text"/>
+        </div>
+        <div>
+          <label>Last name</label>
+          <input id="rLast" type="text"/>
+        </div>
       </div>
-      <div>
-        <label>Last name</label>
-        <input id="resLast" type="text"/>
-      </div>
-    </div>
 
-    <div class="row form-grid-2" style="margin-top:8px;">
-      <div>
-        <label>Email</label>
-        <input id="resEmail" type="email"/>
+      <div class="row form-grid-2" style="margin-top:6px;">
+        <div>
+          <label>Email</label>
+          <input id="rEmail" type="email"/>
+        </div>
+        <div>
+          <label>Phone</label>
+          <input id="rPhone" type="tel"/>
+        </div>
       </div>
-      <div>
-        <label>Phone</label>
-        <input id="resPhone" type="tel"/>
+
+      <div style="margin-top:8px;">
+        <label>Notes</label>
+        <textarea id="rNotes" rows="2" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
       </div>
-    </div>
 
-    <div style="margin-top:8px;">
-      <label>Notes</label>
-      <textarea id="resNotes" rows="2" style="width:100%;padding:10px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
-    </div>
-
-    <div style="margin-top:12px;text-align:left;">
-      <!-- Button text changed to "Book" and larger only for booking-card -->
-      <button id="btnReserve" class="btn" type="button" style="padding:12px 22px;font-size:16px;">Book</button>
-      <span id="resMsg" class="badge" style="margin-left:12px;"></span>
+      <div style="margin-top:12px;text-align:left;">
+        <button id="btnReserve" class="btn btn-primary-book" type="button">Book</button>
+        <span id="rMsg" class="badge" style="margin-left:10px;"></span>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Booking confirmation modal -->
-<div id="booking-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;">
-    <h3 style="margin-top:0;">Reservation confirmed</h3>
-    <p id="booking-modal-text" style="margin:8px 0 16px 0;">Thank you — your reservation has been received. You will get a confirmation email shortly. Please check your spam folder as well.</p>
-    <div style="display:flex;gap:10px;justify-content:center;">
-      <button onclick="closeBookingModal()" class="btn" style="min-width:120px;">Continue</button>
-      <a href="/" style="display:inline-block;text-decoration:none;padding:10px 14px;border-radius:8px;background:#f0e7de;color:#3a2f28;border:1px solid #e0d7c5;font-weight:700;">Home</a>
+  <!-- Confirmation modal (hidden) -->
+  <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:9999;">
+    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5;">
+      <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
+      <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button id="confirm-ok" class="btn" style="min-width:120px;">Continue</button>
+      </div>
     </div>
   </div>
-</div>
-
-<!-- Closed / Block modal -->
-<div id="closed-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;">
-    <h3 style="margin-top:0;">Not available</h3>
-    <p id="closed-modal-text" style="margin:8px 0 16px 0;color:#3a2f28;"></p>
-    <div><button onclick="closeClosedModal()" class="btn" style="min-width:140px;">Choose another day</button></div>
-  </div>
-</div>
 
 <script>
-  // helper for today format yyyy-mm-dd
-  const todayStr = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+  // helper: today string yyyy-mm-dd
+  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-  // fill hero banner from config
+  // fill banner from /api/config
   (async()=>{
     try{
       const r = await fetch('/api/config'); const cfg = await r.json();
@@ -115,83 +96,109 @@
     }catch(e){ console.error(e); }
   })();
 
-  // fill time select (slot times)
+  document.getElementById('rDate').value = today();
+
+  // fill times select (same as admin)
   function fillTimes(){
-    const sel = document.getElementById('resTime');
-    sel.innerHTML = "";
-    const from = 10*60, to = 22*60;
-    for(let m=from; m<=to; m+=15){
-      const hh = String(Math.floor(m/60)).padStart(2,"0");
-      const mm = String(m%60).padStart(2,"0");
-      const opt = document.createElement('option');
-      opt.value = `${hh}:${mm}`; opt.textContent = `${hh}:${mm}`;
+    const sel = document.getElementById('rTime');
+    sel.innerHTML = '';
+    const from = 10*60, to = 22*60, interval = 15;
+    for(let m=from;m<=to;m+=interval){
+      const hh=String(Math.floor(m/60)).padStart(2,"0");
+      const mm=String(m%60).padStart(2,"0");
+      const opt=document.createElement("option"); opt.value=`${hh}:${mm}`; opt.textContent=opt.value;
       sel.appendChild(opt);
     }
   }
   fillTimes();
 
-  document.getElementById('resDate').value = todayStr();
-
-  // modal helpers
-  function showBookingModal(text){
-    const modal = document.getElementById('booking-modal');
-    document.getElementById('booking-modal-text').textContent = text || 'Thank you — your reservation has been received. You will get a confirmation email shortly. Please check your spam folder as well.';
-    modal.style.display = 'flex';
-  }
-  function closeBookingModal(){ document.getElementById('booking-modal').style.display = 'none'; }
-
-  function showClosedModal(text){
-    const modal = document.getElementById('closed-modal');
-    document.getElementById('closed-modal-text').textContent = text || 'Sorry, this date/time is not available. Please choose another date.';
-    modal.style.display = 'flex';
-  }
-  function closeClosedModal(){ document.getElementById('closed-modal').style.display = 'none'; }
-
-  // submit handler
+  // find reserve button and add handler
   document.getElementById('btnReserve').addEventListener('click', async ()=>{
-    const date = document.getElementById('resDate').value;
-    const time = document.getElementById('resTime').value;
-    const firstName = document.getElementById('resFirst').value.trim();
-    const lastName = document.getElementById('resLast').value.trim();
-    const email = document.getElementById('resEmail').value.trim();
-    const phone = document.getElementById('resPhone').value.trim();
-    const guests = Number(document.getElementById('resGuests').value);
-    const notes = document.getElementById('resNotes').value.trim();
-    const msg = document.getElementById('resMsg');
+    const d = document.getElementById('rDate').value || today();
+    const t = document.getElementById('rTime').value;
+    const payload = {
+      date: d,
+      time: t,
+      firstName: (document.getElementById('rFirst').value || "").trim(),
+      name: (document.getElementById('rLast').value || "").trim(),
+      email: (document.getElementById('rEmail').value || "").trim(),
+      phone: (document.getElementById('rPhone').value || "").trim(),
+      guests: Number(document.getElementById('rGuests').value || 1),
+      notes: (document.getElementById('rNotes').value || "").trim()
+    };
+    const msg = document.getElementById('rMsg');
     msg.textContent = '';
 
-    if(!date || !time || !firstName || !lastName || !email || !guests){ msg.textContent = 'Please fill required fields'; return; }
+    // basic client validation (keep minimal)
+    if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
+      msg.textContent = 'Please fill first name, last name, email and guests';
+      return;
+    }
 
     try{
-      const payload = { date, time, firstName, name:lastName, email, phone, guests, notes };
       const r = await fetch('/api/reservations', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify(payload)
       });
-      const j = await r.json().catch(()=>({}));
-      if(r.ok && j.ok){
-        // show confirmation modal
-        showBookingModal(`Thank you ${firstName}! Your reservation for ${j.reservation.date} at ${j.reservation.time} is confirmed. Check your email (${email}) including spam folder.`);
-        // keep the user on the site; allow them to navigate via modal buttons
-        // reset form lightly
-        // DO NOT remove or change form fields except clearing some
-        document.getElementById('resNotes').value = '';
-      } else {
-        // error handling: if closed / blocked -> show closed modal with clear message
-        const err = j.error || 'Reservation failed. Please choose another slot or try again.';
-        // detect specific reasons from server
-        if(err.toLowerCase().includes('closed') || err.toLowerCase().includes('blocked') || err.toLowerCase().includes('fully booked')){
-          showClosedModal(err);
+
+      const json = await r.json().catch(()=>({}));
+      if(r.ok){
+        // success — show confirmation modal and then redirect to /
+        const title = document.getElementById('confirm-title');
+        const txt = document.getElementById('confirm-text');
+        title.textContent = 'Reservation received';
+        txt.innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
+        // If loyalty popup unlocked, show loyalty modal first (if available)
+        if(json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15) && typeof showLoyaltyModal === 'function'){
+          showLoyaltyModal(json.nowUnlockedTier);
+          // when loyalty modal is closed it will stop fireworks; we also show confirm modal afterwards
+          // Wait briefly and then show confirm modal
+          setTimeout(()=>{ showConfirmModal(); }, 1000);
         } else {
-          msg.textContent = err;
+          showConfirmModal();
+        }
+
+        // helper: ok button will redirect to home
+        document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href = '/'; };
+      } else {
+        // handle known server messages: closed/blocked/fully booked => user-friendly popup
+        const err = (json && json.error) ? json.error : "Failed to create reservation";
+        if(err.toLowerCase().includes("closed") || err.toLowerCase().includes("blocked") || err.toLowerCase().includes("fully booked")){
+          // show modal with custom message
+          const title = document.getElementById('confirm-title');
+          const txt = document.getElementById('confirm-text');
+          title.textContent = 'Not available';
+          if(err.toLowerCase().includes("sunday")) {
+            txt.textContent = "We are closed on Sundays. Please choose another day.";
+          } else if(err.toLowerCase().includes("blocked") || err.toLowerCase().includes("closed")) {
+            txt.textContent = "This date is blocked or closed. Please choose another day.";
+          } else {
+            txt.textContent = "This slot is fully booked. Please choose another time or day.";
+          }
+          document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); };
+          showConfirmModal();
+        } else {
+          msg.textContent = err || 'Error saving reservation';
         }
       }
     }catch(e){
-      console.error(e);
-      document.getElementById('resMsg').textContent = 'Network error';
+      console.error('reservation post error', e);
+      msg.textContent = 'Network error';
     }
   });
+
+  function showConfirmModal(){
+    const m = document.getElementById('confirm-modal');
+    m.style.display = 'flex';
+  }
+  function hideConfirmModal(){
+    const m = document.getElementById('confirm-modal');
+    m.style.display = 'none';
+  }
+
+  // If loyalty modal script exists elsewhere, it will also be used (no change).
 </script>
+
 </body>
 </html>
