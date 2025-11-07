@@ -1,21 +1,32 @@
-const path = require("path");
-const fs = require("fs");
-
-const entryPoints = [
-  "dist/server.js",
-  "dist/src/server.js",
-  "dist/index.js",
-  "dist/src/index.js",
-];
-
-for (const entry of entryPoints) {
-  const full = path.join(__dirname, entry);
-  if (fs.existsSync(full)) {
-    console.log("Starting server", full);
-    require(full);
-    return;
+{
+  "name": "noxama-buchungssystem",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "postinstall": "prisma generate",
+    "start": "node start.js",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.8.0",
+    "cors": "^2.8.5",
+    "date-fns": "^2.30.0",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "nanoid": "^4.0.0",
+    "nodemailer": "^6.9.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "prisma": "^5.8.0",
+    "rimraf": "^5.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.2",
+    "@types/nodemailer": "^6.4.7"
   }
 }
-
-console.error("No compiled server entry found. Tried:", entryPoints);
-process.exit(1);
