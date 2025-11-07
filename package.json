@@ -1,28 +1,19 @@
 {
   "name": "noxama-buchungssystem",
   "version": "1.0.0",
-  "description": "Booking/reservation backend for RÖSTILAND BY NOXAMA SAMUI",
+  "private": true,
   "main": "dist/server.js",
- "scripts": {
-  "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-  "build": "tsc",
-  "prisma:generate": "prisma generate",
-  "prisma:migrate:deploy": "prisma migrate deploy",
-  "postinstall": "prisma generate",
-  "start": "node dist/server.js",
-  "clean": "rimraf dist"
- }
-
-  "keywords": [
-    "booking",
-    "reservation",
-    "express",
-    "prisma"
-  ],
-  "author": "noxama",
-  "license": "MIT",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "postinstall": "prisma generate",
+    "start": "node dist/server.js",
+    "clean": "rimraf dist"
+  },
   "dependencies": {
-    "@prisma/client": "^5.5.0",
+    "@prisma/client": "^5.8.0",
     "cors": "^2.8.5",
     "date-fns": "^2.30.0",
     "dotenv": "^16.0.3",
@@ -32,13 +23,9 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "prisma": "^5.5.0",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.2.2",
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.5.0",
-    "@types/nodemailer": "^6.4.7",
+    "prisma": "^5.8.0",
     "rimraf": "^5.0.0",
-    "eslint": "^8.47.0"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.2"
   }
 }
