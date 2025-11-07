@@ -419,9 +419,17 @@ app.post("/api/reservations", async (req,res)=>{
       nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
     });
   }catch(err){
-    console.error("reservation error:", err);
-    res.status(500).json({ error: "Failed to create reservation" });
+  // log full error and stack to server logs for debugging
+  if (err instanceof Error) {
+    console.error("reservation error:", err.stack || err.message);
+  } else {
+    console.error("reservation error (non-error):", err);
   }
+
+  // give client a safe, but helpful details field for debugging
+  const details = (err && (err as any).message) ? (err as any).message : String(err || "unknown error");
+  res.status(500).json({ error: "Failed to create reservation", details });
+}
 });
 
 /* ─────────────────────────────── Cancel ────────────────────────────────── */
