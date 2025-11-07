@@ -304,3 +304,74 @@ img { max-width: 100%; height: auto; display: block; }
 
 /* subtle animation */
 @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+/* -------- mobile fixes: einheitliche feldgroessen -------- */
+@media (max-width: 520px) {
+  /* sorgen dass alle form-elemente gleich breit sind */
+  .booking-card input,
+  .booking-card select,
+  .booking-card textarea,
+  .card input,
+  .card select,
+  .card textarea {
+    width: 100% !important;
+    padding: 12px 14px !important;     /* gleiches Innenpadding */
+    font-size: 15px !important;        /* gleiche Schriftgroesse */
+    border-radius: 10px !important;    /* gleiches Radius */
+    height: auto !important;           /* keine fixe Hoehe, natuerlich waechst textarea */
+    line-height: 1.2 !important;
+  }
+
+  /* Konsistente Hohe fuer single-line controls (select, input[type=text|tel|email|number|date]) */
+  .booking-card input[type="text"],
+  .booking-card input[type="email"],
+  .booking-card input[type="tel"],
+  .booking-card input[type="number"],
+  .booking-card input[type="date"],
+  .booking-card select,
+  .card input[type="text"],
+  .card input[type="email"],
+  .card input[type="tel"],
+  .card input[type="number"],
+  .card input[type="date"],
+  .card select {
+    min-height: 46px;
+    box-sizing: border-box;
+    display: block;
+  }
+
+  /* Button: volle Breite, schoene Platzierung */
+  .booking-card .btn,
+  .card .btn {
+    display: block;
+    width: calc(100% - 8px);
+    margin: 8px auto 4px;
+    padding: 10px 14px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+
+  /* Label-Abstand verkuerzen fuer kompaktere Ansicht */
+  .booking-card label,
+  .card label {
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+
+  /* spezifische Fixes fuer Datum-Selector (Native widgets koennen anders aussehen) */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    padding: 8px;
+    cursor: pointer;
+  }
+
+  /* wenn zwei-spaltige container existieren -> stacken und gleiche Abstaende */
+  .form-grid-2,
+  .form-grid-3,
+  .row.date-time {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* remove large outer paddings on very small screens */
+  .container { padding-left: 12px; padding-right: 12px; }
+  .booking-card { padding: 12px; margin: 12px 8px; }
+}
