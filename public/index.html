@@ -1,10 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="utf-8"/>
   <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    /* kleine lokale Styles für Buttons/Badges (keine Layout-Änderungen) */
+    .btn { cursor:pointer; padding:8px 12px; border-radius:8px; border:0; background:#b3822f; color:#fff }
+    .btn-secondary { background:#fff; color:#3a2f28; border:1px solid #ddd }
+    .badge { font-size:0.95rem; color:#6b5b4a }
+    /* times buttons */
+    .time-btn { margin:6px 6px 6px 0; padding:8px 12px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+    .time-btn.selected { box-shadow:0 6px 18px rgba(179,130,47,0.28); }
+    /* small responsive container */
+    @media (max-width:720px){ .booking-card{ padding:12px } .hero-wrap img { width:92% } }
+  </style>
 </head>
 <body>
   <div class="hero-wrap" style="text-align:center;margin-top:18px;">
@@ -26,18 +37,18 @@
         <div style="flex:0 0 110px;">
           <label>Guests</label>
           <select id="rGuests">
-            <!-- default options -->
             <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
             <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
           </select>
         </div>
         <div style="flex:0 0 140px;">
           <label>Time</label>
-          <select id="rTime"></select>
+          <!-- rTime wird dynamisch befüllt nur mit erlaubten Zeiten -->
+          <div id="timesContainer" aria-live="polite" style="min-height:36px"></div>
         </div>
       </div>
 
-      <div class="row form-grid-2" style="margin-top:6px;">
+      <div class="row form-grid-2" style="margin-top:12px;">
         <div>
           <label>First name</label>
           <input id="rFirst" type="text"/>
@@ -73,7 +84,7 @@
 
   <!-- Confirmation modal (hidden) -->
   <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:9999;">
-    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5;">
+    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:540px;width:92%;text-align:center;border:1px solid #e0d7c5;">
       <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
       <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
       <div style="display:flex;gap:10px;justify-content:center;">
@@ -82,348 +93,282 @@
     </div>
   </div>
 
+  <!-- Generic overlay modal used for immediate-date and loyalty -->
+  <div id="__noxama_modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;z-index:99998;">
+    <div id="__noxama_modal_box" style="background:#fff;border-radius:12px;padding:18px;max-width:720px;width:92%;text-align:center;border:1px solid #e0d7c5;">
+      <!-- injected content -->
+    </div>
+  </div>
+
 <script>
-  // helper: today string yyyy-mm-dd
-  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+/* ---------- Helpers ---------- */
 
-  // fill banner from /api/config
-  (async()=>{
-    try{
-      const r = await fetch('/api/config'); const cfg = await r.json();
-      const hero = document.getElementById('heroBanner');
-      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
-      hero.alt = cfg.brand || 'Banner';
-    }catch(e){ console.error(e); }
-  })();
+const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-  document.getElementById('rDate').value = today();
-
-  // fill times select (same as admin)
-  function fillTimes(){
-    const sel = document.getElementById('rTime');
-    sel.innerHTML = '';
-    const from = 10*60, to = 22*60, interval = 15;
-    for(let m=from;m<=to;m+=interval){
-      const hh=String(Math.floor(m/60)).padStart(2,"0");
-      const mm=String(m%60).padStart(2,"0");
-      const opt=document.createElement("option"); opt.value=`${hh}:${mm}`; opt.textContent=opt.value;
-      sel.appendChild(opt);
-    }
+function showOverlay(html, title){
+  const ov = document.getElementById("__noxama_modal");
+  const box = document.getElementById("__noxama_modal_box");
+  box.innerHTML = "";
+  if (title){
+    const h = document.createElement("h3"); h.textContent = title; h.style.marginTop="0";
+    box.appendChild(h);
   }
-  fillTimes();
+  const content = document.createElement("div"); content.innerHTML = html; box.appendChild(content);
+  const btn = document.createElement("div");
+  btn.style.marginTop = "14px";
+  const ok = document.createElement("button");
+  ok.textContent = "Alles klar";
+  ok.className = "btn";
+  ok.onclick = ()=> { ov.style.display = "none"; };
+  btn.appendChild(ok);
+  box.appendChild(btn);
+  ov.style.display = "flex";
+}
+function hideOverlay(){ document.getElementById("__noxama_modal").style.display = "none"; }
 
-  // find reserve button and add handler
-  document.getElementById('btnReserve').addEventListener('click', async ()=>{
-    const d = document.getElementById('rDate').value || today();
-    const t = document.getElementById('rTime').value;
-    const payload = {
-      date: d,
-      time: t,
-      firstName: (document.getElementById('rFirst').value || "").trim(),
-      name: (document.getElementById('rLast').value || "").trim(),
-      email: (document.getElementById('rEmail').value || "").trim(),
-      phone: (document.getElementById('rPhone').value || "").trim(),
-      guests: Number(document.getElementById('rGuests').value || 1),
-      notes: (document.getElementById('rNotes').value || "").trim()
-    };
-    const msg = document.getElementById('rMsg');
-    msg.textContent = '';
+function showConfirm(title, text, okCb){
+  const m = document.getElementById("confirm-modal");
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-text").innerHTML = text;
+  document.getElementById("confirm-ok").onclick = ()=>{
+    hideConfirm();
+    if (typeof okCb === "function") okCb();
+  };
+  m.style.display = "flex";
+}
+function hideConfirm(){ document.getElementById("confirm-modal").style.display = "none"; }
 
-    // basic client validation (keep minimal)
-    if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
-      msg.textContent = 'Please fill first name, last name, email and guests';
+/* ---------- Fill banner ---------- */
+(async()=>{
+  try{
+    const r = await fetch('/api/config',{cache:"no-store'});
+    if (!r.ok) throw new Error("no cfg");
+    const cfg = await r.json();
+    const hero = document.getElementById('heroBanner');
+    hero.src = (cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim()) ? cfg.mailHeaderUrl : ((cfg.mailLogoUrl && cfg.mailLogoUrl.trim()) ? cfg.mailLogoUrl : '/logo-hero.png');
+    hero.alt = cfg.brand || 'Banner';
+    hero.onerror = function(){ this.src = '/logo-hero.png'; };
+  }catch(e){
+    // ignore
+  }
+})();
+
+/* ---------- Main booking UI logic ---------- */
+const rDate = document.getElementById('rDate');
+const rGuests = document.getElementById('rGuests');
+const timesContainer = document.getElementById('timesContainer');
+const rMsg = document.getElementById('rMsg');
+const btnReserve = document.getElementById('btnReserve');
+
+rDate.value = today();
+
+/* Load slots from server and render only allowed times.
+   If no allowed times exist -> show immediate popup (friendly).
+*/
+let lastLoadedDate = "";
+async function loadSlotsFor(date) {
+  if (!date) return;
+  lastLoadedDate = date;
+  timesContainer.innerHTML = ""; // clear
+  rMsg.textContent = "";
+  const guests = Number(rGuests.value || 1);
+
+  try {
+    const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache: "no-store"});
+    if (!resp.ok) throw new Error("Slots fetch failed");
+    const slots = await resp.json();
+
+    if (!Array.isArray(slots) || slots.length === 0) {
+      // treat as closed/blocked — show friendly popup
+      showOverlay(`<div style="font-family:Georgia,serif;color:#3a2f28">
+        <div style="font-size:20px;margin-bottom:8px">Oh nein — an diesem Tag ist leider nichts verfugbar</div>
+        <div>Bitte wahlen Sie ein anderes Datum. Wir freuen uns darauf, Sie bald zu begrussen.</div>
+      </div>`, "Tag nicht verfugbar");
       return;
     }
 
-    try{
-      const r = await fetch('/api/reservations', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify(payload)
-      });
+    // Determine allowed slots
+    const allowed = slots.filter(s => s.allowed === true);
 
-      const json = await r.json().catch(()=>({}));
-      if(r.ok){
-        // success — show confirmation modal and then redirect to /
-        const title = document.getElementById('confirm-title');
-        const txt = document.getElementById('confirm-text');
-        title.textContent = 'Reservation received';
-        txt.innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
-        // If loyalty popup unlocked, show loyalty modal first (if available)
-        if(json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15) && typeof showLoyaltyModal === 'function'){
-          showLoyaltyModal(json.nowUnlockedTier);
-          // when loyalty modal is closed it will stop fireworks; we also show confirm modal afterwards
-          // Wait briefly and then show confirm modal
-          setTimeout(()=>{ showConfirmModal(); }, 1000);
-        } else {
-          showConfirmModal();
-        }
-
-        // helper: ok button will redirect to home
-        document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href = '/'; };
-      } else {
-        // handle known server messages: closed/blocked/fully booked => user-friendly popup
-        const err = (json && json.error) ? json.error : "Failed to create reservation";
-        if(err.toLowerCase().includes("closed") || err.toLowerCase().includes("blocked") || err.toLowerCase().includes("fully booked")){
-          // show modal with custom message
-          const title = document.getElementById('confirm-title');
-          const txt = document.getElementById('confirm-text');
-          title.textContent = 'Not available';
-          if(err.toLowerCase().includes("sunday")) {
-            txt.textContent = "We are closed on Sundays. Please choose another day.";
-          } else if(err.toLowerCase().includes("blocked") || err.toLowerCase().includes("closed")) {
-            txt.textContent = "This date is blocked or closed. Please choose another day.";
-          } else {
-            txt.textContent = "This slot is fully booked. Please choose another time or day.";
-          }
-          document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); };
-          showConfirmModal();
-        } else {
-          msg.textContent = err || 'Error saving reservation';
-        }
-      }
-    }catch(e){
-      console.error('reservation post error', e);
-      msg.textContent = 'Network error';
-    }
-  });
-
-  function showConfirmModal(){
-    const m = document.getElementById('confirm-modal');
-    m.style.display = 'flex';
-  }
-  function hideConfirmModal(){
-    const m = document.getElementById('confirm-modal');
-    m.style.display = 'none';
-  }
-
-  // If loyalty modal script exists elsewhere, it will also be used (no change).
-</script>
-<script>
-(async ()=>{
-  const form = document.querySelector("form") || document.getElementById("reservation-form");
-  const dateInput = document.querySelector('input[name="date"]') || document.getElementById("date");
-  const guestsInput = document.querySelector('select[name="guests"]') || document.getElementById("guests");
-  const reserveButton = document.querySelector('button[type="submit"], input[type="submit"], #reserve-btn');
-
-  // Style und Text anpassen
-  if (reserveButton) {
-    reserveButton.textContent = "Book";
-    reserveButton.style.padding = "12px 20px";
-    reserveButton.style.fontSize = "16px";
-    reserveButton.style.borderRadius = "8px";
-  }
-
-  function showPopup(title, msg) {
-    alert(title + "\n\n" + msg);
-  }
-
-  async function fetchSlotsAndNotify(date) {
-    if (!date) return;
-    const guests = guestsInput ? guestsInput.value || 1 : 1;
-    try {
-      const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`);
-      const slots = await resp.json();
-      if (!Array.isArray(slots) || slots.length === 0) return;
-      // Wenn alle slots reason Closed on Sunday oder Blocked -> zeige Popup sofort
-      const allClosed = slots.every(s => s.allowed === false && (s.reason === "Closed on Sunday" || s.reason === "Blocked" || s.reason?.toLowerCase().includes("fully booked for this date")));
-      if (allClosed) {
-        const reason = slots[0].reason || "Closed";
-        showPopup("Reservation not possible", reason + "\nPlease choose another date.");
-      }
-    } catch (e) {
-      console.error("fetch slots", e);
-    }
-  }
-
-  // Wenn Datum geaendert wird -> check
-  if (dateInput) {
-    dateInput.addEventListener("change", (e)=>{
-      const val = e.target.value;
-      // normalisiere format falls notwendig
-      fetchSlotsAndNotify(val);
-    });
-  }
-
-  // Form submit handler: bleibt unveraendert, nur Popup und redirect nach Erfolg
-  if (form) {
-    form.addEventListener("submit", async (ev)=>{
-      ev.preventDefault();
-      const data = {};
-      new FormData(form).forEach((v,k)=> data[k]=v);
-      try {
-        const r = await fetch("/api/reservations", {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify(data)
-        });
-        const j = await r.json();
-        if (!r.ok) {
-          showPopup("Reservation failed", j.error || "Please choose another slot.");
-          return;
-        }
-        // Success popup
-        const msg = "Thank you. Your reservation is confirmed and you will receive an email. Please also check your spam folder.";
-        showPopup("Reservation confirmed", msg);
-        // Feier popup wenn nowUnlockedTier
-        if (j.nowUnlockedTier && j.nowUnlockedTier > 0) {
-          // einfacher visueller Effekt
-          setTimeout(()=>alert(`Congrats! You unlocked ${j.nowUnlockedTier}% loyalty reward 🎉`), 200);
-        }
-        // redirect back to home page root nach kurzer Wartezeit
-        setTimeout(()=> { window.location = "/"; }, 1200);
-      } catch (err) {
-        console.error("submit reservation", err);
-        showPopup("Error", "Network or server error");
-      }
-    });
-  }
-})();
-</script>
-<script>
-(async function(){
-  // Helper modal (simple, self-contained)
-  function showModal(htmlContent, title = "") {
-    // remove existing
-    const ex = document.getElementById("__noxama_modal");
-    if (ex) ex.remove();
-
-    const overlay = document.createElement("div");
-    overlay.id = "__noxama_modal";
-    overlay.style.position = "fixed";
-    overlay.style.left = "0";
-    overlay.style.top = "0";
-    overlay.style.width = "100%";
-    overlay.style.height = "100%";
-    overlay.style.zIndex = "99999";
-    overlay.style.display = "flex";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
-    overlay.style.background = "rgba(0,0,0,0.4)";
-
-    const box = document.createElement("div");
-    box.style.maxWidth = "640px";
-    box.style.width = "calc(100% - 40px)";
-    box.style.background = "#fff";
-    box.style.borderRadius = "12px";
-    box.style.padding = "18px";
-    box.style.boxShadow = "0 8px 30px rgba(0,0,0,0.25)";
-    box.style.textAlign = "center";
-
-    if (title) {
-      const h = document.createElement("h3");
-      h.textContent = title;
-      h.style.marginTop = "0";
-      box.appendChild(h);
+    if (allowed.length === 0) {
+      // If every slot is disallowed, show the best friendly reason
+      const reasons = Array.from(new Set(slots.map(s => (s.reason || "").trim()).filter(Boolean)));
+      const sundayReason = reasons.find(r => /sunday|sonntag/i.test(r));
+      const chosen = sundayReason || reasons[0] || "Dieser Tag ist nicht verfugbar";
+      const friendly = `<div style="font-family:Georgia,serif;color:#3a2f28">
+          <div style="font-size:20px;margin-bottom:8px">Oh nein — an diesem Tag ist leider nichts verfugbar</div>
+          <div style="margin-bottom:10px">${chosen}</div>
+          <div>Bitte wahlen Sie ein anderes Datum. Wir freuen uns darauf, Sie bald zu begrussen.</div>
+        </div>`;
+      showOverlay(friendly, "Tag nicht verfugbar");
+      return;
     }
 
-    const inner = document.createElement("div");
-    inner.innerHTML = htmlContent;
-    box.appendChild(inner);
-
-    const btnWrap = document.createElement("div");
-    btnWrap.style.marginTop = "12px";
-    const ok = document.createElement("button");
-    ok.textContent = "Okay";
-    ok.style.padding = "10px 16px";
-    ok.style.borderRadius = "8px";
-    ok.style.border = "none";
-    ok.style.background = "#b3822f";
-    ok.style.color = "#fff";
-    ok.onclick = ()=> overlay.remove();
-    btnWrap.appendChild(ok);
-    box.appendChild(btnWrap);
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-  }
-
-  // ---------- Date selection: immediate check ----------
-  const dateInput = document.querySelector('input[type="date"]#date') || document.querySelector('input[type="date"]');
-  // If your page uses a different id, adapt selector above
-  if (dateInput) {
-    dateInput.addEventListener("change", async function(){
-      try {
-        const date = this.value;
-        if (!date) return;
-        const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=1`, {cache:"no-store"});
-        if (!resp.ok) return;
-        const slots = await resp.json();
-        if (!Array.isArray(slots) || slots.length === 0) return;
-
-        // If all slots are not allowed (and reasons indicate closed/blocked), show popup
-        const allNotAllowed = slots.every(s => !s.allowed);
-        if (!allNotAllowed) return;
-
-        // Inspect reasons and choose message
-        const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
-        // prefer Sunday/Closed reason
-        let reasonText = reasons.find(r => r.toLowerCase().includes("sunday")) || reasons[0] || "This day is not available";
-        // Friendly message
-        const friendly = `
-          <div style="font-family:Georgia,serif;color:#3a2f28;">
-            <div style="font-size:20px;margin-bottom:8px;">Oh no — this day is not available</div>
-            <div style="margin-bottom:10px;">${reasonText}</div>
-            <div>Please pick another day — we would love to welcome you.</div>
-          </div>`;
-        showModal(friendly, "Reservation not possible");
-      } catch(e) {
-        // silently ignore
-        console.error("date-check", e);
-      }
+    // Render allowed buttons only
+    allowed.forEach(slot => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "time-btn";
+      b.textContent = slot.time;
+      b.dataset.time = slot.time;
+      b.onclick = function(){
+        // mark selected
+        timesContainer.querySelectorAll(".time-btn").forEach(x=>x.classList.remove("selected"));
+        this.classList.add("selected");
+      };
+      timesContainer.appendChild(b);
     });
+
+  } catch (e) {
+    console.error("loadSlotsFor error", e);
+    showOverlay(`<div style="font-family:Georgia,serif;color:#3a2f28">
+      <div style="font-size:18px;margin-bottom:8px">Fehler</div>
+      <div>Verfugbarkeiten konnten nicht geladen werden. Bitte versuchen Sie es erneut.</div>
+    </div>`,"Fehler");
+  }
+}
+
+/* Trigger load on date or guest change */
+rDate.addEventListener("change", ()=> loadSlotsFor(rDate.value));
+rGuests.addEventListener("change", ()=> loadSlotsFor(rDate.value));
+
+/* initial load */
+loadSlotsFor(rDate.value);
+
+/* ---------- Booking action ---------- */
+btnReserve.addEventListener("click", async ()=>{
+  rMsg.textContent = "";
+  const selectedBtn = timesContainer.querySelector(".time-btn.selected");
+  if (!selectedBtn) {
+    rMsg.textContent = "Bitte wähle eine verfügbare Uhrzeit";
+    return;
+  }
+  const payload = {
+    date: rDate.value || today(),
+    time: selectedBtn.dataset.time,
+    firstName: (document.getElementById('rFirst').value || "").trim(),
+    name: (document.getElementById('rLast').value || "").trim(),
+    email: (document.getElementById('rEmail').value || "").trim(),
+    phone: (document.getElementById('rPhone').value || "").trim(),
+    guests: Number(document.getElementById('rGuests').value || 1),
+    notes: (document.getElementById('rNotes').value || "").trim()
+  };
+
+  // basic client validation
+  if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
+    rMsg.textContent = 'Bitte Vorname, Nachname, E-Mail und Gäste ausfüllen';
+    return;
   }
 
-  // ---------- After booking: show loyalty popup when server signals it ----------
-  // Hook form submit (assumes your booking form has id="bookingForm" or similar)
-  const bookingForm = document.querySelector("form#bookingForm") || document.querySelector("form");
-  if (bookingForm) {
-    bookingForm.addEventListener("submit", async function(ev){
-      ev.preventDefault();
-      // gather form data
-      const fd = new FormData(this as HTMLFormElement);
-      const payload:any = {};
-      fd.forEach((v,k)=> payload[k] = v);
-
-      try{
-        const r = await fetch("/api/reservations", {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify(payload)
-        });
-        const j = await r.json();
-        if (!r.ok) {
-          // show error nicely
-          const err = j.error || "Reservation failed";
-          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">${err}</div>`, "Oops");
-          return;
-        }
-
-        // On success: if server suggests a loyalty popup, show it
-        if (j.showLoyaltyPopup && j.loyaltyPopupHtml) {
-          // Animated/celebratory wrapper (you can adjust)
-          const celebratory = `
-            <div style="padding:8px;">
-              <div style="font-size:28px;margin-bottom:8px;">🎆 Congratulations 🎆</div>
-              ${j.loyaltyPopupHtml}
-            </div>`;
-          showModal(celebratory, "You earned a loyalty reward");
-        } else {
-          // generic success confirmation
-          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">Your reservation is confirmed. Thank you!</div>`, "Reservation confirmed");
-        }
-
-        // optionally: redirect back to site after a while
-        // setTimeout(()=> window.location.href = "/", 2500);
-      }catch(e){
-        console.error(e);
-        showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">Failed to submit reservation</div>`, "Error");
-      }
+  try {
+    const resp = await fetch('/api/reservations', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
     });
-  }
+    const json = await resp.json().catch(()=>({}));
 
-})();
+    if (!resp.ok) {
+      const err = (json && json.error) ? json.error : "Buchung fehlgeschlagen";
+      // Friendly handling: if closed/blocked/sunday/fully booked -> show modal
+      if (/closed|blocked|sunday|fully booked|not available|nicht verfugbar/i.test(err)) {
+        let message = "Dieser Termin ist leider nicht verfugbar. Bitte wählen Sie ein anderes Datum oder eine andere Uhrzeit.";
+        if (/sunday|sonntag/i.test(err)) message = "Wir haben sonntags geschlossen. Bitte wählen Sie einen anderen Tag.";
+        if (/blocked|closed/i.test(err)) message = "Dieser Tag ist gesperrt. Bitte wählen Sie ein anderes Datum.";
+        if (/fully booked/i.test(err)) message = "Dieser Zeitpunkt ist inzwischen ausgebucht. Bitte wählen Sie eine andere Uhrzeit.";
+        showOverlay(`<div style="font-family:Georgia,serif;color:#3a2f28">
+          <div style="font-size:20px;margin-bottom:8px">${message}</div>
+          <div>Wir helfen gern bei der Auswahl eines alternativen Termins.</div>
+        </div>`,"Nicht verfügbar");
+        // reload slots to reflect current state (prevents stale selection)
+        loadSlotsFor(rDate.value);
+        return;
+      }
+      // otherwise show brief message inline
+      rMsg.textContent = err || 'Fehler beim Speichern';
+      return;
+    }
+
+    // Success - determine loyalty popup using server visitNo if present, otherwise nowUnlockedTier
+    const visitNo = (json && typeof json.visitNo === "number") ? json.visitNo : null;
+    let loyaltyPercent = 0;
+    if (visitNo !== null) {
+      if (visitNo >= 15) loyaltyPercent = 15;
+      else if (visitNo >= 10) loyaltyPercent = 10;
+      else if (visitNo >= 5) loyaltyPercent = 5;
+    } else if (json && json.nowUnlockedTier) {
+      loyaltyPercent = Number(json.nowUnlockedTier) || 0;
+    }
+
+    // If loyaltyPercent > 0 and visitNo exists in the ranges specified (5-9,10-14,15+), show celebratory modal
+    if (loyaltyPercent > 0 && visitNo !== null) {
+      const msgHtml = `
+        <div style="font-family:Georgia,serif;color:#3a2f28">
+          <div style="font-size:28px;margin-bottom:8px">🎉 Hurra!</div>
+          <div style="font-size:18px;margin-bottom:8px">Sie haben nun <strong>${loyaltyPercent}%</strong> Loyalty-Rabatt</div>
+          <div>Zeigen Sie diese Nachricht bitte beim Empfang. Vielen Dank für Ihre Treue!</div>
+        </div>
+      `;
+      showOverlay(msgHtml, "Loyalty Belohnung");
+      // Show confirmation modal after a short delay so user sees both
+      setTimeout(()=> {
+        showConfirm("Reservation erhalten", `Danke! Ihre Reservierung ist bestätigt. Eine Bestätigung wird an <b>${payload.email}</b> gesendet.`, ()=>{ window.location.href = "/"; });
+      }, 1200);
+    } else {
+      // Regular confirmation
+      showConfirm("Reservation erhalten", `Danke! Ihre Reservierung ist bestätigt. Eine Bestätigung wird an <b>${payload.email}</b> gesendet.`, ()=>{ window.location.href = "/"; });
+    }
+
+  } catch (err) {
+    console.error("reservation post error", err);
+    rMsg.textContent = 'Netzwerkfehler';
+  }
+});
+
+/* ---------- Immediate date check for closed / blocked / Sunday ----------
+   This also ensures user gets popup immediately after they pick a date.
+   (It duplicates loadSlotsFor semantics but provides immediate friendly message
+    even if user doesn't open times.)
+*/
+async function checkDateImmediate(date) {
+  if (!date) return;
+  try {
+    const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=1`, {cache:"no-store"});
+    if (!resp.ok) return;
+    const slots = await resp.json();
+    if (!Array.isArray(slots) || slots.length === 0) {
+      showOverlay(`<div style="font-family:Georgia,serif;color:#3a2f28">
+        <div style="font-size:20px;margin-bottom:8px">Oh nein — an diesem Tag ist leider nichts verfugbar</div>
+        <div>Bitte wahlen Sie ein anderes Datum. Wir freuen uns darauf, Sie bald zu begrussen.</div>
+      </div>`,"Tag nicht verfugbar");
+      return;
+    }
+    const allNotAllowed = slots.every(s => s.allowed === false);
+    if (allNotAllowed) {
+      const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
+      const sundayReason = reasons.find(r => /sunday|sonntag/i.test(r));
+      const chosen = sundayReason || reasons[0] || "Dieser Tag ist nicht verfugbar";
+      const friendly = `<div style="font-family:Georgia,serif;color:#3a2f28">
+          <div style="font-size:20px;margin-bottom:8px">Oh nein — an diesem Tag ist leider nichts verfugbar</div>
+          <div style="margin-bottom:10px">${chosen}</div>
+          <div>Bitte wahlen Sie ein anderes Datum. Wir freuen uns darauf, Sie bald zu begrussen.</div>
+        </div>`;
+      showOverlay(friendly, "Tag nicht verfugbar");
+    }
+  } catch(e){ console.error("checkDateImmediate", e); }
+}
+
+/* Hook date input for immediate notifications */
+rDate.addEventListener("change", ()=>{
+  const d = rDate.value;
+  // load and also check immediate for friendly popup (they overlap but that's ok)
+  loadSlotsFor(d);
+  checkDateImmediate(d);
+});
+
+/* Also re-check when guests change (availability depends on guests) */
+rGuests.addEventListener("change", ()=> loadSlotsFor(rDate.value));
+
 </script>
-
 </body>
 </html>
