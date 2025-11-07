@@ -116,6 +116,53 @@ function slotDuration(date:string, time:string){
   return differenceInMinutes(next, t);
 }
 
+/* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
+async function slotAllowed(date: string, time: string){
+  const norm = normalizeYmd(date);
+  if(!norm) return { ok:false, reason:"Invalid date" };
+  if(SUNDAY_CLOSED && isSunday(norm)) return { ok:false, reason:"Closed on Sunday" };
+
+  const start = localDateFrom(norm, time);
+  if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
+  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
+  const end = addMinutes(start, minutes);
+
+  const {y,m,d}=splitYmd(norm);
+  const open  = localDate(y,m,d, OPEN_HOUR, 0, 0);
+  const close = localDate(y,m,d, CLOSE_HOUR,0, 0);
+  if(start < open) return { ok:false, reason:"Before opening" };
+  if(end   > close) return { ok:false, reason:"After closing" };
+
+  const blocked = await prisma.closure.findFirst({ where: { AND: [{ startTs: { lt:end } }, { endTs: { gt:start } }] } });
+  if(blocked) return { ok:false, reason:"Blocked" };
+
+  return { ok:true, norm, start, end, open, close, minutes };
+}
+
+/* ─────────────────────── Loyalty helpers ─────────────────────────── */
+function loyaltyDiscountFor(visit: number): number {
+  if (visit >= 15) return 15;
+  if (visit >= 10) return 10;
+  if (visit >= 5) return 5;
+  return 0;
+}
+function loyaltyTeaseNext(visit: number): 0 | 5 | 10 | 15 {
+  if (visit === 4) return 5;
+  if (visit === 9) return 10;
+  if (visit === 14) return 15;
+  return 0;
+}
+function loyaltyUnlockedNow(visit: number): 0 | 5 | 10 | 15 {
+  if (visit === 5) return 5;
+  if (visit === 10) return 10;
+  if (visit === 15) return 15;
+  return 0;
+}
+function ordinal(n:number){
+  const v=n%100; if(v>=11&&v<=13) return `${n}th`;
+  const u=n%10; if(u===1) return `${n}st`; if(u===2) return `${n}nd`; if(u===3) return `${n}rd`; return `${n}th`;
+}
+
 /* ───────────────────────────── Mail-Templates ──────────────────────────── */
 function emailHeader(logoUrl:string){
   if (MAIL_HEADER_URL) {
@@ -135,7 +182,7 @@ function emailHeader(logoUrl:string){
     </div>`;
 }
 
-/** Confirmation mail – mit Besuchsnummer, Teaser, Loyalty-Blöcken */
+/** Confirmation mail – mit Besuchsnummer / Teaser / Feierblock */
 function confirmationHtml(p:{
   firstName:string; name:string; date:string; time:string; guests:number;
   cancelUrl:string; visitNo:number; currentDiscount:number;
@@ -339,7 +386,7 @@ app.post("/api/reservations", async (req,res)=>{
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // Admin Info (knapp)
+    // Admin Info
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -588,89 +635,6 @@ app.get("/api/export", async (req,res)=>{
   }
 });
 
-/* ───────────────────────────── Special Notices ─────────────────────────── */
-/** Save or update a notice by date (date not unique in schema -> manual upsert) */
-app.post("/api/admin/notice", async (req,res)=>{
-  try{
-    const date = normalizeYmd(String(req.body.date || ""));
-    const message = String(req.body.message || "").trim();
-    if (!date || !message) return res.status(400).json({ error: "Invalid input" });
-
-    const existing = await prisma.notice.findFirst({ where: { date } });
-    if (existing) {
-      await prisma.notice.update({ where: { id: existing.id }, data: { message } });
-    } else {
-      await prisma.notice.create({ data: { date, message } });
-    }
-    res.json({ ok:true });
-  }catch(err){
-    console.error("Save notice error:", err);
-    res.status(500).json({ error: "Failed to save notice" });
-  }
-});
-
-/** Load a single notice for a given date (used by reservation page for popup) */
-app.get("/api/notice", async (req,res)=>{
-  try{
-    const date = normalizeYmd(String(req.query.date || ""));
-    if (!date) return res.json(null);
-    const n = await prisma.notice.findFirst({ where: { date } });
-    res.json(n || null);
-  }catch(err){
-    console.error("Get notice error:", err);
-    res.status(500).json({ error: "Failed to load notice" });
-  }
-});
-/* ─────────────────────────── Special Notices ─────────────────────────── */
-
-// Speichern/Überschreiben einer Notice (Datum muss YYYY-MM-DD sein)
-app.post("/api/admin/notice", async (req, res) => {
-  try {
-    const norm = normalizeYmd(String(req.body.date || ""));
-    const message = String(req.body.message || "").trim();
-    if (!norm || !message) return res.status(400).json({ error: "Invalid input" });
-
-    // upsert auf eindeutigem 'date'
-    const saved = await prisma.notice.upsert({
-      where: { date: norm },
-      update: { message },
-      create: { date: norm, message },
-    });
-
-    res.json({ ok: true, notice: saved });
-  } catch (e) {
-    console.error("save notice error:", e);
-    res.status(500).json({ error: "Failed to save notice" });
-  }
-});
-
-// Für das Frontend (Buchungsseite): Notice für ein Datum abfragen
-app.get("/api/notice", async (req, res) => {
-  try {
-    const norm = normalizeYmd(String(req.query.date || ""));
-    if (!norm) return res.json(null);
-    const n = await prisma.notice.findUnique({ where: { date: norm } });
-    res.json(n || null);
-  } catch (e) {
-    console.error("get notice error:", e);
-    res.json(null);
-  }
-});
-
-// Optional: aktuelle Notice wieder löschen
-app.delete("/api/admin/notice/:date", async (req, res) => {
-  try {
-    const norm = normalizeYmd(String(req.params.date || ""));
-    if (!norm) return res.status(400).json({ error: "Invalid date" });
-    await prisma.notice.delete({ where: { date: norm } }).catch(() => {});
-    res.json({ ok: true });
-  } catch (e) {
-    console.error("delete notice error:", e);
-    res.status(500).json({ error: "Failed to delete notice" });
-  }
-});
-
-
 /* ───────────────────────────── Reminder Job ────────────────────────────── */
 setInterval(async ()=>{
   try{
@@ -697,6 +661,54 @@ setInterval(async ()=>{
   }catch(e){ console.error("reminder job", e); }
 }, 30*60*1000);
 
+/* ───────────────────────────── Admin: Special Notice ───────────────────── */
+// Speichern/Ersetzen Notice (benötigt @unique auf Notice.date)
+app.post("/api/admin/notice", async (req,res)=>{
+  try{
+    const { date, message } = req.body || {};
+    const d = normalizeYmd(String(date || ""));
+    if (!d || !String(message || "").trim()) {
+      return res.status(400).json({ error: "Invalid date or empty message" });
+    }
+    const saved = await prisma.notice.upsert({
+      where:  { date: d },
+      update: { message: String(message) },
+      create: { date: d, message: String(message) },
+    });
+    res.json({ ok:true, notice:saved });
+  }catch(e){
+    console.error("save notice", e);
+    res.status(500).json({ error: "Failed to save notice" });
+  }
+});
+
+// Notice für Datum abrufen (Frontend zeigt Modal)
+app.get("/api/notice", async (req,res)=>{
+  try{
+    const d = normalizeYmd(String(req.query.date || ""));
+    if (!d) return res.json(null);
+    const n = await prisma.notice.findUnique({ where: { date: d } });
+    if (!n) return res.json(null);
+    res.json({ date:n.date, message:n.message });
+  }catch(e){
+    console.error("get notice", e);
+    res.status(500).json({ error: "Failed to load notice" });
+  }
+});
+
+// Optional: Notice löschen
+app.delete("/api/admin/notice/:date", async (req,res)=>{
+  try{
+    const d = normalizeYmd(String(req.params.date || ""));
+    if (!d) return res.status(400).json({ error: "Invalid date" });
+    await prisma.notice.delete({ where: { date: d } }).catch(()=>{});
+    res.json({ ok:true });
+  }catch(e){
+    console.error("delete notice", e);
+    res.status(500).json({ error: "Failed to delete notice" });
+  }
+});
+
 /* ───────────────────────────────── Start ───────────────────────────────── */
 async function start(){
   await prisma.$connect();
@@ -704,50 +716,3 @@ async function start(){
   app.listen(PORT, "0.0.0.0", ()=>console.log(`Server running on ${PORT}`));
 }
 start().catch(err=>{ console.error("Fatal start error", err); process.exit(1); });
-
-/* ───────────────────────────── Loyalty helpers ─────────────────────────── */
-function loyaltyDiscountFor(visit: number): number {
-  if (visit >= 15) return 15;
-  if (visit >= 10) return 10;
-  if (visit >= 5) return 5;
-  return 0;
-}
-function loyaltyTeaseNext(visit: number): 0 | 5 | 10 | 15 {
-  if (visit === 4) return 5;
-  if (visit === 9) return 10;
-  if (visit === 14) return 15;
-  return 0;
-}
-function loyaltyUnlockedNow(visit: number): 0 | 5 | 10 | 15 {
-  if (visit === 5) return 5;
-  if (visit === 10) return 10;
-  if (visit === 15) return 15;
-  return 0;
-}
-function ordinal(n:number){
-  const v=n%100; if(v>=11&&v<=13) return `${n}th`;
-  const u=n%10; if(u===1) return `${n}st`; if(u===2) return `${n}nd`; if(u===3) return `${n}rd`; return `${n}th`;
-}
-
-/* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
-async function slotAllowed(date: string, time: string){
-  const norm = normalizeYmd(date);
-  if(!norm) return { ok:false, reason:"Invalid date" };
-  if(SUNDAY_CLOSED && isSunday(norm)) return { ok:false, reason:"Closed on Sunday" };
-
-  const start = localDateFrom(norm, time);
-  if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
-  const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
-  const end = addMinutes(start, minutes);
-
-  const {y,m,d}=splitYmd(norm);
-  const open  = localDate(y,m,d, OPEN_HOUR, 0, 0);
-  const close = localDate(y,m,d, CLOSE_HOUR,0, 0);
-  if(start < open) return { ok:false, reason:"Before opening" };
-  if(end   > close) return { ok:false, reason:"After closing" };
-
-  const blocked = await prisma.closure.findFirst({ where: { AND: [{ startTs: { lt:end } }, { endTs: { gt:start } }] } });
-  if(blocked) return { ok:false, reason:"Blocked" };
-
-  return { ok:true, norm, start, end, open, close, minutes };
-}
