@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { nanoid } from "nanoid";
+import { randomUUID } from "crypto";
 import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
@@ -353,7 +353,7 @@ app.post("/api/reservations", async (req,res)=>{
     if (g > leftOnline) return res.status(400).json({ error: "Fully booked at this time. Please select another slot." });
     if (sums.total + g > MAX_SEATS_TOTAL) return res.status(400).json({ error: "Total capacity reached at this time." });
 
-    const token = nanoid();
+    const token = randomUUID();
     const created = await prisma.reservation.create({
       data: {
         date: allow.norm!, time,
@@ -438,7 +438,7 @@ app.get("/cancel/:token", async (req,res)=>{
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
-/* ───────────────────────────── Admin: Liste ────────────────────────────── */
+/* ─────────────────────────────── Admin: Liste ────────────────────────────── */
 app.get("/api/admin/reservations", async (req,res)=>{
   const date = normalizeYmd(String(req.query.date || ""));
   const view = String(req.query.view || "day");
@@ -522,7 +522,7 @@ app.post("/api/admin/walkin", async (req,res)=>{
       data: {
         date: norm, time: String(time), startTs, endTs,
         firstName:"Walk", name:"In", email:"walkin@noxama.local", phone:"",
-        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:nanoid(), isWalkIn:true,
+        guests:g, notes:String(notes || ""), status:"confirmed", cancelToken:randomUUID(), isWalkIn:true,
       },
     });
 
