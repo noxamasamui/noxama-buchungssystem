@@ -1,56 +1,68 @@
 // start.js
-// Robuster Launcher: sucht rekursiv unter dist nach einem server entry und startet es
+// Robust launcher: versucht mehrere mögliche build-Entrypoints
+const fs = require("fs");
+const path = require("path");
+const { pathToFileURL } = require("url");
 
-const fs = require('fs');
-const path = require('path');
+const candidates = [
+  path.join(__dirname, "dist", "server.js"),
+  path.join(__dirname, "dist", "src", "server.js"),
+  path.join(__dirname, "dist", "Index.js"),
+  path.join(__dirname, "dist", "index.js"),
+  path.join(__dirname, "dist", "src", "index.js"),
+  path.join(__dirname, "dist", "app.js"),
+];
 
-function findEntry(dir) {
-  if (!fs.existsSync(dir)) return null;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  // Prioritaet: server.js, index.js, app.js
-  for (const e of entries) {
-    if (e.isFile()) {
-      const name = e.name.toLowerCase();
-      if (name === 'server.js' || name === 'index.js' || name === 'app.js') {
-        return path.join(dir, e.name);
-      }
+async function attemptStart(filePath) {
+  if (!fs.existsSync(filePath)) return false;
+
+  console.log("Starting server from", filePath);
+
+  try {
+    // Try CommonJS require first
+    require(filePath);
+    return true;
+  } catch (err) {
+    // If it's an ESM module error, fall back to dynamic import
+    const isESMError = err && err.code === "ERR_REQUIRE_ESM";
+    if (!isESMError) {
+      console.error("Error while requiring", filePath);
+      console.error(err && (err.stack || err.message || err));
+      throw err;
     }
-  }
-  // rekursiv suchen in Unterverzeichnissen
-  for (const e of entries) {
-    if (e.isDirectory()) {
-      const found = findEntry(path.join(dir, e.name));
-      if (found) return found;
-    }
-  }
-  return null;
-}
 
-const distDir = path.join(__dirname, 'dist');
-const entry = findEntry(distDir);
-
-if (entry) {
-  console.log('Starting server from', entry);
-  require(entry);
-} else {
-  console.error('No compiled server entry found under dist');
-  if (fs.existsSync(distDir)) {
-    console.error('Contents of dist (recursive):');
-    function listRec(dir, prefix = '') {
-      const items = fs.readdirSync(dir, { withFileTypes: true });
-      for (const it of items) {
-        if (it.isDirectory()) {
-          console.error(prefix + it.name + '/');
-          listRec(path.join(dir, it.name), prefix + '  ');
-        } else {
-          console.error(prefix + it.name);
+    try {
+      // dynamic import expects file:// URL for local files
+      const url = pathToFileURL(filePath).href;
+      import(url).then(mod => {
+        // if module exports a start function, call it (optional)
+        if (mod && typeof mod.default === "function") {
+          try { mod.default(); } catch(e){ /* ignore */ }
         }
-      }
+      }).catch(imErr => {
+        console.error("Dynamic import failed for", filePath, imErr && (imErr.stack || imErr.message || imErr));
+        process.exit(1);
+      });
+      return true;
+    } catch (imerr) {
+      console.error("Failed to dynamic import", filePath, imerr && (imerr.stack || imerr.message || imerr));
+      throw imerr;
     }
-    try { listRec(distDir); } catch (e) { console.error('Failed to list dist:', e && e.message); }
-  } else {
-    console.error('dist directory does not exist at all');
   }
-  console.error('Please run npm run build locally and check the dist/ output.');
-  process.exit(1);
 }
+
+(async () => {
+  for (const c of candidates) {
+    try {
+      const ok = await attemptStart(c);
+      if (ok) return;
+    } catch (e) {
+      // If attemptStart throws unexpected error, log and continue to try other candidates
+      console.error("Start attempt error for", c, e && (e.stack || e.message || e));
+    }
+  }
+
+  console.error("No compiled server entry found. Tried:\n" + candidates.join("\n"));
+  console.error("Please run `npm run build` locally and check the dist/ output.");
+  process.exit(1);
+})();
