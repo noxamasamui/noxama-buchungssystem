@@ -47,6 +47,10 @@ const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
 const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);   // min
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 
+// IMPORTANT: Reservation duration defines how long a booking occupies seats
+// Default 90 minutes (you can set RESERVATION_DURATION_MIN in env to 90/150 etc)
+const RESERVATION_DURATION_MIN = num(process.env.RESERVATION_DURATION_MIN, 90);
+
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
@@ -119,10 +123,11 @@ async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
-function slotDuration(date:string, time:string){
-  const t = localDateFrom(date,time);
-  const next = addMinutes(t, SLOT_INTERVAL);
-  return differenceInMinutes(next, t);
+
+// IMPORTANT: slotDuration now uses configured RESERVATION_DURATION_MIN so a booking
+// occupies seats for that duration (prevents overbooking into subsequent slots)
+function slotDuration(_date:string, _time:string){
+  return RESERVATION_DURATION_MIN;
 }
 
 /* ───────────────────────────── Slot-Erlaubnis ──────────────────────────── */
@@ -133,6 +138,7 @@ async function slotAllowed(date: string, time: string){
 
   const start = localDateFrom(norm, time);
   if(isNaN(start.getTime())) return { ok:false, reason:"Invalid time" };
+  // use reservation duration (not only SLOT_INTERVAL)
   const minutes = Math.max(SLOT_INTERVAL, slotDuration(norm, time));
   const end = addMinutes(start, minutes);
 
@@ -318,6 +324,7 @@ app.get("/api/slots", async (req,res)=>{
   for(const t of times){
     const allow = await slotAllowed(date, t);
     if (!allow.ok) {
+      // keep reason explicit for frontend immediate popup
       out.push({ time: t, canReserve: false, allowed: false, reason: allow.reason, left: 0 });
       continue;
     }
@@ -328,6 +335,7 @@ app.get("/api/slots", async (req,res)=>{
     out.push({ time: t, canReserve, allowed: canReserve, reason: canReserve ? null : "Fully booked", left: leftOnline });
   }
 
+  // If nothing open, unify messages so frontend can show a friendly popup
   if (!anyOpen && out.length > 0) {
     const sunday = SUNDAY_CLOSED && isSunday(date);
     if (sunday) {
@@ -404,7 +412,12 @@ app.post("/api/reservations", async (req,res)=>{
       try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch {}
     }
 
-    // Response fuer Frontend (Popup bei Freischaltung 5/10/15)
+    // LOYALTY POPUP INFO (für Frontend)
+    // show loyalty popup for visitNo >= 5 (5..9 -> show 5%, 10..14 -> 10%, >=15 -> 15%)
+    const showLoyaltyPopup = visitNo >= 5;
+    const loyaltyPopupHtml = showLoyaltyPopup ? createLoyaltyPopupHtml(visitNo, currentDiscount) : null;
+
+    // Response fuer Frontend (Popup bei Freischaltung 5/10/15 und Loyalty Daten)
     res.json({
       ok: true,
       reservation: created,
@@ -412,6 +425,8 @@ app.post("/api/reservations", async (req,res)=>{
       discount: currentDiscount,
       nowUnlockedTier: unlocked,   // 0 / 5 / 10 / 15
       nextMilestone: teaseNext,     // 0 / 5 / 10 / 15
+      showLoyaltyPopup,
+      loyaltyPopupHtml
     });
     }catch(err){
     console.error("reservation error:", err);
@@ -430,6 +445,20 @@ app.post("/api/reservations", async (req,res)=>{
   }
 
 });
+
+/* helper: create celebration HTML for frontend modal (simple, embeddable) */
+function createLoyaltyPopupHtml(visitNo:number, discount:number){
+  // simple celebratory block, frontend can insert into a modal
+  const title = discount >= 15 ? "Unbelievable — 15% for you!" : (discount >= 10 ? "Awesome — 10% for you!" : "Nice — 5% for you!");
+  const message = discount >= 15 ? `As of now you get ${discount}% off on every visit — thank you!` : `You've reached ${visitNo} visits — enjoy ${discount}% off on your next meal!`;
+  // keep style self-contained
+  return `
+    <div style="font-family:Georgia,serif;color:#3a2f28;padding:18px;border-radius:12px;background:linear-gradient(180deg,#fffefc,#fff7ea);border:1px solid #ead6b6;max-width:640px;">
+      <div style="font-size:22px;margin-bottom:8px;">${title}</div>
+      <div style="font-size:15px;margin-bottom:12px;">${message}</div>
+      <div style="font-size:13px;color:#6b5b4a;">Show this message at the host stand or mention your email to redeem</div>
+    </div>`;
+}
 
 /* ─────────────────────────────── Cancel ────────────────────────────────── */
 app.get("/cancel/:token", async (req,res)=>{
