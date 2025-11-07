@@ -10,6 +10,11 @@
     "start": "node dist/server.js",
     "prisma:gen": "node ./node_modules/prisma/build/index.js generate",
     "prisma:migrate": "node ./node_modules/prisma/build/index.js migrate deploy"
+    "scripts": {
+  "build": "tsc",
+  "start": "node dist/src/server.js",
+  "dev": "ts-node-dev src/server.ts"
+}
   },
   "dependencies": {
     "@prisma/client": "6.18.0",
