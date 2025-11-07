@@ -1,5 +1,6 @@
 // start.js
-// Robust launcher: versucht mehrere mögliche build-Entrypoints
+// Robuster Launcher: prüft mehrere mögliche build-Entrypoints und startet den ersten, der existiert
+
 const fs = require('fs');
 const path = require('path');
 
