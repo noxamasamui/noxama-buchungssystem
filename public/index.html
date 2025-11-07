@@ -25,14 +25,8 @@
     }
     @media (max-width:520px){
       .hero{ max-height:220px; }
-      /* Mobile input tweaks */
-      input[type="date"]{
-        font-size:16px;
-        padding:6px;
-      }
-      select, input{
-        font-size:16px;
-      }
+      input[type="date"]{ font-size:16px; padding:6px; }
+      select, input{ font-size:16px; }
     }
 
     .guest-line{display:flex;align-items:center;gap:10px;}
@@ -137,6 +131,18 @@
   </div>
 </div>
 
+<!-- Special Notice Modal (must accept) -->
+<div id="notice-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="notice-title">
+  <div class="modal-card">
+    <div id="notice-title" class="modal-title">Important information</div>
+    <div id="notice-text" class="modal-text"></div>
+    <label style="display:block;margin:8px 0 14px 0;">
+      <input id="notice-accept" type="checkbox" /> I have read and accept.
+    </label>
+    <button id="notice-ok" class="modal-btn" type="button" disabled>Continue</button>
+  </div>
+</div>
+
 <!-- Loyalty Modal -->
 <div id="loyalty-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;">
@@ -185,11 +191,58 @@
       }
     }catch{}
   }
-  elDate.addEventListener("change",loadSlots);
+  elDate.addEventListener("change",async()=>{
+    await loadSlots();
+    await checkNotice();           // Notice prüfen beim Datumwechsel
+  });
   elGuests.addEventListener("change",loadSlots);
   loadSlots();
+  checkNotice();                   // Initial
+
+  // Special notice modal
+  const noticeModal = document.getElementById("notice-modal");
+  const noticeText  = document.getElementById("notice-text");
+  const noticeAccept= document.getElementById("notice-accept");
+  const noticeOk    = document.getElementById("notice-ok");
+  let noticeRequired = false;
+  let noticeAcceptedFor = null;
+
+  noticeAccept.addEventListener("change",()=>{
+    noticeOk.disabled = !noticeAccept.checked;
+  });
+  noticeOk.addEventListener("click", ()=>{
+    noticeModal.style.display="none";
+    noticeAcceptedFor = elDate.value;
+  });
+
+  async function checkNotice(){
+    try{
+      const d = elDate.value || today();
+      const r = await fetch(`/api/notice?date=${encodeURIComponent(d)}`);
+      const n = await r.json();
+      if(n && n.message){
+        noticeRequired = true;
+        noticeAcceptedFor = null;
+        noticeText.textContent = n.message;
+        noticeAccept.checked = false;
+        noticeOk.disabled = true;
+        noticeModal.style.display = "flex";
+      }else{
+        noticeRequired = false;
+      }
+    }catch{}
+  }
 
   document.getElementById("btnReserve").addEventListener("click",async()=>{
+    elMsg.textContent="";
+
+    if(noticeRequired && noticeAcceptedFor !== (elDate.value||today())){
+      // Falls noch nicht bestätigt, Modal anzeigen
+      noticeModal.style.display="flex";
+      elMsg.textContent="Please confirm the information to continue.";
+      return;
+    }
+
     elMsg.textContent="Sending…";
     const payload={
       date:elDate.value||today(),
