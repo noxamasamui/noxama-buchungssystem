@@ -22,11 +22,18 @@
       background:#e9dfcf;
       border-radius:12px;
       box-shadow:0 8px 28px rgba(0,0,0,.18);
+      object-fit:contain;
     }
     @media (max-width:520px){
       .hero{ max-height:220px; }
-      input[type="date"]{ font-size:16px; padding:6px; }
-      select, input{ font-size:16px; }
+      /* Mobile input tweaks */
+      input[type="date"]{
+        font-size:16px;
+        padding:6px;
+      }
+      select, input{
+        font-size:16px;
+      }
     }
 
     .guest-line{display:flex;align-items:center;gap:10px;}
@@ -53,6 +60,9 @@
       padding:10px 16px;font-weight:700;cursor:pointer;
     }
 
+    /* Notice modal */
+    .notice-modal .notice-body{ text-align:left; margin:12px 0; font-size:15px; color:#222; }
+    .notice-checkbox{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:12px;}
     nav{display:none;}
     #statusText{display:none;}
   </style>
@@ -131,24 +141,28 @@
   </div>
 </div>
 
-<!-- Special Notice Modal (must accept) -->
-<div id="notice-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="notice-title">
-  <div class="modal-card">
-    <div id="notice-title" class="modal-title">Important information</div>
-    <div id="notice-text" class="modal-text"></div>
-    <label style="display:block;margin:8px 0 14px 0;">
-      <input id="notice-accept" type="checkbox" /> I have read and accept.
-    </label>
-    <button id="notice-ok" class="modal-btn" type="button" disabled>Continue</button>
-  </div>
-</div>
-
 <!-- Loyalty Modal -->
 <div id="loyalty-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;">
     <canvas id="fw-canvas" width="480" height="180" style="width:100%;height:180px;display:block;border-radius:10px;margin-bottom:10px;"></canvas>
     <div id="loyalty-text" style="font-family:Georgia,'Times New Roman',serif;color:#3a2f28;font-size:18px;margin:6px 0 12px 0;"></div>
     <button onclick="hideLoyaltyModal()" style="background:#b3822f;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer;">Continue</button>
+  </div>
+</div>
+
+<!-- Notice Modal (must accept) -->
+<div id="notice-modal" class="modal-backdrop notice-modal" role="dialog" aria-modal="true" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-title">Important information for your booking</div>
+    <div id="notice-body" class="notice-body"></div>
+    <div class="notice-checkbox">
+      <input id="notice-accept" type="checkbox"/>
+      <label for="notice-accept">I have read and accept this notice</label>
+    </div>
+    <div style="margin-top:14px;">
+      <button id="notice-accept-btn" class="modal-btn" type="button">Continue</button>
+      <button onclick="hideNotice()" style="margin-left:10px;background:#ddd;border-radius:8px;padding:8px 12px;border:0;cursor:pointer;">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -170,7 +184,7 @@
       document.getElementById("brand").textContent=`Reservation — ${CFG.brand}`;
       document.getElementById("venueInfo").textContent=`${CFG.address} • ${CFG.phone}`;
       heroImg.src=CFG.mailHeaderUrl||CFG.mailLogoUrl||"/logo-hero.png";
-    }catch{}
+    }catch(err){ console.warn("load config failed", err); }
   }
   loadConfig();
 
@@ -183,66 +197,21 @@
       const r=await fetch(`/api/slots?date=${encodeURIComponent(d)}&guests=${g}`);
       const slots=await r.json();
       for(const s of slots){
-        if(s.allowed){
-          const opt=document.createElement("option");
-          opt.value=s.time;opt.textContent=s.time;
-          elTime.appendChild(opt);
-        }
+        const opt=document.createElement("option");
+        opt.value=s.time;
+        opt.textContent = s.allowed ? `${s.time}` : `${s.time} — ${s.remaining} left`;
+        if(!s.allowed) opt.disabled = true;
+        elTime.appendChild(opt);
       }
-    }catch{}
+    }catch(err){
+      console.warn("loadSlots err", err);
+    }
   }
-  elDate.addEventListener("change",async()=>{
-    await loadSlots();
-    await checkNotice();           // Notice prüfen beim Datumwechsel
-  });
+  elDate.addEventListener("change",loadSlots);
   elGuests.addEventListener("change",loadSlots);
   loadSlots();
-  checkNotice();                   // Initial
-
-  // Special notice modal
-  const noticeModal = document.getElementById("notice-modal");
-  const noticeText  = document.getElementById("notice-text");
-  const noticeAccept= document.getElementById("notice-accept");
-  const noticeOk    = document.getElementById("notice-ok");
-  let noticeRequired = false;
-  let noticeAcceptedFor = null;
-
-  noticeAccept.addEventListener("change",()=>{
-    noticeOk.disabled = !noticeAccept.checked;
-  });
-  noticeOk.addEventListener("click", ()=>{
-    noticeModal.style.display="none";
-    noticeAcceptedFor = elDate.value;
-  });
-
-  async function checkNotice(){
-    try{
-      const d = elDate.value || today();
-      const r = await fetch(`/api/notice?date=${encodeURIComponent(d)}`);
-      const n = await r.json();
-      if(n && n.message){
-        noticeRequired = true;
-        noticeAcceptedFor = null;
-        noticeText.textContent = n.message;
-        noticeAccept.checked = false;
-        noticeOk.disabled = true;
-        noticeModal.style.display = "flex";
-      }else{
-        noticeRequired = false;
-      }
-    }catch{}
-  }
 
   document.getElementById("btnReserve").addEventListener("click",async()=>{
-    elMsg.textContent="";
-
-    if(noticeRequired && noticeAcceptedFor !== (elDate.value||today())){
-      // Falls noch nicht bestätigt, Modal anzeigen
-      noticeModal.style.display="flex";
-      elMsg.textContent="Please confirm the information to continue.";
-      return;
-    }
-
     elMsg.textContent="Sending…";
     const payload={
       date:elDate.value||today(),
@@ -254,13 +223,42 @@
       guests:Number(elGuests.value||0),
       notes:document.getElementById("rNotes").value.trim()
     };
+
+    // check special notice
+    try{
+      const noteResp = await fetch(`/api/notices?date=${encodeURIComponent(payload.date)}`);
+      if(noteResp.ok){
+        const noteJson = await noteResp.json();
+        if(noteJson){
+          // show notice modal and require acceptance
+          showNotice(noteJson.message, async () => {
+            // on accept, continue submit
+            await submitReservation(payload);
+          });
+          return;
+        }
+      }
+    }catch(e){
+      console.warn("notice check failed", e);
+    }
+
+    // no notice -> submit
+    await submitReservation(payload);
+  });
+
+  async function submitReservation(payload){
     try{
       const r=await fetch("/api/reservations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const json=await r.json();
-      if(!r.ok){elMsg.textContent=json.error||"Error";return;}
-      elMsg.textContent="";showSuccess();handleBookingSuccess(json);loadSlots();
-    }catch{elMsg.textContent="Network error";}
-  });
+      if(!r.ok){ elMsg.textContent=json.error||"Error"; return; }
+      elMsg.textContent="";
+      showSuccess();
+      handleBookingSuccess(json);
+      loadSlots();
+    }catch{
+      elMsg.textContent="Network error";
+    }
+  }
 
   document.getElementById("btnGroup").addEventListener("click",()=>{
     const d=elDate.value||today();const t=elTime.value||"";
@@ -272,6 +270,23 @@
 
   function showSuccess(){document.getElementById("success-modal").style.display="flex";}
   function hideSuccess(){document.getElementById("success-modal").style.display="none";}
+
+  // Notice modal
+  function showNotice(message, onContinue){
+    const modal = document.getElementById("notice-modal");
+    document.getElementById("notice-body").textContent = message;
+    const ch = document.getElementById("notice-accept");
+    ch.checked = false;
+    const btn = document.getElementById("notice-accept-btn");
+    btn.disabled = true;
+    ch.addEventListener("change", () => { btn.disabled = !ch.checked; });
+    btn.onclick = () => {
+      modal.style.display = "none";
+      onContinue();
+    };
+    modal.style.display = "flex";
+  }
+  function hideNotice(){ document.getElementById("notice-modal").style.display = "none"; }
 
   function showLoyaltyModal(tier){
     const txt=document.getElementById('loyalty-text');
@@ -290,6 +305,7 @@
     boom();fwTimer=setInterval(tick,16);
   }
   function stopFireworks(){if(fwTimer){clearInterval(fwTimer);fwTimer=null;}}
+
   function handleBookingSuccess(json){
     if(json&&(json.nowUnlockedTier===5||json.nowUnlockedTier===10||json.nowUnlockedTier===15)){
       showLoyaltyModal(json.nowUnlockedTier);
