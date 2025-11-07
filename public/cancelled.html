@@ -1,109 +1,11 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Reservation canceled — RÖSTILAND BY NOXAMA SAMUI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body{
-      margin:0;
-      background:#d6c7b2;
-      font-family:Georgia,"Times New Roman",serif;
-      color:#3a2f28;
-    }
-    .hero{
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      padding:40px 0 20px 0;
-    }
-    /* Standard: Logo als kompaktes Bild */
-    .hero img{
-      width:280px;
-      max-width:80vw;
-      height:auto;
-      border:0; outline:none;
-      display:block;
-    }
-    /* Wenn ein Banner (MAIL_HEADER_URL) vorhanden ist, dehnen wir es */
-    .hero--banner img{
-      width:100%;
-      max-width:640px;
-      height:auto;
-    }
-    .card{
-      max-width:600px;
-      margin:20px auto 60px auto;
-      background:#fff8f0;
-      border:1px solid #e0d7c5;
-      border-radius:14px;
-      padding:20px;
-      box-shadow:0 2px 4px rgba(0,0,0,.05);
-    }
-    h2{ margin-top:0; }
-    a{
-      color:#5a2bb5;
-      text-decoration:underline;
-      text-underline-offset:2px;
-    }
-  </style>
-</head>
+<html>
+<head><meta charset="utf-8"><title>Reservation canceled</title><link rel="stylesheet" href="/style.css"></head>
 <body>
-  <div id="hero" class="hero">
-    <!-- Fallback – wird gleich von /api/config überschrieben -->
-    <img id="heroImg" src="/logo-hero.png" alt="RÖSTILAND BY NOXAMA SAMUI">
+  <div class="container">
+    <h1>Reservation canceled</h1>
+    <p>We are sad to see you go. If you want to rebook please visit the reservation page.</p>
+    <p><a href="/">Back to reservation</a></p>
   </div>
-
-  <div class="card">
-    <h2>Reservation canceled</h2>
-    <p>Your reservation has been canceled. We hope this goodbye is only for now.</p>
-    <p><a href="/">Back to booking</a></p>
-  </div>
-
-  <script>
-    // Hole Logo-/Banner-URL aus der Server-Config und setze sie robust
-    (async () => {
-      try {
-        const res = await fetch('/api/config', { credentials: 'same-origin' });
-        if (!res.ok) throw new Error('config failed');
-        const cfg = await res.json();
-        const hero = document.getElementById('hero');
-        const img  = document.getElementById('heroImg');
-
-        // Bevorzugt Banner (MAIL_HEADER_URL), sonst Logo (MAIL_LOGO_URL),
-        // sonst bleibt der Fallback /logo-hero.png
-        const url = (cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim()) ||
-                    (cfg.mailLogoUrl && cfg.mailLogoUrl.trim()) ||
-                    img.getAttribute('src');
-
-        img.src = url;
-        img.alt = cfg.brand || 'RÖSTILAND BY NOXAMA SAMUI';
-
-        // Wenn es ein Banner ist, etwas breiter darstellen
-        if (cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim()) {
-          hero.classList.add('hero--banner');
-        }
-      } catch (e) {
-        // Im Fehlerfall bleibt der Fallback erhalten
-        // console.warn('Logo config missing, using fallback.', e);
-      }
-    })();
-  </script>
-  <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Reservation canceled</title>
-<link rel="stylesheet" href="/style.css"/>
-</head><body>
-<div class="container">
-  <img class="logo" src="/logo-hero.png" alt="Logo"/>
-  <nav><a href="/">Reservation</a> <a href="/admin">Admin</a></nav>
-  <div class="card" style="text-align:center">
-    <h2>Your reservation has been canceled</h2>
-    <p>We hope to welcome you another time.</p>
-    <p><a class="btn" href="/">Back to reservation</a></p>
-  </div>
-</div>
-</body></html>
 </body>
 </html>
