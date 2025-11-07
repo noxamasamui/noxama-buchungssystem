@@ -7,8 +7,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
 </head>
 <body>
-<div class="container">
-  <img class="logo" src="/logo-hero.png" alt="Logo"/>
+<!-- Banner / unified logo block (replace existing banner/logo markup) -->
+<div class="hero-wrap" aria-hidden="false">
+  <!-- Use an <img> with id so JS can set src from /api/config (env) or fallback -->
+  <img id="heroBanner" class="hero-banner" src="/logo-hero.png" alt="Logo banner"/>
+</div>
+
+<script>
+  // Minimal: set banner src from /api/config if available (no changes elsewhere).
+  (async function(){
+    try{
+      const r = await fetch('/api/config', {cache: "no-store"});
+      if (!r.ok) throw new Error('no cfg');
+      const cfg = await r.json();
+      const hero = document.getElementById('heroBanner');
+      if (!hero) return;
+      // prefer header banner, then logo url, then local fallback
+      hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+      hero.alt = cfg.brand || 'Banner';
+      // small protection: if img fails to load, set fallback visible style
+      hero.onerror = function(){ this.src = '/logo-hero.png'; this.classList.add('img-fallback'); };
+    }catch(e){
+      // fallback to local file if /api/config fails
+      const hero = document.getElementById('heroBanner');
+      if(hero) hero.src = '/logo-hero.png';
+    }
+  })();
+</script>
+
   <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
   <h1>Admin</h1>
 
