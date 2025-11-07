@@ -2,9 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Admin — RÖSTILAND BY NOXAMA SAMUI</title>
+  <title>Admin — ROESTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+  <!-- Lokales Admin-only CSS: nur fuer dieses Admin-Dokument -->
+  <style>
+    /* Admin: Banner / Logo kleiner machen, zentriert und responsive */
+    .hero-wrap { padding: 18px 0; text-align: center; }
+    .hero-banner {
+      max-width: 480px;   /* fuer Desktop/Tablet */
+      width: 100%;
+      height: auto;
+      display: inline-block;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    }
+
+    /* Falls das Bild sehr hoch ist, begrenzen wir die sichtbare Hoehe */
+    .hero-banner.img-fallback { 
+      max-height: 160px;
+    }
+
+    /* Reserve Button Styling sicherstellen (nur admin-seitig) */
+    .btn, button[type="submit"], .reserve-btn {
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    /* Kleine Feinheiten fuer die Admin-Tabelle, damit alles kompakt bleibt */
+    .table-wrap { overflow:auto; max-width:100%; }
+    table { border-collapse: collapse; width:100%; font-size:14px; }
+    table th, table td { padding:8px 10px; text-align:left; vertical-align:middle; }
+    .badge { display:inline-block; padding:6px 10px; border-radius:6px; background:#f3f0e7; }
+    .card { margin-bottom:20px; }
+  </style>
 </head>
 <body>
 <!-- Banner / unified logo block (replace existing banner/logo markup) -->
@@ -237,22 +272,6 @@
     if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
   });
 </script>
-  /* Admin logo banner kleiner setzen */
-.admin-logo, #admin-logo, .admin-header img {
-  max-width: 480px;
-  width: 100%;
-  height: auto;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* Reserve Button Styling sicherstellen */
-button[type="submit"], .reserve-btn {
-  padding: 12px 20px;
-  font-size: 16px;
-  border-radius: 8px;
-}
 
 </body>
 </html>
