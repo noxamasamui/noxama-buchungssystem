@@ -7,305 +7,191 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
 </head>
 <body>
-<!-- Banner / unified logo block (replace existing banner/logo markup) -->
-<div class="hero-wrap" aria-hidden="false">
-  <!-- Use an <img> with id so JS can set src from /api/config (env) or fallback -->
-  <img id="heroBanner" class="hero-banner" src="/logo-hero.png" alt="Logo banner"/>
+<div class="container">
+  <!-- Banner -->
+  <div class="hero-wrap" style="text-align:center;margin-bottom:18px;">
+    <img id="heroBanner" class="hero-banner" alt="Logo banner" style="max-width:760px;width:92%;height:auto;border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.15);"/>
+  </div>
+
+  <h1 style="text-align:center;">Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
+  <p style="text-align:center;margin-bottom:20px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
+
+  <div class="card booking-card booking-compact" style="max-width:760px;margin:0 auto 40px;padding:22px;">
+    <h2>Book a table</h2>
+
+    <div class="row date-time">
+      <div style="flex:1 1 200px;">
+        <label>Date</label>
+        <input id="resDate" type="date"/>
+      </div>
+      <div style="flex:1 1 140px;">
+        <label>Guests</label>
+        <select id="resGuests">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+        </select>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>Time</label>
+        <select id="resTime"></select>
+      </div>
+    </div>
+
+    <div class="row form-grid-2" style="margin-top:8px;">
+      <div>
+        <label>First name</label>
+        <input id="resFirst" type="text"/>
+      </div>
+      <div>
+        <label>Last name</label>
+        <input id="resLast" type="text"/>
+      </div>
+    </div>
+
+    <div class="row form-grid-2" style="margin-top:8px;">
+      <div>
+        <label>Email</label>
+        <input id="resEmail" type="email"/>
+      </div>
+      <div>
+        <label>Phone</label>
+        <input id="resPhone" type="tel"/>
+      </div>
+    </div>
+
+    <div style="margin-top:8px;">
+      <label>Notes</label>
+      <textarea id="resNotes" rows="2" style="width:100%;padding:10px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
+    </div>
+
+    <div style="margin-top:12px;text-align:left;">
+      <!-- Button text changed to "Book" and larger only for booking-card -->
+      <button id="btnReserve" class="btn" type="button" style="padding:12px 22px;font-size:16px;">Book</button>
+      <span id="resMsg" class="badge" style="margin-left:12px;"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Booking confirmation modal -->
+<div id="booking-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;">
+    <h3 style="margin-top:0;">Reservation confirmed</h3>
+    <p id="booking-modal-text" style="margin:8px 0 16px 0;">Thank you — your reservation has been received. You will get a confirmation email shortly. Please check your spam folder as well.</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button onclick="closeBookingModal()" class="btn" style="min-width:120px;">Continue</button>
+      <a href="/" style="display:inline-block;text-decoration:none;padding:10px 14px;border-radius:8px;background:#f0e7de;color:#3a2f28;border:1px solid #e0d7c5;font-weight:700;">Home</a>
+    </div>
+  </div>
+</div>
+
+<!-- Closed / Block modal -->
+<div id="closed-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.25);text-align:center;">
+    <h3 style="margin-top:0;">Not available</h3>
+    <p id="closed-modal-text" style="margin:8px 0 16px 0;color:#3a2f28;"></p>
+    <div><button onclick="closeClosedModal()" class="btn" style="min-width:140px;">Choose another day</button></div>
+  </div>
 </div>
 
 <script>
-  // Minimal: set banner src from /api/config if available (no changes elsewhere).
-  (async function(){
+  // helper for today format yyyy-mm-dd
+  const todayStr = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+
+  // fill hero banner from config
+  (async()=>{
     try{
-      const r = await fetch('/api/config', {cache: "no-store"});
-      if (!r.ok) throw new Error('no cfg');
-      const cfg = await r.json();
+      const r = await fetch('/api/config'); const cfg = await r.json();
       const hero = document.getElementById('heroBanner');
-      if (!hero) return;
-      // prefer header banner, then logo url, then local fallback
-      hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
       hero.alt = cfg.brand || 'Banner';
-      // small protection: if img fails to load, set fallback visible style
-      hero.onerror = function(){ this.src = '/logo-hero.png'; this.classList.add('img-fallback'); };
-    }catch(e){
-      // fallback to local file if /api/config fails
-      const hero = document.getElementById('heroBanner');
-      if(hero) hero.src = '/logo-hero.png';
-    }
+    }catch(e){ console.error(e); }
   })();
-</script>
-  <div class="reservation-card">
-    <h2>Book a table</h2>
-    <form id="frmReserve">
-      <div class="row">
-        <label>Date</label>
-        <input id="date" type="date"/>
-        <label>Guests</label>
-        <select id="guests"></select>
-        <label>Time</label>
-        <select id="time"></select>
-      </div>
 
-      <div class="row">
-        <div>
-          <label>First name</label>
-          <input id="firstName"/>
-        </div>
-        <div>
-          <label>Last name</label>
-          <input id="lastName"/>
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>Email</label>
-          <input id="email"/>
-        </div>
-        <div>
-          <label>Phone</label>
-          <input id="phone"/>
-        </div>
-      </div>
-
-      <label>Notes</label>
-      <input id="notes"/>
-
-      <button id="btnReserve" class="btn btn-book" type="button">Book</button>
-      <div id="resMsg"></div>
-    </form>
-  </div>
-
-<script>
-  // minimal client logic that matches server endpoints
-  function today(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-  document.getElementById("date").value = today();
-
-  const guestsSel = document.getElementById("guests");
-  for(let i=1;i<=10;i++){ const o=document.createElement("option"); o.value=i; o.textContent=i; guestsSel.appendChild(o); }
-  // times will be fetched from /api/slots once date changes
-  async function loadTimes(){
-    const date = document.getElementById("date").value || today();
-    const guests = document.getElementById("guests").value || 1;
-    const r = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`);
-    const list = await r.json();
-    const sel = document.getElementById("time");
+  // fill time select (slot times)
+  function fillTimes(){
+    const sel = document.getElementById('resTime');
     sel.innerHTML = "";
-    list.forEach(t=>{
-      const o=document.createElement("option");
-      o.value=t.time; o.textContent = `${t.time} ${t.allowed ? "" : "(not available)"}`;
-      if(!t.allowed) o.disabled = true;
-      sel.appendChild(o);
-    });
+    const from = 10*60, to = 22*60;
+    for(let m=from; m<=to; m+=15){
+      const hh = String(Math.floor(m/60)).padStart(2,"0");
+      const mm = String(m%60).padStart(2,"0");
+      const opt = document.createElement('option');
+      opt.value = `${hh}:${mm}`; opt.textContent = `${hh}:${mm}`;
+      sel.appendChild(opt);
+    }
   }
-  document.getElementById("date").addEventListener("change", loadTimes);
-  document.getElementById("guests").addEventListener("change", loadTimes);
-  loadTimes();
+  fillTimes();
 
-  document.getElementById("btnReserve").addEventListener("click", async ()=>{
-    const payload = {
-      date: document.getElementById("date").value,
-      time: document.getElementById("time").value,
-      firstName: document.getElementById("firstName").value,
-      name: document.getElementById("lastName").value,
-      email: document.getElementById("email").value,
-      phone: document.getElementById("phone").value,
-      guests: Number(document.getElementById("guests").value),
-      notes: document.getElementById("notes").value
-    };
-    const r = await fetch("/api/reservations", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
-    const msg = document.getElementById("resMsg");
-    if (r.ok) {
-      const j = await r.json();
-      // wenn Loyalty freigeschaltet, Frontend-Modal hook ist in loyalty snippet
-      if (j && (j.nowUnlockedTier===5 || j.nowUnlockedTier===10 || j.nowUnlockedTier===15)){
-        if (typeof handleBookingSuccess === "function") handleBookingSuccess(j);
+  document.getElementById('resDate').value = todayStr();
+
+  // modal helpers
+  function showBookingModal(text){
+    const modal = document.getElementById('booking-modal');
+    document.getElementById('booking-modal-text').textContent = text || 'Thank you — your reservation has been received. You will get a confirmation email shortly. Please check your spam folder as well.';
+    modal.style.display = 'flex';
+  }
+  function closeBookingModal(){ document.getElementById('booking-modal').style.display = 'none'; }
+
+  function showClosedModal(text){
+    const modal = document.getElementById('closed-modal');
+    document.getElementById('closed-modal-text').textContent = text || 'Sorry, this date/time is not available. Please choose another date.';
+    modal.style.display = 'flex';
+  }
+  function closeClosedModal(){ document.getElementById('closed-modal').style.display = 'none'; }
+
+  // submit handler
+  document.getElementById('btnReserve').addEventListener('click', async ()=>{
+    const date = document.getElementById('resDate').value;
+    const time = document.getElementById('resTime').value;
+    const firstName = document.getElementById('resFirst').value.trim();
+    const lastName = document.getElementById('resLast').value.trim();
+    const email = document.getElementById('resEmail').value.trim();
+    const phone = document.getElementById('resPhone').value.trim();
+    const guests = Number(document.getElementById('resGuests').value);
+    const notes = document.getElementById('resNotes').value.trim();
+    const msg = document.getElementById('resMsg');
+    msg.textContent = '';
+
+    if(!date || !time || !firstName || !lastName || !email || !guests){ msg.textContent = 'Please fill required fields'; return; }
+
+    try{
+      const payload = { date, time, firstName, name:lastName, email, phone, guests, notes };
+      const r = await fetch('/api/reservations', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const j = await r.json().catch(()=>({}));
+      if(r.ok && j.ok){
+        // show confirmation modal
+        showBookingModal(`Thank you ${firstName}! Your reservation for ${j.reservation.date} at ${j.reservation.time} is confirmed. Check your email (${email}) including spam folder.`);
+        // keep the user on the site; allow them to navigate via modal buttons
+        // reset form lightly
+        // DO NOT remove or change form fields except clearing some
+        document.getElementById('resNotes').value = '';
       } else {
-        msg.textContent = "Reservation received. Check your email for confirmation.";
+        // error handling: if closed / blocked -> show closed modal with clear message
+        const err = j.error || 'Reservation failed. Please choose another slot or try again.';
+        // detect specific reasons from server
+        if(err.toLowerCase().includes('closed') || err.toLowerCase().includes('blocked') || err.toLowerCase().includes('fully booked')){
+          showClosedModal(err);
+        } else {
+          msg.textContent = err;
+        }
       }
-    } else {
-      const e = await r.json();
-      msg.textContent = e.error || "Failed to reserve";
+    }catch(e){
+      console.error(e);
+      document.getElementById('resMsg').textContent = 'Network error';
     }
   });
 </script>
-
-<!-- include the loyalty modal script if you want popup on unlock -->
-<script src="/loyalty.js"></script>
-<!-- Automatic compacting helper
-     Fügt CSS-Klassen hinzu, damit die neue style.css das Formular kompakter darstellt.
-     Minimal, nicht-invasiv: IDs und input-names bleiben unverändert.
--->
-<script>
-(function(){
-  try{
-    // 1) find the booking card by heading text (Book a table / Book a table / Reservation form)
-    const cards = Array.from(document.querySelectorAll('.card, .booking-card, section, form, div'));
-    let bookingCard = cards.find(c => {
-      const h = c.querySelector && c.querySelector('h2, h1, h3');
-      return h && /book a table|reservation/i.test(h.textContent);
-    });
-    // fallback: first form-like .card that contains an input[type=date] or label "Date"
-    if(!bookingCard){
-      bookingCard = Array.from(document.querySelectorAll('.card')).find(c => c.querySelector('input[type="date"], input[type=date], select'));
-    }
-    if(!bookingCard) return;
-
-    // add wrapper classes
-    bookingCard.classList.add('booking-card','booking-compact');
-
-    // helper: find label by prefix text (case-insensitive)
-    const findLabel = (prefix)=>{
-      return Array.from(bookingCard.querySelectorAll('label')).find(l=>{
-        return l.textContent && l.textContent.trim().toLowerCase().startsWith(prefix.toLowerCase());
-      });
-    };
-
-    // 2) Group first/last into a 2-column grid if both present
-    const lblFirst = findLabel('first name');
-    const lblLast = findLabel('last name');
-    if(lblFirst && lblLast && lblFirst.parentElement && lblLast.parentElement){
-      const parent = lblFirst.parentElement.parentElement;
-      const wrap = document.createElement('div');
-      wrap.className = 'form-grid-2';
-      parent.insertBefore(wrap, lblFirst.parentElement);
-      wrap.appendChild(lblFirst.parentElement);
-      wrap.appendChild(lblLast.parentElement);
-    }
-
-    // 3) Group email/phone into 2-column
-    const lblEmail = findLabel('email');
-    const lblPhone = findLabel('phone');
-    if(lblEmail && lblPhone && lblEmail.parentElement && lblPhone.parentElement){
-      const parent = lblEmail.parentElement.parentElement;
-      const wrap = document.createElement('div');
-      wrap.className = 'form-grid-2';
-      parent.insertBefore(wrap, lblEmail.parentElement);
-      wrap.appendChild(lblEmail.parentElement);
-      wrap.appendChild(lblPhone.parentElement);
-    }
-
-    // 4) Make Date / Guests / Time aligned in one row if the markup allows
-    const lblDate = findLabel('date');
-    const lblGuests = findLabel('guests');
-    const lblTime = findLabel('time');
-    if(lblDate && (lblGuests || lblTime)){
-      const parent = lblDate.parentElement.parentElement;
-      // try to insert a row container
-      const row = document.createElement('div');
-      row.className = 'row date-time';
-      parent.insertBefore(row, lblDate.parentElement);
-      row.appendChild(lblDate.parentElement);
-      if(lblGuests && lblGuests.parentElement) row.appendChild(lblGuests.parentElement);
-      if(lblTime && lblTime.parentElement) row.appendChild(lblTime.parentElement);
-    }
-
-    // 5) Make notes full width
-    const lblNotes = findLabel('notes');
-    if(lblNotes && lblNotes.parentElement){
-      lblNotes.parentElement.classList.add('field-wide');
-    }
-
-    // 6) Slight visual niceness: reduce large margins on inputs inside bookingCard
-    Array.from(bookingCard.querySelectorAll('input, select, textarea')).forEach(el=>{
-      el.style.boxSizing = 'border-box';
-    });
-
-    // Done
-  }catch(e){
-    // fail silently but log for debugging
-    console.error('layout helper error', e);
-  }
-})();
-</script>
-<!-- Booking confirmation + closed/blocked modal helper -->
-<script>
-  // Generic modal creation (re-usable)
-  function showModal({ title='', message='', okText='OK', timeout=0 }) {
-    // remove old if present
-    const old = document.getElementById('noxama-generic-modal');
-    if(old) old.remove();
-
-    const wrap = document.createElement('div');
-    wrap.id = 'noxama-generic-modal';
-    wrap.style = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999;";
-    wrap.innerHTML = `
-      <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:520px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.25);font-family:Georgia,serif;color:#3a2f28;">
-        <h3 style="margin:4px 0 8px 0;font-size:20px">${title}</h3>
-        <div style="font-size:15px;line-height:1.35;margin-bottom:12px">${message}</div>
-        <div style="text-align:right">
-          <button id="noxama-modal-ok" style="background:#b3822f;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;">${okText}</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(wrap);
-    document.getElementById('noxama-modal-ok').addEventListener('click', ()=>{ wrap.remove(); });
-    if(timeout>0) setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, timeout);
-    return wrap;
-  }
-
-  // Use this when a normal booking succeeds
-  function showBookingConfirmedPopup(json){
-    // if loyalty tier unlocked, prefer existing loyalty modal if available
-    if (json && (json.nowUnlockedTier === 5 || json.nowUnlockedTier === 10 || json.nowUnlockedTier === 15) && typeof showLoyaltyModal === 'function') {
-      showLoyaltyModal(json.nowUnlockedTier);
-      // also show a small confirmation toast under it
-      showModal({ title:'Reservation confirmed', message:'Thank you! Your booking is confirmed. Please check your email (and spam). You will be redirected shortly.', okText:'Close', timeout:3500 });
-      // redirect after short delay
-      setTimeout(()=>{ window.location.href = '/'; }, 3700);
-      return;
-    }
-
-    // fallback generic
-    showModal({ title:'Reservation confirmed', message:'Thank you! Your booking is confirmed. A confirmation email will be sent — please check your spam folder.', okText:'OK', timeout:3500 });
-    setTimeout(()=>{ window.location.href = '/'; }, 3700);
-  }
-
-  // Closed/Blocked popup (when user attempts to book on closed sunday or blocked day)
-  function showClosedPopup(reasonText){
-    showModal({ title: 'Not available', message: reasonText || 'This date is not available. Please choose another date.', okText: 'Choose another date' });
-  }
-
-  // Hook into your booking submit handler.
-  // Find the existing fetch that posts to "/api/reservations" and replace its success/failure handling with the snippet below.
-  // Minimal example: (replace only the response-handling part)
-  async function handleReservationSubmitFetch(responsePromise) {
-    // responsePromise is the promise returned by fetch('/api/reservations', {...})
-    try {
-      const r = await responsePromise;
-      const json = await r.json().catch(()=>({}));
-      if(!r.ok){
-        const err = String(json.error || 'Booking failed');
-        // if it's closed on Sunday or Blocked show special popup
-        if(err.toLowerCase().includes('closed') || err.toLowerCase().includes('blocked')) {
-          showClosedPopup(err);
-          return;
-        }
-        // else generic error toast
-        showModal({ title:'Booking failed', message: err, okText:'OK' });
-        return;
-      }
-      // success
-      showBookingConfirmedPopup(json);
-    } catch(e) {
-      showModal({ title:'Network error', message:'Unable to reach server. Please try again shortly.', okText:'OK' });
-    }
-  }
-
-  // Example usage:
-  // When you call fetch("/api/reservations", { method: 'POST', ... }), instead of:
-  //    const r = await fetch(...); if(r.ok){ ... }
-  // do:
-  //    handleReservationSubmitFetch(fetch(...));
-  //
-  // If you already have code that handles reservation success, only replace the part that handles the response with calling handleReservationSubmitFetch(...)
-  //
-  // Minimal patch example for your current client code:
-  // replace the block that reads the response of POST /api/reservations and shows an alert, with:
-  //
-  //   handleReservationSubmitFetch(fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) }));
-  // The rest of your client code (payload creation, validation) remains unchanged.
-</script>
-
 </body>
 </html>
