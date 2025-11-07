@@ -1,5 +1,6 @@
 // start.js
-// Robuster Launcher
+// Robuster Launcher: sucht rekursiv unter dist nach einem server entry und startet es
+
 const fs = require('fs');
 const path = require('path');
 
@@ -35,7 +36,6 @@ if (entry) {
   console.error('No compiled server entry found under dist');
   if (fs.existsSync(distDir)) {
     console.error('Contents of dist (recursive):');
-    // Ausgabe der Dateiliste, hilft bei Debug
     function listRec(dir, prefix = '') {
       const items = fs.readdirSync(dir, { withFileTypes: true });
       for (const it of items) {
