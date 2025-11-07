@@ -199,6 +199,87 @@
 
   // If loyalty modal script exists elsewhere, it will also be used (no change).
 </script>
+<script>
+(async ()=>{
+  const form = document.querySelector("form") || document.getElementById("reservation-form");
+  const dateInput = document.querySelector('input[name="date"]') || document.getElementById("date");
+  const guestsInput = document.querySelector('select[name="guests"]') || document.getElementById("guests");
+  const reserveButton = document.querySelector('button[type="submit"], input[type="submit"], #reserve-btn');
+
+  // Style und Text anpassen
+  if (reserveButton) {
+    reserveButton.textContent = "Book";
+    reserveButton.style.padding = "12px 20px";
+    reserveButton.style.fontSize = "16px";
+    reserveButton.style.borderRadius = "8px";
+  }
+
+  function showPopup(title, msg) {
+    alert(title + "\n\n" + msg);
+  }
+
+  async function fetchSlotsAndNotify(date) {
+    if (!date) return;
+    const guests = guestsInput ? guestsInput.value || 1 : 1;
+    try {
+      const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`);
+      const slots = await resp.json();
+      if (!Array.isArray(slots) || slots.length === 0) return;
+      // Wenn alle slots reason Closed on Sunday oder Blocked -> zeige Popup sofort
+      const allClosed = slots.every(s => s.allowed === false && (s.reason === "Closed on Sunday" || s.reason === "Blocked" || s.reason?.toLowerCase().includes("fully booked for this date")));
+      if (allClosed) {
+        const reason = slots[0].reason || "Closed";
+        showPopup("Reservation not possible", reason + "\nPlease choose another date.");
+      }
+    } catch (e) {
+      console.error("fetch slots", e);
+    }
+  }
+
+  // Wenn Datum geaendert wird -> check
+  if (dateInput) {
+    dateInput.addEventListener("change", (e)=>{
+      const val = e.target.value;
+      // normalisiere format falls notwendig
+      fetchSlotsAndNotify(val);
+    });
+  }
+
+  // Form submit handler: bleibt unveraendert, nur Popup und redirect nach Erfolg
+  if (form) {
+    form.addEventListener("submit", async (ev)=>{
+      ev.preventDefault();
+      const data = {};
+      new FormData(form).forEach((v,k)=> data[k]=v);
+      try {
+        const r = await fetch("/api/reservations", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify(data)
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          showPopup("Reservation failed", j.error || "Please choose another slot.");
+          return;
+        }
+        // Success popup
+        const msg = "Thank you. Your reservation is confirmed and you will receive an email. Please also check your spam folder.";
+        showPopup("Reservation confirmed", msg);
+        // Feier popup wenn nowUnlockedTier
+        if (j.nowUnlockedTier && j.nowUnlockedTier > 0) {
+          // einfacher visueller Effekt
+          setTimeout(()=>alert(`Congrats! You unlocked ${j.nowUnlockedTier}% loyalty reward 🎉`), 200);
+        }
+        // redirect back to home page root nach kurzer Wartezeit
+        setTimeout(()=> { window.location = "/"; }, 1200);
+      } catch (err) {
+        console.error("submit reservation", err);
+        showPopup("Error", "Network or server error");
+      }
+    });
+  }
+})();
+</script>
 
 </body>
 </html>
