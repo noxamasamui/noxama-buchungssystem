@@ -1,14 +1,15 @@
-"start": "node start.js"
 {
   "name": "roestiland-reservation",
   "version": "1.0.0",
   "main": "dist/src/server.js",
   "license": "MIT",
   "type": "commonjs",
-  "scripts": {
-    "dev": "ts-node-dev src/server.ts",
-    "build": "tsc",
-    "start": "node dist/src/server.js"
+ "scripts": {
+  "dev": "ts-node-dev src/server.ts",
+  "build": "tsc",
+  "start": "node start.js"
+}
+
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
