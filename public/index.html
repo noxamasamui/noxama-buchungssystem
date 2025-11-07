@@ -1,33 +1,65 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="utf-8"/>
-  <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
+  <title>Reservation — ROSTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    /* small extra styling for the celebratory loyalty popup (keine großen Layout-Änderungen) */
-    .nxl-loyalty {
-      font-family: Georgia, 'Times New Roman', serif;
+    /* kleine Styles fuer Modals und Feuerwerk */
+    .nox-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      padding: 20px;
+    }
+    .nox-modal {
+      background: #fff8f0;
       color: #3a2f28;
+      border-radius: 12px;
+      padding: 18px;
+      max-width: 720px;
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+      text-align: center;
+      border: 1px solid #e0d7c5;
     }
-    .nxl-loyalty .big {
-      font-size: 28px;
-      margin-bottom: 8px;
+    .nox-modal h3 { margin-top: 0; margin-bottom: 8px; }
+    .nox-modal .nox-btn {
+      display: inline-block;
+      padding: 10px 18px;
+      border-radius: 8px;
+      background: #b3822f;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
     }
-    .nxl-loyalty .tier {
-      display:inline-block;
-      background: linear-gradient(90deg,#f6e9d9,#fff6eb);
-      border-radius: 10px;
-      padding: 12px 18px;
-      border: 1px solid #ead6b6;
-      box-shadow: 0 6px 18px rgba(179,130,47,0.12);
+
+    /* Firework / confetti animation simple */
+    .nox-fireworks {
+      position: relative;
+      height: 160px;
       margin-top: 8px;
+      overflow: visible;
     }
-    .nxl-loyalty .percent {
-      font-weight:700;
-      color:#b3822f;
-      font-size:20px;
+    .nox-confetti {
+      position: absolute;
+      bottom: 0;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      opacity: 0;
+      animation: nox-confetti-move 1.4s ease-out forwards;
+    }
+    @keyframes nox-confetti-move {
+      0% { transform: translateY(0) scale(0.6); opacity: 1; }
+      30% { opacity: 1; }
+      100% { transform: translateY(-220px) translateX(var(--tx,0px)) rotate(240deg) scale(1); opacity: 0; }
     }
   </style>
 </head>
@@ -37,7 +69,7 @@
   </div>
 
   <div class="container">
-    <h1 style="text-align:center;margin-top:8px;">Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
+    <h1 style="text-align:center;margin-top:8px;">Reservation — ROSTILAND BY NOXAMA SAMUI</h1>
     <p style="text-align:center;margin-top:6px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
 
     <div class="card booking-card booking-compact" style="max-width:760px;margin:18px auto;padding:18px;">
@@ -51,7 +83,6 @@
         <div style="flex:0 0 110px;">
           <label>Guests</label>
           <select id="rGuests">
-            <!-- default options -->
             <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
             <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
           </select>
@@ -111,256 +142,219 @@
   // helper: today string yyyy-mm-dd
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-  // small utility: friendly modal used for all "immediate" notices (closed / loyalty)
-  function showModal(htmlContent, title = "") {
-    const ex = document.getElementById("__noxama_modal");
-    if (ex) ex.remove();
-
-    const overlay = document.createElement("div");
-    overlay.id = "__noxama_modal";
-    overlay.style.position = "fixed";
-    overlay.style.left = "0";
-    overlay.style.top = "0";
-    overlay.style.width = "100%";
-    overlay.style.height = "100%";
-    overlay.style.zIndex = "99999";
-    overlay.style.display = "flex";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
-    overlay.style.background = "rgba(0,0,0,0.4)";
-
-    const box = document.createElement("div");
-    box.style.maxWidth = "640px";
-    box.style.width = "calc(100% - 40px)";
-    box.style.background = "#fff";
-    box.style.borderRadius = "12px";
-    box.style.padding = "18px";
-    box.style.boxShadow = "0 8px 30px rgba(0,0,0,0.25)";
-    box.style.textAlign = "center";
-
-    if (title) {
-      const h = document.createElement("h3");
-      h.textContent = title;
-      h.style.marginTop = "0";
-      box.appendChild(h);
-    }
-
-    const inner = document.createElement("div");
-    inner.innerHTML = htmlContent;
-    box.appendChild(inner);
-
-    const btnWrap = document.createElement("div");
-    btnWrap.style.marginTop = "12px";
-    const ok = document.createElement("button");
-    ok.textContent = "Okay";
-    ok.style.padding = "10px 16px";
-    ok.style.borderRadius = "8px";
-    ok.style.border = "none";
-    ok.style.background = "#b3822f";
-    ok.style.color = "#fff";
-    ok.onclick = ()=> overlay.remove();
-    btnWrap.appendChild(ok);
-    box.appendChild(btnWrap);
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-  }
-
-  // fill banner from /api/config (unchanged)
+  // fill banner from /api/config
   (async()=>{
     try{
       const r = await fetch('/api/config'); const cfg = await r.json();
       const hero = document.getElementById('heroBanner');
-      hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
       hero.alt = cfg.brand || 'Banner';
     }catch(e){ console.error(e); }
   })();
 
-  // initialize
-  const dateEl = document.getElementById('rDate');
-  const guestsEl = document.getElementById('rGuests');
-  const timeEl = document.getElementById('rTime');
+  const dateInput = document.getElementById('rDate');
+  const guestsInput = document.getElementById('rGuests');
+  const timeSelect = document.getElementById('rTime');
   const reserveBtn = document.getElementById('btnReserve');
-  const msgEl = document.getElementById('rMsg');
+  const msgSpan = document.getElementById('rMsg');
 
-  dateEl.value = today();
+  dateInput.value = today();
 
-  // Populate times with available slots only. Called when date or guests change.
-  async function refreshAvailableTimes() {
-    const date = dateEl.value || today();
-    const guests = Number(guestsEl.value || 1);
-    msgEl.textContent = '';
-    // disable button while loading/if none
-    reserveBtn.disabled = true;
-
-    try {
-      const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache:"no-store"});
-      if (!resp.ok) {
-        // if api fails, fallback to full times so user can still try — but mark message
-        msgEl.textContent = 'Could not load availability. Try again or choose another date.';
-        populateFallbackTimes();
-        return;
-      }
-      const slots = await resp.json();
-      if (!Array.isArray(slots)) { populateFallbackTimes(); return; }
-
-      // filter allowed slots
-      const allowedSlots = slots.filter(s => s.allowed === true);
-      // If no allowed slots -> immediate friendly modal and clear time select
-      if (allowedSlots.length === 0) {
-        // Show friendly message depending on reason (prefers Sunday / Blocked)
-        const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
-        let reasonText = reasons.find(r => /sunday|sonntag/i.test(r)) || reasons[0] || "This day is not available";
-        const friendlyHtml = `
-          <div style="font-family:Georgia,serif;color:#3a2f28;">
-            <div style="font-size:20px;margin-bottom:8px;">Oh no — this day is not available</div>
-            <div style="margin-bottom:10px;">${reasonText}</div>
-            <div>Please pick another day — we would love to welcome you.</div>
-          </div>`;
-        // clear times and disable booking
-        timeEl.innerHTML = '';
-        reserveBtn.disabled = true;
-        showModal(friendlyHtml, "Reservation not possible");
-        return;
-      }
-
-      // populate time select only with allowed slots (sorted by time)
-      timeEl.innerHTML = '';
-      allowedSlots.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.time;
-        opt.textContent = s.time + (typeof s.left === 'number' ? ` (${s.left} left)` : '');
-        timeEl.appendChild(opt);
-      });
-      // enable reserve
-      reserveBtn.disabled = false;
-    } catch (e) {
-      console.error("refreshAvailableTimes error", e);
-      // fallback behavior: populate full times so user still can choose (server might be down)
-      populateFallbackTimes();
-    }
-  }
-
-  // Fallback: if slots endpoint fails, show full times (safe)
-  function populateFallbackTimes() {
-    timeEl.innerHTML = '';
+  // populate initial times as a fallback (will be replaced by server result)
+  function fillTimesFallback(){
+    timeSelect.innerHTML = '';
     const from = 10*60, to = 22*60, interval = 15;
     for(let m=from;m<=to;m+=interval){
       const hh=String(Math.floor(m/60)).padStart(2,"0");
       const mm=String(m%60).padStart(2,"0");
       const opt=document.createElement("option"); opt.value=`${hh}:${mm}`; opt.textContent=opt.value;
-      timeEl.appendChild(opt);
+      timeSelect.appendChild(opt);
     }
-    reserveBtn.disabled = false;
+  }
+  fillTimesFallback();
+
+  // generic modal helper
+  function showModal(htmlContent, title = "") {
+    const ex = document.getElementById("__noxama_modal");
+    if (ex) ex.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "__noxama_modal";
+    overlay.className = "nox-modal-overlay";
+    overlay.innerHTML = `<div class="nox-modal">
+      ${ title ? `<h3>${title}</h3>` : '' }
+      <div class="nox-modal-inner">${htmlContent}</div>
+      <div style="margin-top:12px;"><button class="nox-btn" id="__noxama_modal_ok">Okay</button></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    const ok = document.getElementById("__noxama_modal_ok");
+    ok.addEventListener("click", ()=> overlay.remove());
   }
 
-  // initial fetch
-  refreshAvailableTimes();
+  // fireworks modal for loyalty
+  function showLoyaltyModal(tier){
+    // tier is 5 10 or 15
+    const title = "You earned a loyalty reward";
+    const html = `
+      <div style="font-family:Georgia,serif;color:#3a2f28;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 Congratulations — loyalty reward unlocked!</div>
+        <div style="font-size:16px;margin-bottom:8px;">You just reached a milestone</div>
+        <div style="background:#fff3df;padding:14px;border-radius:10px;display:inline-block;margin-bottom:8px;">
+          Enjoy a <b style="color:#b3822f;">${tier}%</b> thank-you discount on your next visit
+        </div>
+        <div style="font-size:13px;color:#555;margin-top:8px;">We applied a note to your profile. Thank you for your loyalty</div>
+        <div class="nox-fireworks" id="__nox_fireworks"></div>
+      </div>
+    `;
+    showModal(html, title);
 
-  // re-check when date or guests change
-  dateEl.addEventListener('change', ()=>{
-    refreshAvailableTimes();
-  });
-  guestsEl.addEventListener('change', ()=>{
-    refreshAvailableTimes();
-  });
+    // start confetti elements
+    const container = document.getElementById("__nox_fireworks");
+    if(!container) return;
+    // create multiple confetti bits with random positions and colors
+    const colors = ['#e74c3c','#f1c40f','#2ecc71','#3498db','#9b59b6','#e67e22'];
+    for(let i=0;i<18;i++){
+      const el = document.createElement("div");
+      el.className = "nox-confetti";
+      const leftpct = 10 + Math.random()*80; // start x
+      el.style.left = leftpct + '%';
+      el.style.background = colors[Math.floor(Math.random()*colors.length)];
+      // random horizontal travel
+      const tx = (Math.random()*180 - 90) + 'px';
+      el.style.setProperty('--tx', tx);
+      // stagger animation delay
+      el.style.animationDelay = (Math.random()*0.35) + 's';
+      // scaled size
+      const size = 6 + Math.round(Math.random()*10);
+      el.style.width = size + 'px'; el.style.height = size + 'px';
+      container.appendChild(el);
+      // remove after animation
+      setTimeout(()=> el.remove(), 1600 + Math.random()*400);
+    }
+  }
 
-  // Reserve button handler: post to /api/reservations (keeps your server contract)
+  // update times based on server data. show only allowed and bookable slots
+  async function updateTimesFor(date, guests){
+    // clear message
+    msgSpan.textContent = '';
+    timeSelect.innerHTML = '';
+    if(!date) { fillTimesFallback(); return; }
+    try{
+      const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache:"no-store"});
+      if(!resp.ok) { fillTimesFallback(); return; }
+      const slots = await resp.json();
+      if(!Array.isArray(slots) || slots.length === 0){ fillTimesFallback(); return; }
+
+      // filter: only show slots that are allowed and canReserve true
+      const showable = slots.filter(s => s.allowed === true && (s.canReserve === true));
+      if(showable.length === 0){
+        // if no slot available, decide reason and immediately show friendly popup
+        // prefer Sunday closed
+        const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
+        let reasonText = reasons.find(r => /sunday/i.test(r)) || reasons.find(r => /blocked|closed/i.test(r)) || reasons[0] || "This day is not available";
+        const friendly = `
+          <div style="font-family:Georgia,serif;color:#3a2f28;">
+            <div style="font-size:20px;margin-bottom:8px;">Oh no — this day is not available</div>
+            <div style="margin-bottom:10px;">${reasonText}</div>
+            <div>Please pick another day — we would love to welcome you.</div>
+          </div>`;
+        // remove any options so user cannot pick a non available time
+        timeSelect.innerHTML = '';
+        showModal(friendly, "Reservation not possible");
+        return;
+      }
+
+      // populate times. Do not show leftover numbers, only time text
+      showable.forEach(s=>{
+        const opt = document.createElement('option');
+        opt.value = s.time;
+        opt.textContent = s.time; // only time
+        timeSelect.appendChild(opt);
+      });
+
+      // if a previously selected time is not in new list, select first
+      if(!Array.from(timeSelect.options).some(o=>o.value === timeSelect.value)){
+        timeSelect.selectedIndex = 0;
+      }
+
+    }catch(e){
+      console.error("updateTimesFor error", e);
+      fillTimesFallback();
+    }
+  }
+
+  // listeners: date and guests
+  dateInput.addEventListener('change', ()=> updateTimesFor(dateInput.value, guestsInput.value));
+  guestsInput.addEventListener('change', ()=> updateTimesFor(dateInput.value, guestsInput.value));
+
+  // initial update
+  updateTimesFor(dateInput.value, guestsInput.value);
+
+  // reservation submit
   reserveBtn.addEventListener('click', async ()=>{
-    msgEl.textContent = '';
-    reserveBtn.disabled = true;
-
+    msgSpan.textContent = '';
     const payload = {
-      date: dateEl.value || today(),
-      time: timeEl.value,
+      date: dateInput.value || today(),
+      time: timeSelect.value,
       firstName: (document.getElementById('rFirst').value || "").trim(),
       name: (document.getElementById('rLast').value || "").trim(),
       email: (document.getElementById('rEmail').value || "").trim(),
       phone: (document.getElementById('rPhone').value || "").trim(),
-      guests: Number(guestsEl.value || 1),
+      guests: Number(guestsInput.value || 1),
       notes: (document.getElementById('rNotes').value || "").trim()
     };
 
-    // minimal validation
-    if(!payload.firstName || !payload.name || !payload.email || !payload.guests || !payload.time){
-      msgEl.textContent = 'Please fill first name, last name, email, guests and time';
-      reserveBtn.disabled = false;
+    if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
+      msgSpan.textContent = 'Please fill first name, last name, email and guests';
       return;
     }
 
-    try {
+    try{
       const r = await fetch('/api/reservations', {
         method: 'POST',
         headers: { 'Content-Type':'application/json' },
         body: JSON.stringify(payload)
       });
       const json = await r.json().catch(()=>({}));
-      if (!r.ok) {
-        const err = (json && json.error) ? json.error : "Failed to create reservation";
-        // if closed/blocked/fully booked -> show friendly modal
-        if (err.toLowerCase().includes("closed") || err.toLowerCase().includes("blocked") || err.toLowerCase().includes("fully booked") || err.toLowerCase().includes("sunday")) {
-          let message = "This slot is not available. Please choose another day or time.";
-          if (err.toLowerCase().includes("sunday")) message = "We are closed on Sundays. Please choose another day.";
-          if (err.toLowerCase().includes("blocked")) message = "This date is blocked. Please choose another day.";
-          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">${message}</div>`, "Not available");
-          // After such error, refresh times to hide newly unavailable slots
-          setTimeout(refreshAvailableTimes, 300);
-          reserveBtn.disabled = false;
-          return;
-        }
-        msgEl.textContent = err || "Error saving reservation";
-        reserveBtn.disabled = false;
-        return;
-      }
 
-      // Success: Show loyalty popup where appropriate
-      // Server returns visitNo (number of confirmed+noshow including this)
-      const visitNo = Number(json && json.visitNo) || 0;
-      let loyaltyPercent = 0;
-      if (visitNo >= 5 && visitNo <= 9) loyaltyPercent = 5;
-      else if (visitNo >= 10 && visitNo <= 14) loyaltyPercent = 10;
-      else if (visitNo >= 15) loyaltyPercent = 15;
-
-      if (loyaltyPercent > 0) {
-        const html = `
-          <div class="nxl-loyalty">
-            <div class="big">🎉 Congratulations — loyalty reward unlocked!</div>
-            <div>You just reached visit <strong>${visitNo}</strong></div>
-            <div class="tier">
-              <div>Enjoy a <span class="percent">${loyaltyPercent}%</span> thank-you discount on your next visit</div>
-            </div>
-            <div style="margin-top:10px;font-size:14px;color:#666;">We’ve applied a note to your profile. Thank you for your loyalty.</div>
-          </div>`;
-        showModal(html, "You earned a loyalty reward");
-        // Also show the standard confirmation modal after a short delay (so user sees both)
-        setTimeout(()=> {
-          const title = document.getElementById('confirm-title');
-          const txt = document.getElementById('confirm-text');
-          title.textContent = 'Reservation received';
-          txt.innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
+      if(r.ok){
+        // if loyalty unlocked, show loyalty modal with fireworks first
+        if(json && (json.nowUnlockedTier === 5 || json.nowUnlockedTier === 10 || json.nowUnlockedTier === 15)){
+          showLoyaltyModal(json.nowUnlockedTier);
+          // after short delay show confirm modal
+          setTimeout(()=> {
+            document.getElementById('confirm-title').textContent = 'Reservation received';
+            document.getElementById('confirm-text').innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
+            document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href = '/'; };
+            showConfirmModal();
+          }, 1400);
+        } else {
+          // normal flow
+          document.getElementById('confirm-title').textContent = 'Reservation received';
+          document.getElementById('confirm-text').innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
           document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href = '/'; };
           showConfirmModal();
-        }, 1000);
+        }
       } else {
-        // show standard confirmation
-        const title = document.getElementById('confirm-title');
-        const txt = document.getElementById('confirm-text');
-        title.textContent = 'Reservation received';
-        txt.innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
-        document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href = '/'; };
-        showConfirmModal();
+        const err = (json && json.error) ? json.error : "Failed to create reservation";
+        // if server says closed / blocked / sunday -> show friendly popup now
+        if(err.toLowerCase().includes("sunday") || err.toLowerCase().includes("closed") || err.toLowerCase().includes("blocked") || err.toLowerCase().includes("fully booked")){
+          let friendly = "This slot is not available. Please choose another day or time.";
+          if(err.toLowerCase().includes("sunday")) friendly = "We are closed on Sundays. Please choose another day.";
+          else if(err.toLowerCase().includes("blocked") || err.toLowerCase().includes("closed")) friendly = "This date is blocked or closed. Please pick another day.";
+          else if(err.toLowerCase().includes("fully booked")) friendly = "This slot is fully booked. Please choose another time or day.";
+          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">${friendly}</div>`, "Not available");
+          // refresh times so user sees current availability
+          updateTimesFor(dateInput.value, guestsInput.value);
+        } else {
+          msgSpan.textContent = err || 'Error saving reservation';
+        }
       }
-
-      // refresh available times to reflect new booking and prevent overbooking
-      setTimeout(refreshAvailableTimes, 300);
-    } catch (e) {
+    }catch(e){
       console.error('reservation post error', e);
-      msgEl.textContent = 'Network error';
-      reserveBtn.disabled = false;
+      msgSpan.textContent = 'Network error';
     }
   });
 
-  // small helpers for confirm modal
   function showConfirmModal(){
     const m = document.getElementById('confirm-modal');
     m.style.display = 'flex';
@@ -370,20 +364,9 @@
     m.style.display = 'none';
   }
 
-  // If for any reason slots endpoint is slow, show a fallback after 2s (user can still pick)
-  let fallbackTimer = setTimeout(()=>{
-    if (timeEl.children.length === 0) populateFallbackTimes();
-  }, 2000);
-
-  // Ensure fallback is cleared if refreshAvailableTimes finishes quickly
-  function clearFallbackTimer(){ if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; } }
-  // decorate refreshAvailableTimes to clear timer when done
-  const originalRefresh = refreshAvailableTimes;
-  refreshAvailableTimes = async function(){ clearFallbackTimer(); await originalRefresh(); };
-
-  // initial call already scheduled above
+  // close confirm modal ok
+  document.getElementById('confirm-ok').addEventListener('click', hideConfirmModal);
 
 </script>
-
 </body>
 </html>
