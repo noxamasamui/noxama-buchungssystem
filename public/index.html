@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
+  <title>Reservation — ROESTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    /* small style tweaks for modal + form harmony */
-    body { background: #d9c8b0; font-family: Georgia, "Times New Roman", serif; color:#3a2f28; }
+    /* Minimal styling overrides to keep things consistent */
+    body { background:#d9c8b0; font-family: Georgia, "Times New Roman", serif; color:#3a2f28; margin:0; }
     .hero-wrap { text-align:center; margin-top:18px; }
     .hero-banner { max-width:640px; width:76%; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,.18); }
 
@@ -24,32 +24,43 @@
 
     .badge { display:inline-block; background:#fff3df; padding:6px 10px; border-radius:8px; border:1px solid #ead6b6; color:#3a2f28; }
 
-    /* Modal styles */
-    .nox-modal-overlay {
-      position: fixed; inset: 0; background: rgba(8,6,4,0.4); display:flex; align-items:center; justify-content:center; z-index:99999; backdrop-filter: blur(3px);
+    /* modal overlay neutral (used for simple messages) */
+    .__overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:99999; }
+
+    /* Loyalty modal: dark, elegant */
+    .loyalty-overlay { background: rgba(6,4,3,0.65); backdrop-filter: blur(4px); }
+    .loyalty-panel {
+      width: min(880px, 94%); border-radius:12px; overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.55);
+      background: linear-gradient(180deg, rgba(20,16,12,0.95), rgba(40,34,28,0.95)); color:#fff; padding:0; border:1px solid rgba(255,255,255,0.06);
+      font-family: Georgia, serif;
     }
-    .nox-modal {
-      width: min(880px, 94%); border-radius:12px; overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.45);
-      background: linear-gradient(180deg,#fffaf6,#fff3e8); border:1px solid rgba(200,170,130,0.18); color:#3a2f28; font-family: Georgia, serif;
-    }
-    .nox-modal .modal-body { padding:18px; text-align:center; position:relative; }
-    .nox-modal h2 { margin:4px 0 8px 0; font-size:26px; }
-    .nox-fireworks { width:100%; height:260px; position:relative; overflow:hidden; background: radial-gradient(circle at 10% 10%, rgba(255,243,230,0.18), transparent 10%); }
-    .nox-reward-panel { display:inline-block; background: linear-gradient(180deg,#fff6ea,#fff0db); border-radius:10px; padding:12px 18px; border:1px solid rgba(214,187,147,0.6); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); margin-top:8px; }
-    .close-x { position:absolute; right:12px; top:12px; background:rgba(0,0,0,0.06); border-radius:8px; padding:6px 8px; cursor:pointer; border:none; }
-    @media (max-width:520px){ .nox-fireworks{height:160px;} .nox-modal h2{font-size:20px;} }
+    .loyalty-fire-wrap { position:relative; width:100%; height:260px; overflow:hidden; }
+    .loyalty-body { padding:20px; text-align:center; color:#fff; }
+    .loyalty-body h2 { margin:6px 0; font-size:26px; color:#fff; }
+    .loyalty-reward { display:inline-block; background: linear-gradient(180deg,#f7dfc7,#e8caa0); color:#5a3610; padding:12px 18px; border-radius:10px; margin-top:8px; font-weight:700; }
+    .loyalty-close { position:absolute; right:12px; top:12px; background:rgba(255,255,255,0.06); border:none; color:#fff; padding:8px 10px; border-radius:8px; cursor:pointer; }
+
+    /* fallback simple modal */
+    .simple-panel { background: linear-gradient(180deg,#fffaf6,#fff3e8); padding:18px; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,.25); color:#3a2f28; border:1px solid #e0d7c5; }
+
+    @media (max-width:520px){ .loyalty-fire-wrap{height:160px;} .loyalty-body h2{font-size:20px;} }
   </style>
 </head>
 <body>
   <div class="hero-wrap">
-    <img id="heroBanner" class="hero-banner" src="/logo-hero.png" alt="Logo banner" />
+    <img id="heroBanner" class="hero-banner"
+         alt="Logo banner"
+         style="max-width:640px;width:76%;border-radius:12px;box-shadow:0 25px 50px rgba(0,0,0,.18);" />
   </div>
 
   <div class="container">
-    <h1>Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
-    <p style="text-align:center;margin-top:6px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
+    <h1 style="text-align:center;margin-top:8px;">Reservation — ROESTILAND BY NOXAMA SAMUI</h1>
+    <p style="text-align:center;margin-top:6px;">
+      Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675
+    </p>
 
-    <div class="card booking-card booking-compact" style="max-width:760px;margin:18px auto;padding:18px;">
+    <div class="card booking-card booking-compact"
+         style="max-width:760px;margin:18px auto;padding:18px;">
       <h2>Book a table</h2>
 
       <div class="row date-time" style="margin-top:12px;">
@@ -64,9 +75,9 @@
             <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
           </select>
         </div>
-        <div style="flex:0 0 170px;">
+        <div style="flex:0 0 140px;">
           <label for="rTime">Time</label>
-          <select id="rTime"><option>Loading…</option></select>
+          <select id="rTime"></select>
         </div>
       </div>
 
@@ -94,7 +105,8 @@
 
       <div style="margin-top:12px;">
         <label for="rNotes">Notes</label>
-        <textarea id="rNotes" rows="2" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
+        <textarea id="rNotes" rows="2"
+          style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
       </div>
 
       <div style="margin-top:12px;text-align:left;">
@@ -104,315 +116,359 @@
     </div>
   </div>
 
-  <!-- Confirmation modal (used for generic messages) -->
-  <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:9999;">
-    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5;">
+  <!-- confirmation modal -->
+  <div id="confirm-modal"
+       style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+              align-items:center;justify-content:center;z-index:9999;">
+    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;
+                width:92%;text-align:center;border:1px solid #e0d7c5;">
       <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
       <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
       <div style="display:flex;gap:10px;justify-content:center;">
-        <button id="confirm-ok" class="btn" style="min-width:120px;">Okay</button>
+        <button id="confirm-ok" class="btn" style="min-width:120px;">Continue</button>
       </div>
     </div>
   </div>
 
 <script>
-  // helper: today string yyyy-mm-dd
-  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+/* small helpers */
+const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-  // fill banner from /api/config
-  (async()=>{
-    try{
-      const r = await fetch('/api/config', {cache:"no-store'});
-      if (!r.ok) return;
-      const cfg = await r.json();
-      const hero = document.getElementById('heroBanner');
-      hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
-      hero.alt = cfg.brand || 'Banner';
-    }catch(e){ console.error("cfg", e); }
-  })();
+(async()=>{
+  try {
+    const r = await fetch('/api/config', {cache:"no-store"});
+    if(!r.ok) return;
+    const cfg = await r.json();
+    const hero = document.getElementById('heroBanner');
+    hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+    hero.alt = cfg.brand || 'Banner';
+  } catch(e){ console.error("cfg", e); }
+})();
 
-  // initial values
-  const dateInput = document.getElementById('rDate');
-  const guestsSelect = document.getElementById('rGuests');
-  const timeSelect = document.getElementById('rTime');
-  const reserveBtn = document.getElementById('btnReserve');
-  const msgBox = document.getElementById('rMsg');
+document.getElementById('rDate').value = today();
 
-  dateInput.value = today();
+/* update times: request /api/slots and only list allowed times
+   if none allowed => inspect reasons and show immediate modal */
+async function updateTimes(){
+  const date = document.getElementById('rDate').value;
+  const guests = Number(document.getElementById('rGuests').value || 1);
+  const sel = document.getElementById('rTime');
+  sel.innerHTML = '';
 
-  // fillTimes skeleton (used only if slots endpoint fails)
-  function fillTimesFallback() {
-    timeSelect.innerHTML = '';
-    const from = 10*60, to = 22*60, interval = 15;
-    for(let m=from;m<to;m+=interval){
-      const hh=String(Math.floor(m/60)).padStart(2,"0");
-      const mm=String(m%60).padStart(2,"0");
-      const opt = document.createElement('option'); opt.value = `${hh}:${mm}`; opt.textContent = `${hh}:${mm}`; timeSelect.appendChild(opt);
-    }
-  }
+  if(!date) return;
 
-  // Core: fetch slots for selected date and guests and populate timeSelect with only allowed times
-  async function refreshSlotsAndPopulate(date, guests) {
-    timeSelect.innerHTML = '<option>Loading…</option>';
-    try{
-      const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache:"no-store"});
-      if (!resp.ok) { fillTimesFallback(); return; }
-      const slots = await resp.json();
-      if (!Array.isArray(slots)) { fillTimesFallback(); return; }
-
-      // if all slots disallowed -> show immediate modal and clear times
-      const anyAllowed = slots.some(s => s.allowed === true);
-      if (!anyAllowed) {
-        timeSelect.innerHTML = '';
-        // pick representative reason
-        const reasons = Array.from(new Set(slots.map(s=>s.reason||"").filter(Boolean)));
-        const reason = reasons.find(r=>/sunday/i.test(r)) || reasons[0] || 'This date is not available';
-        // friendly modal
-        showNiceModal("Reservation not possible", `
-          <div style="font-family:Georgia,serif;color:#3a2f28;">
-            <div style="font-size:20px;margin-bottom:8px;">Oh no — this day is not available</div>
-            <div style="margin-bottom:10px;">${reason}</div>
-            <div>Please pick another day — we would love to welcome you.</div>
-          </div>
-        `);
-        return;
-      }
-
-      // otherwise show only allowed times (no remaining counts)
-      timeSelect.innerHTML = '';
-      for(const s of slots){
-        if (s.allowed === true) {
-          const opt = document.createElement('option');
-          opt.value = s.time;
-          opt.textContent = s.time; // purposely do not show counts
-          timeSelect.appendChild(opt);
-        }
-      }
-
-      // if no option added (fallback)
-      if (!timeSelect.options.length) fillTimesFallback();
-    }catch(e){
-      console.error("refreshSlots", e);
-      fillTimesFallback();
-    }
-  }
-
-  // initial population and on change
-  refreshSlotsAndPopulate(dateInput.value, guestsSelect.value);
-
-  dateInput.addEventListener("change", ()=> refreshSlotsAndPopulate(dateInput.value, guestsSelect.value));
-  guestsSelect.addEventListener("change", ()=> refreshSlotsAndPopulate(dateInput.value, guestsSelect.value));
-
-  // helper nice modal (for closed/blocked)
-  function showNiceModal(title, htmlContent){
-    // remove if present
-    const ex = document.getElementById("__nox_nice_modal");
-    if (ex) ex.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = "__nox_nice_modal";
-    overlay.className = 'nox-modal-overlay';
-
-    const modal = document.createElement('div');
-    modal.className = 'nox-modal';
-    modal.innerHTML = `
-      <button class="close-x" aria-label="close">✕</button>
-      <div class="nox-fireworks" style="height:120px;background:transparent;"></div>
-      <div class="modal-body">
-        <h2>${title}</h2>
-        <div class="sub" style="margin-bottom:6px;"></div>
-        <div style="font-size:15px;color:#4b3b2f;margin-bottom:8px;"></div>
-        <div style="margin-top:6px;">${htmlContent}</div>
-        <div style="margin-top:14px;"><button class="btn" id="__nox_modal_ok">Okay</button></div>
-      </div>
-    `;
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    modal.querySelector('.close-x').onclick = ()=> overlay.remove();
-    modal.querySelector('#__nox_modal_ok').onclick = ()=> overlay.remove();
-  }
-
-  // confirmation modal helpers
-  function showConfirmModal(title, text, onOkRedirect=false) {
-    const cm = document.getElementById('confirm-modal');
-    document.getElementById('confirm-title').textContent = title;
-    document.getElementById('confirm-text').innerHTML = text;
-    cm.style.display = 'flex';
-    document.getElementById('confirm-ok').onclick = ()=> {
-      cm.style.display = 'none';
-      if (onOkRedirect) window.location.href = '/';
-    };
-  }
-
-  // Loyalty modal + fireworks (denser, faster, colorful)
-  function createLoyaltyModal(tier, visitNo){
-    // remove existing
-    const ex = document.getElementById("__nox_loyalty");
-    if (ex) ex.remove();
-
-    const overlay = document.createElement("div");
-    overlay.id = "__nox_loyalty";
-    overlay.className = "nox-modal-overlay";
-
-    const modal = document.createElement("div");
-    modal.className = "nox-modal";
-    modal.innerHTML = `
-      <button class="close-x" aria-label="close">✕</button>
-      <div class="nox-fireworks" id="__nox_fireworks_canvas_wrap" style="height:200px"></div>
-      <div class="modal-body">
-        <h2>You earned a loyalty reward</h2>
-        <div class="sub">🎉 Congratulations — loyalty reward unlocked!</div>
-        <div style="font-size:15px;color:#4b3b2f;margin-bottom:8px;">You just reached visit ${visitNo}</div>
-        <div class="nox-reward-panel"><div style="font-size:20px;"><strong>Enjoy a ${tier}% thank-you discount on your next visit</strong></div></div>
-        <div class="small-note">We applied a note to your profile. Thank you for your loyalty.</div>
-        <div style="margin-top:14px;"><button class="btn" id="__nox_ok_btn">Okay</button></div>
-      </div>
-    `;
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-
-    modal.querySelector(".close-x").onclick = ()=> overlay.remove();
-    modal.querySelector("#__nox_ok_btn").onclick = ()=> overlay.remove();
-
-    const wrap = document.getElementById("__nox_fireworks_canvas_wrap");
-    initFireworks(wrap);
-  }
-
-  // Fireworks implementation (dense, colorful)
-  function initFireworks(container){
-    while(container.firstChild) container.removeChild(container.firstChild);
-    const c = document.createElement("canvas");
-    c.style.position = "absolute"; c.style.left = 0; c.style.top = 0; c.width = container.clientWidth; c.height = container.clientHeight;
-    container.appendChild(c);
-    const ctx = c.getContext("2d");
-    if(!ctx) return;
-
-    let W = c.width, H = c.height;
-    function resize(){ c.width = container.clientWidth; c.height = container.clientHeight; W = c.width; H = c.height; }
-    window.addEventListener("resize", resize);
-
-    const colors = ['#ff3b30','#ff9500','#ffcc00','#4cd964','#32a7ff','#5856d6','#ff6bcb','#ffd54f','#8d6e63','#9c27b0','#00bfa5','#ff7043'];
-
-    class Particle {
-      constructor(x,y,vx,vy,size,color,life,type){
-        this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.size=size; this.color=color; this.life=life; this.age=0; this.type=type || 'spark';
-        this.rotation = Math.random()*360; this.spin = (Math.random()-0.5)*6;
-      }
-      update(dt){
-        this.vy += 0.06; this.x+=this.vx*dt; this.y+=this.vy*dt; this.age += dt*18; this.rotation += this.spin*dt*40;
-      }
-      draw(ctx){
-        ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.rotation*Math.PI/180);
-        const alpha = Math.max(0, 1 - this.age/this.life);
-        ctx.globalAlpha = alpha;
-        if (this.type==='spark') {
-          ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(0,0,this.size,0,Math.PI*2); ctx.fill();
-        } else {
-          ctx.fillStyle = this.color; ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size*0.6);
-        }
-        ctx.restore();
-      }
-    }
-
-    const particles = [];
-    let last = performance.now();
-    let running = true;
-
-    function spawnBurst(x,y,power=1){
-      const count = 60 + Math.floor(140 * power);
-      for(let i=0;i<count;i++){
-        const angle = Math.random()*Math.PI*2;
-        const speed = 2 + Math.random()*8*power;
-        const vx = Math.cos(angle)*speed; const vy = Math.sin(angle)*speed*0.6;
-        const size = 2 + Math.random()*5; const color = colors[Math.floor(Math.random()*colors.length)];
-        const life = 800 + Math.random()*1600;
-        particles.push(new Particle(x,y,vx,vy,size,color,life,'spark'));
-      }
-      for(let i=0;i<28;i++){
-        const vx = (Math.random()-0.5)*6; const vy = -1 - Math.random()*6; const size = 6 + Math.random()*12; const color = colors[Math.floor(Math.random()*colors.length)];
-        particles.push(new Particle(x,y,vx,vy,size,color,1200,'confetti'));
-      }
-    }
-
-    function tick(now){
-      const dt = Math.min(60, now-last)/16; last = now;
-      // glow fade
-      ctx.fillStyle = 'rgba(8,6,4,0.12)'; ctx.fillRect(0,0,W,H);
-      for(let i=particles.length-1;i>=0;i--){
-        const p = particles[i]; p.update(dt); p.draw(ctx);
-        if (p.age > p.life || p.y > H+40) particles.splice(i,1);
-      }
-      // auto bursts for lively effect
-      if (running && particles.length < 160 && Math.random() < 0.05) spawnBurst(60 + Math.random()*(W-120), 40 + Math.random()*H*0.5, 0.8 + Math.random()*1.4);
-      if (running) requestAnimationFrame(tick);
-    }
-
-    // initial heavy show
-    (function initial(){
-      spawnBurst(W*0.5, H*0.35, 1.8);
-      setTimeout(()=> spawnBurst(W*0.35, H*0.22, 1.2), 140);
-      setTimeout(()=> spawnBurst(W*0.65, H*0.28, 1.3), 240);
-      let i=0; const iv = setInterval(()=>{ spawnBurst(80 + Math.random()*(W-160), 40 + Math.random()*H*0.45, 0.6 + Math.random()*0.8); i++; if(i>10) clearInterval(iv); }, 120);
-    })();
-
-    requestAnimationFrame(tick);
-    // auto stop
-    setTimeout(()=>{ running=false; window.removeEventListener("resize", resize); setTimeout(()=>{ if(c.parentNode) c.parentNode.removeChild(c); },600); }, 7000);
-  }
-
-  // Reserve button handler: sends to /api/reservations, shows loyalty modal when server indicates nowUnlockedTier
-  reserveBtn.addEventListener("click", async ()=>{
-    msgBox.textContent = '';
-    const payload = {
-      date: dateInput.value || today(),
-      time: timeSelect.value,
-      firstName: (document.getElementById('rFirst').value || "").trim(),
-      name: (document.getElementById('rLast').value || "").trim(),
-      email: (document.getElementById('rEmail').value || "").trim(),
-      phone: (document.getElementById('rPhone').value || "").trim(),
-      guests: Number(guestsSelect.value || 1),
-      notes: (document.getElementById('rNotes').value || "").trim()
-    };
-    if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
-      msgBox.textContent = 'Please fill first name, last name, email and guests';
+  try {
+    const res = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache:"no-store"});
+    if(!res.ok){
+      fillFallbackTimes(sel);
       return;
     }
-    try{
-      const r = await fetch('/api/reservations', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const json = await r.json().catch(()=>({}));
-      if (r.ok){
-        // success
-        // if loyalty unlocked show the big modal with fireworks
-        const unlocked = json && (json.nowUnlockedTier || json.nowUnlockedTier === 0 ? json.nowUnlockedTier : (json.discount || 0));
-        // if server returns nowUnlockedTier value 5/10/15 -> show modal
-        if (json && (json.nowUnlockedTier === 5 || json.nowUnlockedTier === 10 || json.nowUnlockedTier === 15)) {
-          createLoyaltyModal(json.nowUnlockedTier, json.visitNo || 0);
-          // after small delay show confirmation modal as well
-          setTimeout(()=> showConfirmModal('Reservation received', `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please check your spam folder.`, true), 900);
-        } else {
-          showConfirmModal('Reservation received', `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please check your spam folder.`, true);
-        }
-      } else {
-        // server responded with error; handle closed/blocked specially
-        const err = (json && json.error) ? String(json.error) : 'Failed to create reservation';
-        if (/sunday/i.test(err) || /closed/i.test(err) || /blocked/i.test(err) || /fully booked/i.test(err)) {
-          const reason = err;
-          showNiceModal("Not available", `<div style="font-family:Georgia,serif;color:#3a2f28;">${reason}<div style="margin-top:8px;">Please select another date.</div></div>`);
-          // refresh slots to reflect server truth
-          refreshSlotsAndPopulate(dateInput.value, guestsSelect.value);
-        } else {
-          msgBox.textContent = err;
-        }
-      }
-    }catch(e){
-      console.error("reservation post error", e);
-      msgBox.textContent = 'Network error';
+    const slots = await res.json();
+    if(!Array.isArray(slots)){
+      fillFallbackTimes(sel);
+      return;
     }
-  });
 
-  // ensure times are refreshed on load as well
-  window.addEventListener('load', ()=> refreshSlotsAndPopulate(dateInput.value, guestsSelect.value));
+    const allowed = slots.filter(s => s.allowed === true);
+    // If no allowed slots -> show polite modal immediately
+    if(allowed.length === 0){
+      // gather reasons
+      const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
+      // prefer Sunday message if present
+      const sunday = reasons.find(r => /sunday/i.test(r));
+      const blocked = reasons.find(r => /blocked|closed/i.test(r));
+      const reasonText = sunday || blocked || reasons[0] || "This date is not available";
+      showSimpleModal("Reservation not possible", `
+        <div style="font-family:Georgia,serif;color:#fff;">
+          <div style="font-size:20px;margin-bottom:8px;">Oh no — this day is not available</div>
+          <div style="margin-bottom:10px;">${escapeHtml(reasonText)}</div>
+          <div>Please choose another date — we would love to welcome you.</div>
+        </div>
+      `, true);
+      return;
+    }
+
+    // populate only allowed times (do not show remaining counts)
+    for(const s of allowed){
+      const opt = document.createElement('option');
+      opt.value = s.time;
+      opt.textContent = s.time;
+      sel.appendChild(opt);
+    }
+
+    // if still empty, fallback
+    if(!sel.options.length) fillFallbackTimes(sel);
+  } catch(e){
+    console.error("updateTimes", e);
+    fillFallbackTimes(sel);
+  }
+}
+
+function fillFallbackTimes(sel){
+  sel.innerHTML = '';
+  const from = 10*60, to = 22*60, interval = 15;
+  for(let m=from;m<to;m+=interval){
+    const hh = String(Math.floor(m/60)).padStart(2,"0");
+    const mm = String(m%60).padStart(2,"0");
+    const o = document.createElement('option'); o.value = `${hh}:${mm}`; o.textContent = `${hh}:${mm}`; sel.appendChild(o);
+  }
+}
+
+/* immediate refresh when user changes date or guests */
+document.getElementById('rDate').addEventListener('change', ()=> updateTimes());
+document.getElementById('rGuests').addEventListener('change', ()=> updateTimes());
+updateTimes();
+
+/* Reserve button: posts to /api/reservations and shows loyalty modal when server returns nowUnlockedTier */
+document.getElementById('btnReserve').addEventListener('click', async ()=>{
+  const payload = {
+    date: document.getElementById('rDate').value,
+    time: document.getElementById('rTime').value,
+    firstName: (document.getElementById('rFirst').value || '').trim(),
+    name: (document.getElementById('rLast').value || '').trim(),
+    email: (document.getElementById('rEmail').value || '').trim(),
+    phone: (document.getElementById('rPhone').value || '').trim(),
+    guests: Number(document.getElementById('rGuests').value || 1),
+    notes: (document.getElementById('rNotes').value || '').trim()
+  };
+
+  const rMsg = document.getElementById('rMsg');
+  rMsg.textContent = '';
+
+  // minimal client validation
+  if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
+    rMsg.textContent = 'Please fill first name, last name, email and guests';
+    return;
+  }
+  try {
+    const res = await fetch('/api/reservations', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json().catch(()=>({}));
+
+    if(res.ok){
+      // loyalty popup if server says nowUnlockedTier
+      if(json && (json.nowUnlockedTier === 5 || json.nowUnlockedTier === 10 || json.nowUnlockedTier === 15)){
+        // show big loyalty modal with fireworks
+        showLoyaltyModal(json.nowUnlockedTier, json.visitNo || 0);
+        // then show confirmation after short delay
+        setTimeout(()=> showConfirmModal("Reservation received", `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${escapeHtml(payload.email)}</b>.`, true), 1000);
+      } else {
+        showConfirmModal("Reservation received", `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${escapeHtml(payload.email)}</b>.`, true);
+      }
+    } else {
+      // show friendly message for closed/blocked/sunday
+      const err = (json && json.error) ? String(json.error).toLowerCase() : '';
+      if(err.includes("sunday") || err.includes("closed") || err.includes("blocked") || err.includes("fully booked")){
+        showSimpleModal("Reservation not possible", `
+          <div style="font-family:Georgia,serif;color:#fff;">
+            <div style="font-size:20px;margin-bottom:8px;">This day is not available</div>
+            <div style="margin-bottom:10px;">${escapeHtml(String(json.error || "This date is not available"))}</div>
+            <div>Please choose another date — we would love to welcome you.</div>
+          </div>
+        `, true);
+        // refresh available times
+        updateTimes();
+      } else {
+        rMsg.textContent = json.error || 'Error saving reservation';
+      }
+    }
+  } catch(e){
+    console.error("post reservation", e);
+    document.getElementById('rMsg').textContent = 'Network error';
+  }
+});
+
+/* simple confirmation modal helpers */
+function showConfirmModal(title, html, redirectAfterOk=false){
+  const cm = document.getElementById('confirm-modal');
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-text').innerHTML = html;
+  cm.style.display = 'flex';
+  document.getElementById('confirm-ok').onclick = ()=> {
+    cm.style.display = 'none';
+    if(redirectAfterOk) window.location.href = '/';
+  };
+}
+function hideConfirmModal(){ document.getElementById('confirm-modal').style.display = 'none'; }
+
+/* helper to escape text when injected into markup */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]); }
+
+/* lightweight simple modal (dark theme) for closed/blocked messages.
+   keep close button and ok behavior. if focus:false -> no auto focus */
+function showSimpleModal(title, innerHtml, dark=true){
+  // remove existing
+  const ex = document.getElementById('__simple_modal');
+  if(ex) ex.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '__simple_modal';
+  overlay.className = '__overlay';
+  overlay.style.background = dark ? 'rgba(6,4,3,0.65)' : 'rgba(0,0,0,0.45)';
+
+  const panel = document.createElement('div');
+  panel.className = dark ? 'loyalty-panel' : 'simple-panel';
+  panel.style.maxWidth = '520px'; panel.style.width = '92%';
+
+  panel.innerHTML = `
+    <div style="position:relative;">
+      <button class="loyalty-close" aria-label="close">✕</button>
+      <div style="padding:20px;">
+        ${innerHtml}
+        <div style="margin-top:14px;text-align:center;"><button id="__simple_ok" class="btn" style="min-width:120px;">Okay</button></div>
+      </div>
+    </div>
+  `;
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  panel.querySelector('.loyalty-close').onclick = ()=> overlay.remove();
+  panel.querySelector('#__simple_ok').onclick = ()=> overlay.remove();
+}
+
+/* LOYALTY modal with denser fireworks canvas */
+function showLoyaltyModal(tier, visitNo){
+  // remove if exists
+  const ex = document.getElementById('__loyalty_modal');
+  if(ex) ex.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '__loyalty_modal';
+  overlay.className = '__overlay loyalty-overlay';
+
+  const panel = document.createElement('div');
+  panel.className = 'loyalty-panel';
+  panel.innerHTML = `
+    <button class="loyalty-close" aria-label="close">✕</button>
+    <div class="loyalty-fire-wrap" id="__fw_wrap"></div>
+    <div class="loyalty-body">
+      <h2>You earned a loyalty reward</h2>
+      <div style="font-size:15px;margin-bottom:8px;">🎉 Congratulations — loyalty reward unlocked!</div>
+      <div style="font-size:15px;margin-bottom:6px;">You just reached visit <strong>${escapeHtml(visitNo || tier)}</strong></div>
+      <div class="loyalty-reward">Enjoy a ${escapeHtml(String(tier))}% thank-you discount on your next visit</div>
+      <div style="margin-top:12px;"><button id="__loyal_ok" class="btn" style="min-width:120px;margin-top:8px;">Okay</button></div>
+    </div>
+  `;
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  panel.querySelector('.loyalty-close').onclick = ()=> overlay.remove();
+  panel.querySelector('#__loyal_ok').onclick = ()=> overlay.remove();
+
+  // start fireworks in wrap
+  const wrap = document.getElementById('__fw_wrap');
+  startDenseFireworks(wrap);
+}
+
+/* Dense colorful fireworks engine (canvas) */
+/* Implementation notes: lightweight, no external libs, many particles & colors */
+function startDenseFireworks(container){
+  if(!container) return;
+  container.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+  container.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+
+  let W = canvas.width, H = canvas.height;
+  function resize(){ canvas.width = container.clientWidth; canvas.height = container.clientHeight; W = canvas.width; H = canvas.height; }
+  window.addEventListener('resize', resize);
+
+  const colors = [
+    '#ff3b30','#ff6b6b','#ff9500','#ffb74d','#ffd54f',
+    '#8bc34a','#4caf50','#00b894','#00bcd4','#3498db',
+    '#7e57c2','#9c27b0','#e91e63','#ff4081','#f06292',
+    '#ffd180','#ffd699'
+  ];
+
+  class P {
+    constructor(x,y,vx,vy,size,color,life,type){
+      this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.size=size; this.color=color; this.life=life; this.age=0; this.type=type||'p';
+      this.spin = (Math.random()-0.5)*6;
+    }
+    update(dt){
+      this.vy += 0.06 * dt; this.x += this.vx * dt; this.y += this.vy * dt; this.age += dt*16;
+    }
+    draw(ctx){
+      const a = Math.max(0, 1 - this.age/this.life);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = this.color;
+      if(this.type === 'p'){
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+      } else {
+        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.age/10); ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size); ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  const parts = [];
+  let last = performance.now();
+  let running = true;
+
+  function burst(x,y,scale=1.0){
+    const n = Math.floor(80 * scale) + Math.floor(Math.random()*120*scale);
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2;
+      const s = (2 + Math.random()*6) * (0.6 + Math.random()*0.8) * scale;
+      const vx = Math.cos(a) * s * (0.5 + Math.random());
+      const vy = Math.sin(a) * s * (0.4 + Math.random()*0.8);
+      const size = 1 + Math.random()*4;
+      const color = colors[Math.floor(Math.random()*colors.length)];
+      const life = 600 + Math.random()*1600;
+      parts.push(new P(x,y,vx,vy,size,color,life,'p'));
+    }
+    // confetti
+    for(let i=0;i<40;i++){
+      const vx = (Math.random()-0.5)*6;
+      const vy = -2 - Math.random()*7;
+      const size = 6 + Math.random()*10;
+      const color = colors[Math.floor(Math.random()*colors.length)];
+      parts.push(new P(x,y,vx,vy,size,color,1200,'c'));
+    }
+  }
+
+  function frame(now){
+    const dt = Math.min(60, now-last)/16; last = now;
+    // slight fade
+    ctx.fillStyle = 'rgba(6,4,3,0.14)';
+    ctx.fillRect(0,0,W,H);
+
+    for(let i=parts.length-1;i>=0;i--){
+      const p = parts[i];
+      p.update(dt);
+      p.draw(ctx);
+      if(p.age > p.life || p.y > H + 40) parts.splice(i,1);
+    }
+
+    // auto bursts while running
+    if(running && (parts.length < 600) && Math.random() < 0.08) {
+      burst(80 + Math.random()*(W-160), 40 + Math.random()*H*0.45, 0.9 + Math.random()*1.6);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // launch a concentrated initial show
+  burst(W*0.5, H*0.28, 2.2);
+  setTimeout(()=> burst(W*0.35, H*0.22, 1.3), 160);
+  setTimeout(()=> burst(W*0.65, H*0.26, 1.3), 260);
+  let i=0; const iv = setInterval(()=>{ burst(80 + Math.random()*(W-160), 40 + Math.random()*H*0.45, 0.7+Math.random()*0.9); i++; if(i>16) clearInterval(iv); }, 120);
+
+  requestAnimationFrame(frame);
+
+  // stop and cleanup after 9s
+  setTimeout(()=>{ running=false; window.removeEventListener('resize', resize); setTimeout(()=>{ if(canvas.parentNode) canvas.parentNode.removeChild(canvas); }, 800); }, 9000);
+}
+
+/* ensure times refreshed on page load */
+window.addEventListener('load', ()=> updateTimes());
 </script>
 </body>
 </html>
