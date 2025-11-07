@@ -5,6 +5,31 @@
   <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <style>
+    /* small extra styling for the celebratory loyalty popup (keine großen Layout-Änderungen) */
+    .nxl-loyalty {
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #3a2f28;
+    }
+    .nxl-loyalty .big {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .nxl-loyalty .tier {
+      display:inline-block;
+      background: linear-gradient(90deg,#f6e9d9,#fff6eb);
+      border-radius: 10px;
+      padding: 12px 18px;
+      border: 1px solid #ead6b6;
+      box-shadow: 0 6px 18px rgba(179,130,47,0.12);
+      margin-top: 8px;
+    }
+    .nxl-loyalty .percent {
+      font-weight:700;
+      color:#b3822f;
+      font-size:20px;
+    }
+  </style>
 </head>
 <body>
   <div class="hero-wrap" style="text-align:center;margin-top:18px;">
@@ -86,205 +111,8 @@
   // helper: today string yyyy-mm-dd
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-  // fill banner from /api/config
-  (async()=>{
-    try{
-      const r = await fetch('/api/config'); const cfg = await r.json();
-      const hero = document.getElementById('heroBanner');
-      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
-      hero.alt = cfg.brand || 'Banner';
-    }catch(e){ console.error(e); }
-  })();
-
-  document.getElementById('rDate').value = today();
-
-  // fill times select (same as admin)
-  function fillTimes(){
-    const sel = document.getElementById('rTime');
-    sel.innerHTML = '';
-    const from = 10*60, to = 22*60, interval = 15;
-    for(let m=from;m<=to;m+=interval){
-      const hh=String(Math.floor(m/60)).padStart(2,"0");
-      const mm=String(m%60).padStart(2,"0");
-      const opt=document.createElement("option"); opt.value=`${hh}:${mm}`; opt.textContent=opt.value;
-      sel.appendChild(opt);
-    }
-  }
-  fillTimes();
-
-  // find reserve button and add handler
-  document.getElementById('btnReserve').addEventListener('click', async ()=>{
-    const d = document.getElementById('rDate').value || today();
-    const t = document.getElementById('rTime').value;
-    const payload = {
-      date: d,
-      time: t,
-      firstName: (document.getElementById('rFirst').value || "").trim(),
-      name: (document.getElementById('rLast').value || "").trim(),
-      email: (document.getElementById('rEmail').value || "").trim(),
-      phone: (document.getElementById('rPhone').value || "").trim(),
-      guests: Number(document.getElementById('rGuests').value || 1),
-      notes: (document.getElementById('rNotes').value || "").trim()
-    };
-    const msg = document.getElementById('rMsg');
-    msg.textContent = '';
-
-    // basic client validation (keep minimal)
-    if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
-      msg.textContent = 'Please fill first name, last name, email and guests';
-      return;
-    }
-
-    try{
-      const r = await fetch('/api/reservations', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const json = await r.json().catch(()=>({}));
-      if(r.ok){
-        // success — show confirmation modal and then redirect to /
-        const title = document.getElementById('confirm-title');
-        const txt = document.getElementById('confirm-text');
-        title.textContent = 'Reservation received';
-        txt.innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
-        // If loyalty popup unlocked, show loyalty modal first (if available)
-        if(json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15) && typeof showLoyaltyModal === 'function'){
-          showLoyaltyModal(json.nowUnlockedTier);
-          // when loyalty modal is closed it will stop fireworks; we also show confirm modal afterwards
-          // Wait briefly and then show confirm modal
-          setTimeout(()=>{ showConfirmModal(); }, 1000);
-        } else {
-          showConfirmModal();
-        }
-
-        // helper: ok button will redirect to home
-        document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href = '/'; };
-      } else {
-        // handle known server messages: closed/blocked/fully booked => user-friendly popup
-        const err = (json && json.error) ? json.error : "Failed to create reservation";
-        if(err.toLowerCase().includes("closed") || err.toLowerCase().includes("blocked") || err.toLowerCase().includes("fully booked")){
-          // show modal with custom message
-          const title = document.getElementById('confirm-title');
-          const txt = document.getElementById('confirm-text');
-          title.textContent = 'Not available';
-          if(err.toLowerCase().includes("sunday")) {
-            txt.textContent = "We are closed on Sundays. Please choose another day.";
-          } else if(err.toLowerCase().includes("blocked") || err.toLowerCase().includes("closed")) {
-            txt.textContent = "This date is blocked or closed. Please choose another day.";
-          } else {
-            txt.textContent = "This slot is fully booked. Please choose another time or day.";
-          }
-          document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); };
-          showConfirmModal();
-        } else {
-          msg.textContent = err || 'Error saving reservation';
-        }
-      }
-    }catch(e){
-      console.error('reservation post error', e);
-      msg.textContent = 'Network error';
-    }
-  });
-
-  function showConfirmModal(){
-    const m = document.getElementById('confirm-modal');
-    m.style.display = 'flex';
-  }
-  function hideConfirmModal(){
-    const m = document.getElementById('confirm-modal');
-    m.style.display = 'none';
-  }
-
-  // If loyalty modal script exists elsewhere, it will also be used (no change).
-</script>
-<script>
-(async ()=>{
-  const form = document.querySelector("form") || document.getElementById("reservation-form");
-  const dateInput = document.querySelector('input[name="date"]') || document.getElementById("date");
-  const guestsInput = document.querySelector('select[name="guests"]') || document.getElementById("guests");
-  const reserveButton = document.querySelector('button[type="submit"], input[type="submit"], #reserve-btn');
-
-  // Style und Text anpassen
-  if (reserveButton) {
-    reserveButton.textContent = "Book";
-    reserveButton.style.padding = "12px 20px";
-    reserveButton.style.fontSize = "16px";
-    reserveButton.style.borderRadius = "8px";
-  }
-
-  function showPopup(title, msg) {
-    alert(title + "\n\n" + msg);
-  }
-
-  async function fetchSlotsAndNotify(date) {
-    if (!date) return;
-    const guests = guestsInput ? guestsInput.value || 1 : 1;
-    try {
-      const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`);
-      const slots = await resp.json();
-      if (!Array.isArray(slots) || slots.length === 0) return;
-      // Wenn alle slots reason Closed on Sunday oder Blocked -> zeige Popup sofort
-      const allClosed = slots.every(s => s.allowed === false && (s.reason === "Closed on Sunday" || s.reason === "Blocked" || s.reason?.toLowerCase().includes("fully booked for this date")));
-      if (allClosed) {
-        const reason = slots[0].reason || "Closed";
-        showPopup("Reservation not possible", reason + "\nPlease choose another date.");
-      }
-    } catch (e) {
-      console.error("fetch slots", e);
-    }
-  }
-
-  // Wenn Datum geaendert wird -> check
-  if (dateInput) {
-    dateInput.addEventListener("change", (e)=>{
-      const val = e.target.value;
-      // normalisiere format falls notwendig
-      fetchSlotsAndNotify(val);
-    });
-  }
-
-  // Form submit handler: bleibt unveraendert, nur Popup und redirect nach Erfolg
-  if (form) {
-    form.addEventListener("submit", async (ev)=>{
-      ev.preventDefault();
-      const data = {};
-      new FormData(form).forEach((v,k)=> data[k]=v);
-      try {
-        const r = await fetch("/api/reservations", {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify(data)
-        });
-        const j = await r.json();
-        if (!r.ok) {
-          showPopup("Reservation failed", j.error || "Please choose another slot.");
-          return;
-        }
-        // Success popup
-        const msg = "Thank you. Your reservation is confirmed and you will receive an email. Please also check your spam folder.";
-        showPopup("Reservation confirmed", msg);
-        // Feier popup wenn nowUnlockedTier
-        if (j.nowUnlockedTier && j.nowUnlockedTier > 0) {
-          // einfacher visueller Effekt
-          setTimeout(()=>alert(`Congrats! You unlocked ${j.nowUnlockedTier}% loyalty reward 🎉`), 200);
-        }
-        // redirect back to home page root nach kurzer Wartezeit
-        setTimeout(()=> { window.location = "/"; }, 1200);
-      } catch (err) {
-        console.error("submit reservation", err);
-        showPopup("Error", "Network or server error");
-      }
-    });
-  }
-})();
-</script>
-<script>
-(async function(){
-  // Helper modal (simple, self-contained)
+  // small utility: friendly modal used for all "immediate" notices (closed / loyalty)
   function showModal(htmlContent, title = "") {
-    // remove existing
     const ex = document.getElementById("__noxama_modal");
     if (ex) ex.remove();
 
@@ -338,90 +166,223 @@
     document.body.appendChild(overlay);
   }
 
-  // ---------- Date selection: immediate check ----------
-  const dateInput = document.querySelector('input[type="date"]#date') || document.querySelector('input[type="date"]');
-  // If your page uses a different id, adapt selector above
-  if (dateInput) {
-    dateInput.addEventListener("change", async function(){
-      try {
-        const date = this.value;
-        if (!date) return;
-        const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=1`, {cache:"no-store"});
-        if (!resp.ok) return;
-        const slots = await resp.json();
-        if (!Array.isArray(slots) || slots.length === 0) return;
+  // fill banner from /api/config (unchanged)
+  (async()=>{
+    try{
+      const r = await fetch('/api/config'); const cfg = await r.json();
+      const hero = document.getElementById('heroBanner');
+      hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+      hero.alt = cfg.brand || 'Banner';
+    }catch(e){ console.error(e); }
+  })();
 
-        // If all slots are not allowed (and reasons indicate closed/blocked), show popup
-        const allNotAllowed = slots.every(s => !s.allowed);
-        if (!allNotAllowed) return;
+  // initialize
+  const dateEl = document.getElementById('rDate');
+  const guestsEl = document.getElementById('rGuests');
+  const timeEl = document.getElementById('rTime');
+  const reserveBtn = document.getElementById('btnReserve');
+  const msgEl = document.getElementById('rMsg');
 
-        // Inspect reasons and choose message
+  dateEl.value = today();
+
+  // Populate times with available slots only. Called when date or guests change.
+  async function refreshAvailableTimes() {
+    const date = dateEl.value || today();
+    const guests = Number(guestsEl.value || 1);
+    msgEl.textContent = '';
+    // disable button while loading/if none
+    reserveBtn.disabled = true;
+
+    try {
+      const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache:"no-store"});
+      if (!resp.ok) {
+        // if api fails, fallback to full times so user can still try — but mark message
+        msgEl.textContent = 'Could not load availability. Try again or choose another date.';
+        populateFallbackTimes();
+        return;
+      }
+      const slots = await resp.json();
+      if (!Array.isArray(slots)) { populateFallbackTimes(); return; }
+
+      // filter allowed slots
+      const allowedSlots = slots.filter(s => s.allowed === true);
+      // If no allowed slots -> immediate friendly modal and clear time select
+      if (allowedSlots.length === 0) {
+        // Show friendly message depending on reason (prefers Sunday / Blocked)
         const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
-        // prefer Sunday/Closed reason
-        let reasonText = reasons.find(r => /sunday|sonntag/i.test(r));
-        const friendly = `
+        let reasonText = reasons.find(r => /sunday|sonntag/i.test(r)) || reasons[0] || "This day is not available";
+        const friendlyHtml = `
           <div style="font-family:Georgia,serif;color:#3a2f28;">
             <div style="font-size:20px;margin-bottom:8px;">Oh no — this day is not available</div>
             <div style="margin-bottom:10px;">${reasonText}</div>
             <div>Please pick another day — we would love to welcome you.</div>
           </div>`;
-        showModal(friendly, "Reservation not possible");
-      } catch(e) {
-        // silently ignore
-        console.error("date-check", e);
+        // clear times and disable booking
+        timeEl.innerHTML = '';
+        reserveBtn.disabled = true;
+        showModal(friendlyHtml, "Reservation not possible");
+        return;
       }
-    });
+
+      // populate time select only with allowed slots (sorted by time)
+      timeEl.innerHTML = '';
+      allowedSlots.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.time;
+        opt.textContent = s.time + (typeof s.left === 'number' ? ` (${s.left} left)` : '');
+        timeEl.appendChild(opt);
+      });
+      // enable reserve
+      reserveBtn.disabled = false;
+    } catch (e) {
+      console.error("refreshAvailableTimes error", e);
+      // fallback behavior: populate full times so user still can choose (server might be down)
+      populateFallbackTimes();
+    }
   }
 
-  // ---------- After booking: show loyalty popup when server signals it ----------
-  // Hook form submit (assumes your booking form has id="bookingForm" or similar)
-  const bookingForm = document.querySelector("form#bookingForm") || document.querySelector("form");
-  if (bookingForm) {
-    bookingForm.addEventListener("submit", async function(ev){
-      ev.preventDefault();
-      // gather form data
-      const fd = new FormData(this as HTMLFormElement);
-      const payload:any = {};
-      fd.forEach((v,k)=> payload[k] = v);
+  // Fallback: if slots endpoint fails, show full times (safe)
+  function populateFallbackTimes() {
+    timeEl.innerHTML = '';
+    const from = 10*60, to = 22*60, interval = 15;
+    for(let m=from;m<=to;m+=interval){
+      const hh=String(Math.floor(m/60)).padStart(2,"0");
+      const mm=String(m%60).padStart(2,"0");
+      const opt=document.createElement("option"); opt.value=`${hh}:${mm}`; opt.textContent=opt.value;
+      timeEl.appendChild(opt);
+    }
+    reserveBtn.disabled = false;
+  }
 
-      try{
-        const r = await fetch("/api/reservations", {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify(payload)
-        });
-        const j = await r.json();
-        if (!r.ok) {
-          // show error nicely
-          const err = j.error || "Reservation failed";
-          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">${err}</div>`, "Oops");
+  // initial fetch
+  refreshAvailableTimes();
+
+  // re-check when date or guests change
+  dateEl.addEventListener('change', ()=>{
+    refreshAvailableTimes();
+  });
+  guestsEl.addEventListener('change', ()=>{
+    refreshAvailableTimes();
+  });
+
+  // Reserve button handler: post to /api/reservations (keeps your server contract)
+  reserveBtn.addEventListener('click', async ()=>{
+    msgEl.textContent = '';
+    reserveBtn.disabled = true;
+
+    const payload = {
+      date: dateEl.value || today(),
+      time: timeEl.value,
+      firstName: (document.getElementById('rFirst').value || "").trim(),
+      name: (document.getElementById('rLast').value || "").trim(),
+      email: (document.getElementById('rEmail').value || "").trim(),
+      phone: (document.getElementById('rPhone').value || "").trim(),
+      guests: Number(guestsEl.value || 1),
+      notes: (document.getElementById('rNotes').value || "").trim()
+    };
+
+    // minimal validation
+    if(!payload.firstName || !payload.name || !payload.email || !payload.guests || !payload.time){
+      msgEl.textContent = 'Please fill first name, last name, email, guests and time';
+      reserveBtn.disabled = false;
+      return;
+    }
+
+    try {
+      const r = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await r.json().catch(()=>({}));
+      if (!r.ok) {
+        const err = (json && json.error) ? json.error : "Failed to create reservation";
+        // if closed/blocked/fully booked -> show friendly modal
+        if (err.toLowerCase().includes("closed") || err.toLowerCase().includes("blocked") || err.toLowerCase().includes("fully booked") || err.toLowerCase().includes("sunday")) {
+          let message = "This slot is not available. Please choose another day or time.";
+          if (err.toLowerCase().includes("sunday")) message = "We are closed on Sundays. Please choose another day.";
+          if (err.toLowerCase().includes("blocked")) message = "This date is blocked. Please choose another day.";
+          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">${message}</div>`, "Not available");
+          // After such error, refresh times to hide newly unavailable slots
+          setTimeout(refreshAvailableTimes, 300);
+          reserveBtn.disabled = false;
           return;
         }
-
-        // On success: if server suggests a loyalty popup, show it
-        if (j.showLoyaltyPopup && j.loyaltyPopupHtml) {
-          // Animated/celebratory wrapper (you can adjust)
-          const celebratory = `
-            <div style="padding:8px;">
-              <div style="font-size:28px;margin-bottom:8px;">🎆 Congratulations 🎆</div>
-              ${j.loyaltyPopupHtml}
-            </div>`;
-          showModal(celebratory, "You earned a loyalty reward");
-        } else {
-          // generic success confirmation
-          showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">Your reservation is confirmed. Thank you!</div>`, "Reservation confirmed");
-        }
-
-        // optionally: redirect back to site after a while
-        // setTimeout(()=> window.location.href = "/", 2500);
-      }catch(e){
-        console.error(e);
-        showModal(`<div style="font-family:Georgia,serif;color:#3a2f28;">Failed to submit reservation</div>`, "Error");
+        msgEl.textContent = err || "Error saving reservation";
+        reserveBtn.disabled = false;
+        return;
       }
-    });
+
+      // Success: Show loyalty popup where appropriate
+      // Server returns visitNo (number of confirmed+noshow including this)
+      const visitNo = Number(json && json.visitNo) || 0;
+      let loyaltyPercent = 0;
+      if (visitNo >= 5 && visitNo <= 9) loyaltyPercent = 5;
+      else if (visitNo >= 10 && visitNo <= 14) loyaltyPercent = 10;
+      else if (visitNo >= 15) loyaltyPercent = 15;
+
+      if (loyaltyPercent > 0) {
+        const html = `
+          <div class="nxl-loyalty">
+            <div class="big">🎉 Congratulations — loyalty reward unlocked!</div>
+            <div>You just reached visit <strong>${visitNo}</strong></div>
+            <div class="tier">
+              <div>Enjoy a <span class="percent">${loyaltyPercent}%</span> thank-you discount on your next visit</div>
+            </div>
+            <div style="margin-top:10px;font-size:14px;color:#666;">We’ve applied a note to your profile. Thank you for your loyalty.</div>
+          </div>`;
+        showModal(html, "You earned a loyalty reward");
+        // Also show the standard confirmation modal after a short delay (so user sees both)
+        setTimeout(()=> {
+          const title = document.getElementById('confirm-title');
+          const txt = document.getElementById('confirm-text');
+          title.textContent = 'Reservation received';
+          txt.innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
+          document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href = '/'; };
+          showConfirmModal();
+        }, 1000);
+      } else {
+        // show standard confirmation
+        const title = document.getElementById('confirm-title');
+        const txt = document.getElementById('confirm-text');
+        title.textContent = 'Reservation received';
+        txt.innerHTML = `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${payload.email}</b>. Please also check your spam folder.`;
+        document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href = '/'; };
+        showConfirmModal();
+      }
+
+      // refresh available times to reflect new booking and prevent overbooking
+      setTimeout(refreshAvailableTimes, 300);
+    } catch (e) {
+      console.error('reservation post error', e);
+      msgEl.textContent = 'Network error';
+      reserveBtn.disabled = false;
+    }
+  });
+
+  // small helpers for confirm modal
+  function showConfirmModal(){
+    const m = document.getElementById('confirm-modal');
+    m.style.display = 'flex';
+  }
+  function hideConfirmModal(){
+    const m = document.getElementById('confirm-modal');
+    m.style.display = 'none';
   }
 
-})();
+  // If for any reason slots endpoint is slow, show a fallback after 2s (user can still pick)
+  let fallbackTimer = setTimeout(()=>{
+    if (timeEl.children.length === 0) populateFallbackTimes();
+  }, 2000);
+
+  // Ensure fallback is cleared if refreshAvailableTimes finishes quickly
+  function clearFallbackTimer(){ if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; } }
+  // decorate refreshAvailableTimes to clear timer when done
+  const originalRefresh = refreshAvailableTimes;
+  refreshAvailableTimes = async function(){ clearFallbackTimer(); await originalRefresh(); };
+
+  // initial call already scheduled above
+
 </script>
 
 </body>
