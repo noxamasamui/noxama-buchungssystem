@@ -218,6 +218,95 @@
   }
 })();
 </script>
+<!-- Booking confirmation + closed/blocked modal helper -->
+<script>
+  // Generic modal creation (re-usable)
+  function showModal({ title='', message='', okText='OK', timeout=0 }) {
+    // remove old if present
+    const old = document.getElementById('noxama-generic-modal');
+    if(old) old.remove();
+
+    const wrap = document.createElement('div');
+    wrap.id = 'noxama-generic-modal';
+    wrap.style = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999;";
+    wrap.innerHTML = `
+      <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:520px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.25);font-family:Georgia,serif;color:#3a2f28;">
+        <h3 style="margin:4px 0 8px 0;font-size:20px">${title}</h3>
+        <div style="font-size:15px;line-height:1.35;margin-bottom:12px">${message}</div>
+        <div style="text-align:right">
+          <button id="noxama-modal-ok" style="background:#b3822f;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;">${okText}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(wrap);
+    document.getElementById('noxama-modal-ok').addEventListener('click', ()=>{ wrap.remove(); });
+    if(timeout>0) setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, timeout);
+    return wrap;
+  }
+
+  // Use this when a normal booking succeeds
+  function showBookingConfirmedPopup(json){
+    // if loyalty tier unlocked, prefer existing loyalty modal if available
+    if (json && (json.nowUnlockedTier === 5 || json.nowUnlockedTier === 10 || json.nowUnlockedTier === 15) && typeof showLoyaltyModal === 'function') {
+      showLoyaltyModal(json.nowUnlockedTier);
+      // also show a small confirmation toast under it
+      showModal({ title:'Reservation confirmed', message:'Thank you! Your booking is confirmed. Please check your email (and spam). You will be redirected shortly.', okText:'Close', timeout:3500 });
+      // redirect after short delay
+      setTimeout(()=>{ window.location.href = '/'; }, 3700);
+      return;
+    }
+
+    // fallback generic
+    showModal({ title:'Reservation confirmed', message:'Thank you! Your booking is confirmed. A confirmation email will be sent — please check your spam folder.', okText:'OK', timeout:3500 });
+    setTimeout(()=>{ window.location.href = '/'; }, 3700);
+  }
+
+  // Closed/Blocked popup (when user attempts to book on closed sunday or blocked day)
+  function showClosedPopup(reasonText){
+    showModal({ title: 'Not available', message: reasonText || 'This date is not available. Please choose another date.', okText: 'Choose another date' });
+  }
+
+  // Hook into your booking submit handler.
+  // Find the existing fetch that posts to "/api/reservations" and replace its success/failure handling with the snippet below.
+  // Minimal example: (replace only the response-handling part)
+  async function handleReservationSubmitFetch(responsePromise) {
+    // responsePromise is the promise returned by fetch('/api/reservations', {...})
+    try {
+      const r = await responsePromise;
+      const json = await r.json().catch(()=>({}));
+      if(!r.ok){
+        const err = String(json.error || 'Booking failed');
+        // if it's closed on Sunday or Blocked show special popup
+        if(err.toLowerCase().includes('closed') || err.toLowerCase().includes('blocked')) {
+          showClosedPopup(err);
+          return;
+        }
+        // else generic error toast
+        showModal({ title:'Booking failed', message: err, okText:'OK' });
+        return;
+      }
+      // success
+      showBookingConfirmedPopup(json);
+    } catch(e) {
+      showModal({ title:'Network error', message:'Unable to reach server. Please try again shortly.', okText:'OK' });
+    }
+  }
+
+  // Example usage:
+  // When you call fetch("/api/reservations", { method: 'POST', ... }), instead of:
+  //    const r = await fetch(...); if(r.ok){ ... }
+  // do:
+  //    handleReservationSubmitFetch(fetch(...));
+  //
+  // If you already have code that handles reservation success, only replace the part that handles the response with calling handleReservationSubmitFetch(...)
+  //
+  // Minimal patch example for your current client code:
+  // replace the block that reads the response of POST /api/reservations and shows an alert, with:
+  //
+  //    handleReservationSubmitFetch(fetch("/api/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) }));
+  //
+  // The rest of your client code (payload creation, validation) remains unchanged.
+</script>
 
 </body>
 </html>
