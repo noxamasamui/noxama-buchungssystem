@@ -43,6 +43,9 @@ const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
 const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 8);
 
+// NEU: Nachhaltezeit Minuten damit ein voller Slot nicht sofort durch zeitlich angrenzenden Slot "ueberschrieben" wird
+const RESERVATION_HOLD_MINUTES = num(process.env.RESERVATION_HOLD_MINUTES, 15);
+
 const ADMIN_TO =
   String(process.env.ADMIN_EMAIL || "") ||
   String(process.env.MAIL_TO_ADMIN || "") ||
@@ -105,7 +108,9 @@ async function overlapping(dateYmd: string, start: Date, end: Date) {
   });
 }
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
-  const list = await overlapping(dateYmd, start, end);
+  // WICHTIG: wir erweitern das Ende fuer Konfliktpruefungen um RESERVATION_HOLD_MINUTES
+  const endForOverlap = addMinutes(end, RESERVATION_HOLD_MINUTES);
+  const list = await overlapping(dateYmd, start, endForOverlap);
   const reserved = list.filter(r=>!r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   const walkins  = list.filter(r=> r.isWalkIn).reduce((s,r)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
@@ -133,7 +138,7 @@ async function slotAllowed(date: string, time: string){
   if(start < open) return { ok:false, reason:"Before opening" };
   if(end   > close) return { ok:false, reason:"After closing" };
 
-  const blocked = await prisma.closure.findFirst({ where: { AND: [{ startTs: { lt:end } }, { endTs: { gt:start } }] } });
+  const blocked = await prisma.closure.findFirst({ where: { AND: [{ startTs: { lt:addMinutes(end, RESERVATION_HOLD_MINUTES) } }, { endTs: { gt:start } }] } });
   if(blocked) return { ok:false, reason:"Blocked" };
 
   return { ok:true, norm, start, end, open, close, minutes };
