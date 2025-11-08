@@ -80,12 +80,76 @@
           <input id="rDate" type="date"/>
         </div>
         <div style="flex:0 0 110px;">
-          <label>Guests</label>
-          <select id="rGuests">
-            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-            <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
-            <option>11</option><option>12</option><option>13</option><option>14</option><option>15</option>
-          </select>
+          // --- large-party handling for 11+ ---
+// Place this after your other handlers (e.g. after updateTimes() / initial listeners)
+
+(function(){
+  const guestsSelect = document.getElementById("rGuests");
+  if (!guestsSelect) return;
+
+  // remember previous valid value so we can restore it if user selects 11+
+  let lastValidGuests = guestsSelect.value || "1";
+
+  guestsSelect.addEventListener("focus", ()=> {
+    // store current value on focus (so change can be reverted)
+    lastValidGuests = guestsSelect.value;
+  });
+
+  guestsSelect.addEventListener("change", async function(){
+    const v = String(this.value);
+    if (v === "11") {
+      // revert selection to previous valid value (so form does not accept 11)
+      setTimeout(()=> { guestsSelect.value = lastValidGuests; }, 50);
+
+      // show large-party modal (match your site's design)
+      showLargePartyModal();
+    } else {
+      // update last valid
+      lastValidGuests = v;
+      // also update times when guests count changes
+      try { if (typeof updateTimes === "function") updateTimes(); } catch(e){ /* ignore */ }
+    }
+  });
+
+  // modal builder (small, matches site look)
+  function showLargePartyModal(){
+    // remove existing
+    const ex = document.getElementById("__large_party_modal");
+    if (ex) ex.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "__large_party_modal";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:99999;";
+
+    const box = document.createElement("div");
+    box.style.cssText = "background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:620px;width:92%;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,0.25);text-align:center;font-family:Georgia,serif;color:#3a2f28;";
+
+    box.innerHTML = `
+      <h3 style="margin-top:0;margin-bottom:8px;font-size:20px;">Large party request</h3>
+      <p style="margin:8px 0 16px 0;line-height:1.4;">
+        For parties of <strong>11 or more</strong> please contact us directly so we can arrange a suitable table and confirm availability.
+      </p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
+        <a href="tel:+66077270675" style="text-decoration:none;">
+          <button style="background:#b3822f;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;">Call +66 077 270 675</button>
+        </a>
+        <a href="mailto:info@noxamasamui.com" style="text-decoration:none;">
+          <button style="background:#b3822f;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;">Email info@noxamasamui.com</button>
+        </a>
+      </div>
+      <div style="font-size:13px;color:#6b5a45;margin-bottom:12px;">Or use the chat / contact form on our site — we will help you find the best option.</div>
+      <div style="text-align:center;">
+        <button id="__large_party_ok" style="padding:8px 14px;border-radius:8px;border:none;background:#b3822f;color:#fff;cursor:pointer;">OK</button>
+      </div>
+    `;
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    document.getElementById("__large_party_ok").onclick = ()=> overlay.remove();
+  }
+})();
+
         </div>
         <div style="flex:0 0 140px;">
           <label>Time</label>
