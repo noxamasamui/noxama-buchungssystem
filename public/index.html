@@ -3,73 +3,50 @@
 <head>
   <meta charset="utf-8"/>
   <title>Reservation — ROESTILAND BY NOXAMA SAMUI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <link rel="stylesheet" href="/style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    /* --- ensure logo centered and responsive --- */
-    .hero-wrap {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-top: 18px;
-      padding: 8px 0;
-      pointer-events: none;
-    }
-    .hero-wrap .hero-banner {
-      max-width: 640px;
-      width: min(76%, 640px);
-      height: auto;
-      margin: 0 auto;
-      border-radius: 12px;
-      box-shadow: 0 25px 50px rgba(0,0,0,.18);
-      object-fit: contain;
-      display: block;
-      pointer-events: auto;
-    }
+    /* --- minimal local CSS additions, keep look consistent --- */
+    .hero-wrap { text-align:center; margin-top:18px; display:flex; justify-content:center; }
+    .hero-banner { max-width:640px; width:76%; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,.18); display:block; margin:0 auto; }
 
-    /* Confirmation modal (existing) left unchanged visually */
+    /* Loyalty modal + fireworks styling (as you requested) */
+    #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; }
+    #loyalty-modal > .box { background:#d6c7b2; border:1px solid rgba(0,0,0,0.06); border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center; color:#3a2f28; font-family: Georgia, serif; }
+    #fw-canvas { width:100%; height:160px; display:block; border-radius:10px; margin-bottom:10px; background: linear-gradient(180deg,#f7efe2,#fff8f2); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03); }
+    #loyalty-modal h2 { margin:6px 0 8px; font-size:22px; }
+    #loyalty-modal .cta { margin-top:8px; }
+    #loyalty-modal button { background:#b3822f; color:#fff; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; }
+
+    /* Large party modal (matches site) */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:99998; }
+    .modal-card { background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:620px; width:92%; padding:20px; box-shadow:0 12px 40px rgba(0,0,0,0.25); text-align:center; font-family: Georgia, serif; color:#3a2f28; }
+
+    /* confirmation modal kept same; ensure centered */
     #confirm-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); align-items:center; justify-content:center; z-index:9999; }
-    #confirm-modal > div { background:#fff8f0; border-radius:12px; padding:18px; max-width:420px; width:92%; text-align:center; border:1px solid #e0d7c5; box-shadow:0 10px 35px rgba(0,0,0,.25); }
+    #confirm-modal .inner { background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5; }
 
-    /* contact modal for 11+ guests */
-    #contact-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:99998; align-items:center; justify-content:center; }
-    #contact-modal > div { background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center; }
-    #contact-modal a.btn-contact { display:inline-block; margin:8px 6px; padding:10px 14px; background:#b3822f; color:#fff; text-decoration:none; border-radius:8px; }
+    /* hide "remaining seats" (if any code tries to show it) ensure times only show hh:mm */
+    .time-left { display:none !important; }
 
-    /* loyalty modal + fireworks (user requested style + bg color) */
-    #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; }
-    #loyalty-modal > div {
-      background: #d6c7b2;               /* requested background color */
-      border: 1px solid rgba(224,215,197,0.9);
-      border-radius: 12px;
-      max-width: 520px;
-      width: 92%;
-      padding: 18px;
-      box-shadow: 0 10px 35px rgba(0,0,0,0.25);
-      text-align: center;
-      color: #3a2f28;
-      animation: fadein .18s ease both;
-      font-family: Georgia, "Times New Roman", serif;
-    }
-    #fw-canvas { width:100%; height:160px; display:block; border-radius:10px; margin-bottom:10px; background: linear-gradient(180deg,#fff,#fff8f2); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03); }
+    /* Slight animation */
+    @keyframes subtlepop { from { transform: translateY(6px); opacity:0 } to { transform: translateY(0); opacity:1 } }
+    .modal-card, #loyalty-modal > .box, #confirm-modal .inner { animation: subtlepop .22s ease both; }
 
-    /* subtle animation */
-    @keyframes fadein { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
-
-    /* small utilities */
+    /* small utility for hidden class */
     .hidden { display:none !important; }
-    .text-center { text-align:center; }
-
   </style>
 </head>
 <body>
-  <div class="hero-wrap" style="text-align:center;">
-    <img id="heroBanner" class="hero-banner" alt="Logo banner" src="/logo-hero.png"/>
+  <div class="hero-wrap">
+    <img id="heroBanner" class="hero-banner" alt="Logo banner" />
   </div>
 
   <div class="container">
     <h1 style="text-align:center;margin-top:8px;">Reservation — ROESTILAND BY NOXAMA SAMUI</h1>
-    <p style="text-align:center;margin-top:6px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
+    <p style="text-align:center;margin-top:6px;">
+      Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675
+    </p>
 
     <div class="card booking-card booking-compact" style="max-width:760px;margin:18px auto;padding:18px;">
       <h2>Book a table</h2>
@@ -80,91 +57,20 @@
           <input id="rDate" type="date"/>
         </div>
         <div style="flex:0 0 110px;">
-          // --- large-party handling for 11+ ---
-// Place this after your other handlers (e.g. after updateTimes() / initial listeners)
-<!-- ersetze das bestehende <select id="rGuests"> ... </select> durch dieses -->
-<label>Guests</label>
-<select id="rGuests" aria-label="Guests">
-  <option value="1">1</option>
-  <option value="2">2</option>
-  <option value="3">3</option>
-  <option value="4">4</option>
-  <option value="5">5</option>
-  <option value="6">6</option>
-  <option value="7">7</option>
-  <option value="8">8</option>
-  <option value="9">9</option>
-  <option value="10">10</option>
-  <option value="11">11+</option>
-</select>
-
-(function(){
-  const guestsSelect = document.getElementById("rGuests");
-  if (!guestsSelect) return;
-
-  // remember previous valid value so we can restore it if user selects 11+
-  let lastValidGuests = guestsSelect.value || "1";
-
-  guestsSelect.addEventListener("focus", ()=> {
-    // store current value on focus (so change can be reverted)
-    lastValidGuests = guestsSelect.value;
-  });
-
-  guestsSelect.addEventListener("change", async function(){
-    const v = String(this.value);
-    if (v === "11") {
-      // revert selection to previous valid value (so form does not accept 11)
-      setTimeout(()=> { guestsSelect.value = lastValidGuests; }, 50);
-
-      // show large-party modal (match your site's design)
-      showLargePartyModal();
-    } else {
-      // update last valid
-      lastValidGuests = v;
-      // also update times when guests count changes
-      try { if (typeof updateTimes === "function") updateTimes(); } catch(e){ /* ignore */ }
-    }
-  });
-
-  // modal builder (small, matches site look)
-  function showLargePartyModal(){
-    // remove existing
-    const ex = document.getElementById("__large_party_modal");
-    if (ex) ex.remove();
-
-    const overlay = document.createElement("div");
-    overlay.id = "__large_party_modal";
-    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:99999;";
-
-    const box = document.createElement("div");
-    box.style.cssText = "background:#fff8f0;border:1px solid #e0d7c5;border-radius:12px;max-width:620px;width:92%;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,0.25);text-align:center;font-family:Georgia,serif;color:#3a2f28;";
-
-    box.innerHTML = `
-      <h3 style="margin-top:0;margin-bottom:8px;font-size:20px;">Large party request</h3>
-      <p style="margin:8px 0 16px 0;line-height:1.4;">
-        For parties of <strong>11 or more</strong> please contact us directly so we can arrange a suitable table and confirm availability.
-      </p>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
-        <a href="tel:+66077270675" style="text-decoration:none;">
-          <button style="background:#b3822f;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;">Call +66 077 270 675</button>
-        </a>
-        <a href="mailto:info@noxamasamui.com" style="text-decoration:none;">
-          <button style="background:#b3822f;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;">Email info@noxamasamui.com</button>
-        </a>
-      </div>
-      <div style="font-size:13px;color:#6b5a45;margin-bottom:12px;">Or use the chat / contact form on our site — we will help you find the best option.</div>
-      <div style="text-align:center;">
-        <button id="__large_party_ok" style="padding:8px 14px;border-radius:8px;border:none;background:#b3822f;color:#fff;cursor:pointer;">OK</button>
-      </div>
-    `;
-
-    overlay.appendChild(box);
-    document.body.appendChild(overlay);
-
-    document.getElementById("__large_party_ok").onclick = ()=> overlay.remove();
-  }
-})();
-
+          <label>Guests</label>
+          <select id="rGuests" aria-label="Guests">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="11">11+</option>
+          </select>
         </div>
         <div style="flex:0 0 140px;">
           <label>Time</label>
@@ -208,7 +114,7 @@
 
   <!-- confirmation modal -->
   <div id="confirm-modal">
-    <div>
+    <div class="inner">
       <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
       <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
       <div style="display:flex;gap:10px;justify-content:center;">
@@ -217,56 +123,46 @@
     </div>
   </div>
 
-  <!-- contact modal for 11+ guests -->
-  <div id="contact-modal">
-    <div>
-      <h3 style="margin-top:0;">Large party request</h3>
-      <p>For parties of 11 or more please contact us directly so we can arrange a suitable table and confirm availability.</p>
-      <div style="margin:10px 0;">
-        <a class="btn-contact" href="tel:+66077270675">Call +66 077 270 675</a>
-        <a class="btn-contact" href="mailto:info@noxamasamui.com">Email info@noxamasamui.com</a>
-      </div>
-      <div style="font-size:13px;color:#3a2f28;margin-top:6px;">Or use the chat / contact form on our site — we will help you find the best option.</div>
-      <div style="margin-top:12px;">
-        <button id="contact-close" class="btn" style="padding:8px 12px;border-radius:8px;background:#b3822f;color:#fff;border:none;">OK</button>
+  <!-- loyalty modal (hidden) -->
+  <div id="loyalty-modal" aria-hidden="true">
+    <div class="box">
+      <h2 id="loyalty-title">You earned a loyalty reward</h2>
+      <div id="loyalty-body">
+        <p style="margin:6px 0 12px 0;">Congratulations — loyalty reward unlocked!</p>
+        <div id="fw-canvas-wrap">
+          <canvas id="fw-canvas"></canvas>
+        </div>
+        <div id="loyalty-text" style="margin-top:8px;font-size:16px;"></div>
+        <div class="cta"><button id="loyalty-ok">Okay</button></div>
       </div>
     </div>
   </div>
 
-  <!-- loyalty modal with fireworks -->
-  <div id="loyalty-modal">
-    <div>
-      <h3 id="loy-title" style="margin:6px 0 8px 0;">You earned a loyalty reward</h3>
-      <div id="loy-sub" style="margin-bottom:6px;color:#3a2f28;"></div>
-      <canvas id="fw-canvas" aria-hidden="true"></canvas>
-      <div id="loy-cta" style="margin-top:6px;"></div>
-      <div style="margin-top:10px;">
-        <button id="loy-ok" class="btn" style="padding:8px 14px;border-radius:8px;background:#b3822f;color:#fff;border:none;">Okay</button>
-      </div>
-    </div>
-  </div>
+  <!-- large party modal will be created dynamically when needed -->
 
 <script>
-/* ---------- utilities ---------- */
+/* ------------------ Basic helpers + initial config ------------------ */
 const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
 (async()=>{
   try {
-    const r = await fetch('/api/config',{cache:"no-store"});
-    if (r.ok) {
-      const cfg = await r.json();
-      const hero = document.getElementById('heroBanner');
-      if (cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim()) hero.src = cfg.mailHeaderUrl;
-      else if (cfg.mailLogoUrl && cfg.mailLogoUrl.trim()) hero.src = cfg.mailLogoUrl;
-      else hero.src = '/logo-hero.png';
-      hero.alt = cfg.brand || 'Banner';
-    }
-  } catch(e) { /* ignore */ }
+    const r = await fetch('/api/config', {cache:"no-store"});
+    if (!r.ok) throw new Error("no cfg");
+    const cfg = await r.json();
+    const hero = document.getElementById('heroBanner');
+    hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+    hero.alt = cfg.brand || 'Banner';
+    // ensure centering by style (done via CSS)
+  } catch(e) {
+    // fallback
+    const hero = document.getElementById('heroBanner');
+    if (hero && !hero.src) hero.src = '/logo-hero.png';
+  }
 })();
 
 document.getElementById('rDate').value = today();
 
-/* ---------- fill times by querying /api/slots (only allowed shown) ---------- */
+/* ------------------ Time slots: load only allowed times, hide 'left' counts ------------------ */
 async function updateTimes(){
   const date = document.getElementById('rDate').value;
   const guests = Number(document.getElementById('rGuests').value || 1);
@@ -277,289 +173,366 @@ async function updateTimes(){
 
   try {
     const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache:"no-store"});
-    if (!resp.ok) { showGenericModal("Could not load slots. Please try again later."); return; }
     const slots = await resp.json();
-    if (!Array.isArray(slots) || slots.length === 0) {
-      showGenericModal("No availability for this date. Please choose another day.");
-      return;
-    }
+    if (!Array.isArray(slots)) return;
 
-    // Only show allowed slots (no "left" counts)
-    const allowed = slots.filter(s => s.allowed);
+    // If all not allowed -> show modal now (blocked / sunday)
+    const allowed = slots.filter(s => s.allowed === true);
     if (allowed.length === 0) {
-      // If all blocked/closed -> immediate friendly modal
-      const reasonSet = Array.from(new Set(slots.map(s => s.reason || "").filter(Boolean)));
-      const reason = reasonSet.find(r => /sunday/i.test(r)) ? "We are closed on Sundays." : (reasonSet[0] || "This date is not available.");
-      showGenericModal(reason + " Please choose another day.");
+      // determine reason
+      const reasons = Array.from(new Set(slots.map(s => s.reason || "").filter(Boolean)));
+      let reasonText = reasons.find(r=>/sunday/i.test(r)) || reasons[0] || "This day is not available";
+      showLargeDayModal(reasonText);
       return;
     }
 
-    // populate times
+    // Populate times only with allowed times — DO NOT show remaining seats
     allowed.forEach(s => {
       const opt = document.createElement("option");
       opt.value = s.time;
-      opt.textContent = s.time; // intentionally NOT showing remaining seats
+      opt.textContent = s.time; // intentionally no left info shown
       sel.appendChild(opt);
     });
-
-  } catch(e) {
+  } catch (e) {
     console.error("updateTimes error", e);
-    showGenericModal("Network error while fetching times");
   }
 }
 
-/* ---------- helper modals ---------- */
-function showGenericModal(msg, title="Reservation not possible"){
-  const ex = document.getElementById("__generic_modal");
-  if (ex) ex.remove();
-  const o = document.createElement("div");
-  o.id = "__generic_modal";
-  o.style = "position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:999997;";
-  const b = document.createElement("div");
-  b.style = "background:#fff8f0;border-radius:12px;padding:18px;max-width:520px;width:92%;text-align:center;border:1px solid #e0d7c5;box-shadow:0 10px 35px rgba(0,0,0,0.25);";
-  b.innerHTML = `<h3 style="margin-top:0">${title}</h3><div style="color:#3a2f28;margin:8px 0 12px 0;">${msg}</div><button style="padding:8px 12px;border-radius:8px;background:#b3822f;color:#fff;border:none;">OK</button>`;
-  b.querySelector("button").onclick = ()=> o.remove();
-  o.appendChild(b);
-  document.body.appendChild(o);
-}
-
-/* ---------- contact modal for large party ---------- */
-const contactModal = document.getElementById('contact-modal');
-document.getElementById('contact-close').addEventListener('click', ()=> contactModal.style.display='none');
-function showContactModal(){ contactModal.style.display='flex'; }
-function hideContactModal(){ contactModal.style.display='none'; }
-
-/* ---------- loyalty modal & fireworks ---------- */
-const loyModal = document.getElementById('loyalty-modal');
-const fwCanvas = document.getElementById('fw-canvas');
-
-function showLoyaltyModalForVisit(visitNo){
-  // determine tier from visitNo (5..9 => 5, 10..14 =>10, >=15 =>15)
-  let tier = 0;
-  if (visitNo >= 15) tier = 15;
-  else if (visitNo >= 10) tier = 10;
-  else if (visitNo >= 5) tier = 5;
-  if (!tier) return;
-
-  document.getElementById('loy-sub').innerHTML = `You just reached visit <b>${visitNo}</b>`;
-  document.getElementById('loy-cta').innerHTML = `<div style="font-size:18px;padding:10px 12px;border-radius:8px;background:#fff8ea;display:inline-block;">Enjoy a <b style="color:#b3822f">${tier}%</b> thank-you discount on your next visit</div>`;
-  loyModal.style.display = 'flex';
-  startFireworks(); // heavy, colorful effect
-}
-
-document.getElementById('loy-ok').addEventListener('click', ()=>{
-  stopFireworks();
-  loyModal.style.display = 'none';
-});
-
-/* ---------- canvas fireworks implementation (more colorful / more particles) ---------- */
-let fwCtx, fwW, fwH, fwAnim, particles = [];
-
-function resizeCanvas(){
-  if (!fwCanvas) return;
-  fwW = fwCanvas.width = Math.floor(fwCanvas.clientWidth * devicePixelRatio);
-  fwH = fwCanvas.height = Math.floor(fwCanvas.clientHeight * devicePixelRatio);
-  fwCanvas.style.width = fwCanvas.clientWidth + "px";
-  fwCanvas.style.height = fwCanvas.clientHeight + "px";
-  fwCtx = fwCanvas.getContext('2d');
-  fwCtx && fwCtx.scale(devicePixelRatio, devicePixelRatio);
-}
-function rand(min,max){ return min + Math.random()*(max-min); }
-
-function spawnBurst(x,y, count){
-  const colors = ['#e74c3c','#f39c12','#f1c40f','#2ecc71','#3498db','#9b59b6','#e67e22','#ffd54f','#ff6bcb','#7bed9f'];
-  for(let i=0;i<count;i++){
-    const a = rand(0, Math.PI*2);
-    const speed = rand(60, 360);
-    particles.push({
-      x, y,
-      vx: Math.cos(a)*speed,
-      vy: Math.sin(a)*speed,
-      life: rand(900,1600),
-      age: 0,
-      size: rand(3,8),
-      color: colors[Math.floor(Math.random()*colors.length)],
-      rotate: rand(0,720),
-      spin: rand(-0.5,0.5)
-    });
-  }
-}
-
-function startFireworks(){
-  resizeCanvas();
-  particles = [];
-  // schedule bursts: center + offsets
-  const w = fwCanvas.clientWidth;
-  spawnBurst(w*0.5, 120, 120);
-  setTimeout(()=> spawnBurst(w*0.3, 110, 80), 220);
-  setTimeout(()=> spawnBurst(w*0.7, 100, 90), 300);
-  setTimeout(()=> spawnBurst(w*0.45, 50, 120), 600);
-  // continuous smaller sparkles
-  let t=0;
-  (function loop(now){
-    fwAnim = requestAnimationFrame(loop);
-    if(!fwCtx) return;
-    fwCtx.clearRect(0,0,fwW,fwH);
-    const dt = 16;
-    for(let i=particles.length-1;i>=0;i--){
-      const p = particles[i];
-      p.age += dt;
-      // simple physics, gravity and drag
-      const dtSec = dt/1000;
-      p.vy += 200 * dtSec; // gravity
-      p.vx *= 0.995;
-      p.vy *= 0.995;
-      p.x += p.vx * dtSec;
-      p.y += p.vy * dtSec;
-      p.rotate += p.spin * dtSec * 60;
-
-      const alpha = Math.max(0, 1 - p.age / p.life);
-      fwCtx.save();
-      fwCtx.globalAlpha = alpha;
-      fwCtx.translate(p.x, p.y);
-      fwCtx.rotate(p.rotate * Math.PI / 180);
-      fwCtx.fillStyle = p.color;
-      fwCtx.beginPath();
-      fwCtx.arc(0, 0, p.size, 0, Math.PI*2);
-      fwCtx.fill();
-      fwCtx.restore();
-
-      if (p.age >= p.life || p.y > fwCanvas.clientHeight + 20) {
-        particles.splice(i,1);
-      }
-    }
-    // occasionally spawn trailing sparkles
-    t += dt;
-    if (t % 1200 < 20) {
-      const x = rand(40, fwCanvas.clientWidth - 40);
-      const y = rand(40, fwCanvas.clientHeight/2);
-      spawnBurst(x,y, Math.floor(rand(30,70)));
-    }
-  })();
-}
-
-function stopFireworks(){
-  cancelAnimationFrame(fwAnim);
-  particles = [];
-  if(fwCtx) fwCtx.clearRect(0,0,fwW,fwH);
-}
-
-/* ---------- input wiring: date / guests / times ---------- */
-document.getElementById('rDate').addEventListener('change', ()=> {
+/* initial listeners */
+document.getElementById("rDate").addEventListener("change", ()=> {
   updateTimes();
 });
-document.getElementById('rGuests').addEventListener('change', ()=> {
-  const g = Number(document.getElementById('rGuests').value || 1);
-  // if >= 11: disable booking, clear times and show contact modal
-  if (g >= 11) {
-    document.getElementById('rTime').innerHTML = '';
-    document.getElementById('btnReserve').disabled = true;
-    document.getElementById('btnReserve').style.opacity = '0.7';
-    showContactModal();
-  } else {
-    document.getElementById('btnReserve').disabled = false;
-    document.getElementById('btnReserve').style.opacity = '1';
-    hideContactModal();
-    updateTimes();
-  }
+document.getElementById("rGuests").addEventListener("change", ()=> {
+  // guest change handled separately for 11+, but updateTimes will be called there for valid values
+  if (document.getElementById('rGuests').value !== "11") updateTimes();
 });
-
-/* initial fill */
 updateTimes();
 
-/* ---------- reserve click handling ---------- */
+/* ------------------ Reserve submit logic (keeps existing behavior) ------------------ */
 document.getElementById('btnReserve').addEventListener('click', async ()=>{
-  const btn = document.getElementById('btnReserve');
-  const msg = document.getElementById('rMsg');
-  msg.textContent = '';
-  btn.disabled = true;
-  btn.style.opacity = '0.6';
-
   const payload = {
     date: document.getElementById('rDate').value,
     time: document.getElementById('rTime').value,
-    firstName: (document.getElementById('rFirst').value||'').trim(),
-    name: (document.getElementById('rLast').value||'').trim(),
-    email: (document.getElementById('rEmail').value||'').trim(),
-    phone: (document.getElementById('rPhone').value||'').trim(),
-    guests: Number(document.getElementById('rGuests').value || 1),
-    notes: (document.getElementById('rNotes').value||'').trim()
+    firstName: (document.getElementById('rFirst').value || "").trim(),
+    name: (document.getElementById('rLast').value || "").trim(),
+    email: (document.getElementById('rEmail').value || "").trim(),
+    phone: (document.getElementById('rPhone').value || "").trim(),
+    guests: Number(document.getElementById('rGuests').value === "11" ? 10 : document.getElementById('rGuests').value),
+    notes: (document.getElementById('rNotes').value || "").trim()
   };
 
-  // client side guard
-  if (!payload.firstName || !payload.name || !payload.email || !payload.guests) {
+  const msg = document.getElementById('rMsg');
+  msg.textContent = '';
+
+  if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
     msg.textContent = 'Please fill first name, last name, email and guests';
-    btn.disabled = false; btn.style.opacity = '1';
-    return;
-  }
-  if (payload.guests >= 11) {
-    // should not happen because we disable button, but just in case
-    showContactModal();
-    btn.disabled = false; btn.style.opacity = '1';
     return;
   }
 
   try {
-    const res = await fetch('/api/reservations', {
+    const r = await fetch('/api/reservations', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: { 'Content-Type':'application/json' },
       body: JSON.stringify(payload)
     });
-    const json = await res.json().catch(()=>({}));
-    if (res.ok) {
-      // show loyalty modal if visitNo >= 5
-      const visitNo = Number(json.visitNo || 0);
-      if (visitNo >= 5) {
-        // show loyalty modal with fireworks background color #d6c7b2
-        showLoyaltyModalForVisit(visitNo);
-        // when loyalty modal closed it continues with confirmation
-        document.getElementById('loy-ok').onclick = ()=>{
-          stopFireworks();
-          loyModal.style.display = 'none';
-          // show simple confirmation afterwards
-          showConfirmation(`Thank you! A confirmation mail was sent to <b>${payload.email}</b>.`);
-        };
+    const json = await r.json().catch(()=>({}));
+
+    if (r.ok) {
+      // show loyalty if unlocked
+      if (json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)) {
+        showLoyaltyModal(json.nowUnlockedTier, json.visitNo || null);
       } else {
-        showConfirmation(`Thank you! A confirmation mail was sent to <b>${payload.email}</b>.`);
+        // generic confirmation
+        const title = document.getElementById('confirm-title');
+        const txt = document.getElementById('confirm-text');
+        title.textContent = "Reservation received";
+        txt.innerHTML = `Thank you. A confirmation mail was sent to <b>${payload.email}</b>.`;
+        document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href="/"; };
+        showConfirmModal();
       }
     } else {
-      const err = (json && json.error) ? String(json.error) : "Reservation failed";
-      if (/sunday/i.test(err) || /closed/i.test(err) || /blocked/i.test(err) || /fully booked/i.test(err)) {
-        // friendly immediate modal
-        showGenericModal(err + ". Please choose another date.");
+      const err = (json && json.error) ? String(json.error).toLowerCase() : "Failed to create reservation";
+      if (err.includes("sunday") || err.includes("closed") || err.includes("blocked")) {
+        showLargeDayModal(err.includes("sunday") ? "We are closed on Sundays" : "This day is not available. Please choose another date.");
       } else {
-        msg.textContent = err;
+        msg.textContent = (json && json.error) ? json.error : 'Error saving reservation';
       }
     }
-  } catch(e) {
-    console.error(e);
+  } catch (e) {
+    console.error("reservation post error", e);
     msg.textContent = 'Network error';
-  } finally {
-    btn.disabled = false; btn.style.opacity = '1';
-    updateTimes(); // refresh times to reflect new occupancy
   }
 });
 
-/* confirmation modal helpers */
-function showConfirmation(html){
-  document.getElementById('confirm-title').textContent = "Reservation received";
-  document.getElementById('confirm-text').innerHTML = html;
-  document.getElementById('confirm-ok').onclick = ()=> { document.getElementById('confirm-modal').style.display='none'; window.location.href = '/'; };
-  document.getElementById('confirm-modal').style.display = 'flex';
+function showConfirmModal(){ document.getElementById('confirm-modal').style.display = 'flex'; }
+function hideConfirmModal(){ document.getElementById('confirm-modal').style.display = 'none'; }
+
+/* ------------------ Large party (11+) handling ------------------ */
+(function(){
+  const guestsSelect = document.getElementById("rGuests");
+  if (!guestsSelect) return;
+
+  let lastValid = guestsSelect.value || "1";
+  guestsSelect.addEventListener("focus", ()=> lastValid = guestsSelect.value);
+
+  guestsSelect.addEventListener("change", function(){
+    const v = String(this.value);
+    if (v === "11") {
+      // revert to last valid selection
+      setTimeout(()=> { guestsSelect.value = lastValid; }, 50);
+      // show modal
+      showLargePartyModal();
+    } else {
+      lastValid = v;
+      // update times for the new guest count
+      setTimeout(()=> { updateTimes(); }, 20);
+    }
+  });
+
+  // create and show large party modal
+  function showLargePartyModal(){
+    const ex = document.getElementById("__large_party_modal");
+    if (ex) ex.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "__large_party_modal";
+    overlay.className = "modal-overlay";
+
+    const box = document.createElement("div");
+    box.className = "modal-card";
+    box.innerHTML = `
+      <h3 style="margin-top:0;margin-bottom:8px;font-size:20px;">Large party request</h3>
+      <p style="margin:8px 0 16px 0;line-height:1.4;">
+        For parties of <strong>11 or more</strong> please contact us directly so we can arrange a suitable table and confirm availability.
+      </p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
+        <a href="tel:+66077270675" style="text-decoration:none;"><button style="background:#b3822f;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;">Call +66 077 270 675</button></a>
+        <a href="mailto:info@noxamasamui.com" style="text-decoration:none;"><button style="background:#b3822f;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;">Email info@noxamasamui.com</button></a>
+      </div>
+      <div style="font-size:13px;color:#6b5a45;margin-bottom:12px;">Or use the chat / contact form on our site — we will help you find the best option.</div>
+      <div style="text-align:center;"><button id="__large_party_ok" style="padding:8px 14px;border-radius:8px;border:none;background:#b3822f;color:#fff;cursor:pointer;">OK</button></div>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.getElementById("__large_party_ok").onclick = ()=> overlay.remove();
+  }
+})();
+
+/* ------------------ Immediate day-blocked / sunday modal (re-usable) ------------------ */
+function showLargeDayModal(reasonText){
+  // use same visual style as large-party modal
+  const ex = document.getElementById("__day_block_modal");
+  if (ex) ex.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "__day_block_modal";
+  overlay.className = "modal-overlay";
+
+  const box = document.createElement("div");
+  box.className = "modal-card";
+  box.innerHTML = `
+    <h3 style="margin-top:0;margin-bottom:8px;font-size:20px;">Reservation not possible</h3>
+    <p style="margin:8px 0 14px 0;line-height:1.4;"><strong>${reasonText}</strong></p>
+    <p style="margin-bottom:12px;">Please choose another day — we would love to welcome you.</p>
+    <div style="text-align:center;"><button id="__day_block_ok" style="padding:8px 14px;border-radius:8px;border:none;background:#b3822f;color:#fff;cursor:pointer;">OK</button></div>
+  `;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  document.getElementById("__day_block_ok").onclick = ()=> overlay.remove();
 }
 
-/* responsive canvas resize when modal shown */
-new ResizeObserver(()=> { if (loyModal.style.display === 'flex') resizeCanvas(); }).observe(document.body);
+/* ------------------ Loyalty modal + fireworks effect ------------------ */
+function showLoyaltyModal(tier, visitNo){
+  const modal = document.getElementById('loyalty-modal');
+  const text = document.getElementById('loyalty-text');
+  const title = document.getElementById('loyalty-title');
 
-/* hide modals on escape */
-document.addEventListener('keydown', (e)=> {
-  if (e.key === 'Escape') {
-    if (loyModal.style.display==='flex') { stopFireworks(); loyModal.style.display='none'; }
-    document.getElementById('confirm-modal').style.display='none';
-    contactModal.style.display='none';
-    const g = document.getElementById("__generic_modal"); if (g) g.remove();
+  title.textContent = "You earned a loyalty reward";
+  text.innerHTML = `<div style="font-family:Georgia,serif;color:#3a2f28;">
+    <div style="font-size:18px;margin-bottom:6px;">Congratulations — loyalty reward unlocked!</div>
+    <div style="font-size:15px;margin-bottom:8px;">You just reached visit ${visitNo || ""}</div>
+    <div style="font-size:16px;background:#fff8f0;padding:10px;border-radius:8px;display:inline-block;">
+      Enjoy a <strong>${tier}%</strong> thank-you discount on your next visit
+    </div>
+  </div>`;
+
+  // show modal
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+
+  // start fireworks on canvas
+  startFireworks(document.getElementById('fw-canvas'));
+
+  // ok button closes modal and stops fireworks
+  document.getElementById('loyalty-ok').onclick = ()=> {
+    stopFireworks();
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden','true');
+    // then show confirmation modal as well to keep flow
+    const title = document.getElementById('confirm-title');
+    const txt = document.getElementById('confirm-text');
+    title.textContent = "Reservation received";
+    txt.innerHTML = `Thank you. A confirmation mail was sent.`;
+    document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href="/"; };
+    showConfirmModal();
+  };
+}
+
+/* Fireworks implementation (canvas) - energetic, colorful, more particles */
+let fwAnimation = null;
+let fwCtx = null;
+let fwW = 0, fwH = 0;
+let particles = [];
+let rockets = [];
+function startFireworks(canvas){
+  if (!canvas) return;
+  stopFireworks(); // reset
+  fwCtx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+  fwW = canvas.width = canvas.clientWidth * DPR;
+  fwH = canvas.height = canvas.clientHeight * DPR;
+  canvas.style.width = canvas.clientWidth + "px";
+  canvas.style.height = canvas.clientHeight + "px";
+
+  // create initial rockets to create lots of bursts
+  rockets = [];
+  particles = [];
+
+  const colors = ['#ff4d4d','#ff9f43','#ffd166','#7bed9f','#4dabf7','#b197fc','#ffd54f','#ff6bcb'];
+  const rand = (a,b)=> a + Math.random()*(b-a);
+
+  // launch many rockets in waves
+  let launchCount = 0;
+  const launchWave = ()=>{
+    for(let i=0;i<18;i++){
+      launchRocket(rand(0.15,0.85)*fwW, fwH, rand(0.25,0.5)*fwW, rand(fwH*0.18, fwH*0.45), colors[Math.floor(Math.random()*colors.length)]);
+    }
+    launchCount++;
+    if (launchCount < 3) setTimeout(launchWave, 450);
+  };
+  launchWave();
+
+  let last = performance.now();
+  function loop(now){
+    const dt = now - last;
+    last = now;
+    // fade background slightly
+    fwCtx.globalCompositeOperation = 'source-over';
+    fwCtx.fillStyle = 'rgba(214,199,178,0.22)'; // subtle background tint to match modal
+    fwCtx.fillRect(0,0,fwW,fwH);
+
+    // update rockets
+    for (let i=rockets.length-1;i>=0;i--){
+      const r = rockets[i];
+      r.vy += 0.0009 * dt; // gravity
+      r.x += r.vx * dt;
+      r.y += r.vy * dt;
+      // draw rocket
+      fwCtx.beginPath();
+      fwCtx.fillStyle = r.color;
+      fwCtx.arc(r.x, r.y, Math.max(2, r.size*DPR*0.6), 0, Math.PI*2);
+      fwCtx.fill();
+      // if reached apex
+      if (r.vy > -0.02 || r.y < r.targetY) {
+        // explode into many particles
+        explode(r);
+        rockets.splice(i,1);
+      }
+    }
+
+    // update particles
+    for (let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.vy += 0.0005 * dt;
+      p.vx *= (1 - 0.0005*dt);
+      p.vy *= (1 - 0.00002*dt);
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      const alpha = Math.max(0, Math.min(1, p.life / p.initialLife));
+      fwCtx.beginPath();
+      fwCtx.globalCompositeOperation = 'lighter';
+      fwCtx.fillStyle = `rgba(${p.r},${p.g},${p.b},${alpha})`;
+      fwCtx.arc(p.x, p.y, Math.max(1, p.size*DPR*0.7), 0, Math.PI*2);
+      fwCtx.fill();
+
+      // glitter trail
+      if (Math.random() < 0.04) {
+        fwCtx.globalCompositeOperation = 'source-over';
+        fwCtx.fillStyle = `rgba(255,255,255,${alpha*0.5})`;
+        fwCtx.fillRect(p.x, p.y, 1*DPR, 1*DPR);
+      }
+
+      if (p.life <= 0 || p.y > fwH + 40) particles.splice(i,1);
+    }
+
+    // continue loop while there are active particles or rockets
+    if (particles.length > 0 || rockets.length > 0) {
+      fwAnimation = requestAnimationFrame(loop);
+    } else {
+      // small lingering fade then stop
+      fwAnimation = requestAnimationFrame((t)=> {
+        fwCtx.fillStyle = 'rgba(214,199,178,0.18)';
+        fwCtx.fillRect(0,0,fwW,fwH);
+      });
+    }
   }
-});
+  fwAnimation = requestAnimationFrame(loop);
+}
+
+function stopFireworks(){
+  if (fwAnimation) cancelAnimationFrame(fwAnimation);
+  fwAnimation = null;
+  particles = [];
+  rockets = [];
+  const c = document.getElementById('fw-canvas');
+  if (c && c.getContext) {
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0,0,c.width,c.height);
+  }
+}
+
+function launchRocket(x0, y0, x1, targetY, color){
+  const speed = -0.35 - Math.random()*0.18;
+  rockets.push({
+    x: x0,
+    y: y0,
+    vx: (x1 - x0) / 900,
+    vy: speed,
+    size: 2+Math.random()*3,
+    color,
+    targetY
+  });
+}
+
+function explode(rocket){
+  const count = 60 + Math.floor(Math.random()*80);
+  for (let i=0;i<count;i++){
+    const angle = Math.PI*2 * (i / count) + (Math.random()*0.2-0.1);
+    const speed = 0.12 + Math.random()*0.45;
+    const col = randomColor();
+    particles.push({
+      x: rocket.x,
+      y: rocket.y,
+      vx: Math.cos(angle)*speed* (0.8 + Math.random()*1.6),
+      vy: Math.sin(angle)*speed* (0.8 + Math.random()*1.6),
+      size: 2 + Math.random()*4,
+      life: 700 + Math.random()*1400,
+      initialLife: 700 + Math.random()*1400,
+      r: col.r, g: col.g, b: col.b
+    });
+  }
+}
+
+function randomColor(){
+  const palette = [
+    [231,76,60],[241,196,15],[230,126,34],[46,204,113],[52,152,219],[155,89,182],[245,127,23],[255,213,79]
+  ];
+  return palette[Math.floor(Math.random()*palette.length)];
+}
+
+/* ensure fireworks stop if user closes modal or navigates away */
+window.addEventListener('beforeunload', ()=> stopFireworks());
 </script>
 
 </body>
