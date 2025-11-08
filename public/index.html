@@ -212,7 +212,34 @@ document.getElementById('rDate').value = today();
 */
 async function updateTimes(){
   const date = document.getElementById('rDate').value;
-  const guests = Number(document.getElementById('rGuests').value || 1);
+ // --- Enforce 11+ -> contact (prevent booking) ---
+const guestsSel = document.getElementById('rGuests');
+const timeSel = document.getElementById('rTime');
+const reserveBtn = document.getElementById('btnReserve');
+
+function handleGuestsChange() {
+  const g = Number(guestsSel.value || 1);
+  if (g >= 11) {
+    // prevent booking: clear times, disable Book button and show contact modal
+    timeSel.innerHTML = '';
+    reserveBtn.disabled = true;
+    reserveBtn.style.opacity = '0.7';
+    // show contact modal with clearly visible call-to-action
+    showContactModal();
+  } else {
+    // re-enable booking UI
+    reserveBtn.disabled = false;
+    reserveBtn.style.opacity = '1';
+    hideContactModal();         // hide if open
+    // refresh allowed times for the selected date/guest count
+    updateTimes();
+  }
+}
+
+// hook up
+guestsSel.removeEventListener?.('change', handleGuestsChange); // defensive
+guestsSel.addEventListener('change', handleGuestsChange);
+
   const sel = document.getElementById('rTime');
   sel.innerHTML = '';
 
