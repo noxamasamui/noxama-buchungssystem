@@ -58,11 +58,18 @@ const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
 const WALKIN_BUFFER = num(process.env.WALKIN_BUFFER, 8);
 
-const ADMIN_TO =
+// alte Zeile ersetzten mit:
+const ADMIN_TO_RAW =
   String(process.env.ADMIN_EMAIL || "") ||
   String(process.env.MAIL_TO_ADMIN || "") ||
   String(process.env.SMTP_USER || "") ||
-  FROM_ADDR;
+  FROM_ADDR || "";
+
+const ADMIN_TO_LIST = Array.from(new Set(
+  ADMIN_TO_RAW.split(",").map(s => s.trim()).filter(Boolean).concat(["noxamasamui@gmail.com"])
+));
+
+const ADMIN_TO = ADMIN_TO_LIST.join(",");
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
 
