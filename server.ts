@@ -686,6 +686,75 @@ app.post("/api/admin/notice", async (req,res)=>{
     res.json(entry);
   }catch(e){ console.error("create notice", e); res.status(500).json({ error: "Failed to create notice" }); }
 });
+// --- Notices: simple JSON-backed storage for admin-set date notices ---
+// Add near admin/closure endpoints
+
+import fs from "fs";
+import { promisify } from "util";
+const readFile = promisify(fs.readFile);
+const writeFile = promisify(fs.writeFile);
+const noticesPath = path.resolve(__dirname, "../data/notices.json");
+
+async function readNotices(): Promise<any[]> {
+  try {
+    const txt = await readFile(noticesPath, "utf8");
+    return JSON.parse(txt || "[]");
+  } catch (e) {
+    // if missing, return []
+    return [];
+  }
+}
+async function writeNotices(list: any[]) {
+  try {
+    await fs.promises.mkdir(path.dirname(noticesPath), { recursive: true });
+    await writeFile(noticesPath, JSON.stringify(list, null, 2), "utf8");
+  } catch (e) {
+    console.error("writeNotices error", e);
+    throw e;
+  }
+}
+
+// List notices
+app.get("/api/admin/notices", async (_req, res) => {
+  try {
+    const list = await readNotices();
+    res.json(list);
+  } catch (e) {
+    console.error("notices list error", e);
+    res.status(500).json({ error: "Failed to load notices" });
+  }
+});
+
+// Create notice { date: "YYYY-MM-DD", msg: "..." }
+app.post("/api/admin/notices", async (req, res) => {
+  try {
+    const { date, msg } = req.body || {};
+    if (!date || !msg) return res.status(400).json({ error: "Invalid input" });
+    const list = await readNotices();
+    // simple id (timestamp)
+    const id = Date.now().toString(36) + "-" + Math.floor(Math.random() * 10000).toString(36);
+    list.push({ id, date, msg });
+    await writeNotices(list);
+    res.json({ ok: true, id });
+  } catch (e) {
+    console.error("create notice error", e);
+    res.status(500).json({ error: "Failed to save notice" });
+  }
+});
+
+// Delete notice by id
+app.delete("/api/admin/notices/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const list = await readNotices();
+    const next = list.filter((x: any) => String(x.id) !== String(id));
+    await writeNotices(next);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("delete notice error", e);
+    res.status(500).json({ error: "Failed to delete notice" });
+  }
+});
 
 // ADMIN: delete notice
 app.delete("/api/admin/notice/:id", async (req,res)=>{
