@@ -7,53 +7,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
   <style>
-    /* Admin-specific small CSS (only minimal changes) */
-    .hero-wrap { padding: 18px 0; text-align: center; }
-    .hero-banner {
-      max-width: 480px;
-      width: 100%;
-      height: auto;
-      display: inline-block;
-      object-fit: contain;
-      border-radius: 8px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    }
-    .hero-banner.img-fallback { max-height: 160px; }
+    /* Admin: Banner / Logo smaller */
+    .hero-wrap { padding: 18px 0; text-align:center; }
+    .hero-banner { max-width:480px; width:100%; height:auto; display:inline-block; object-fit:contain; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.12); }
+    .hero-banner.img-fallback { max-height:160px; }
 
-    .btn, button[type="submit"], .reserve-btn {
-      padding: 12px 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
+    .btn, button[type="submit"], .reserve-btn { padding:12px 20px; font-size:16px; border-radius:8px; cursor:pointer; }
     .table-wrap { overflow:auto; max-width:100%; }
     table { border-collapse: collapse; width:100%; font-size:14px; }
     table th, table td { padding:8px 10px; text-align:left; vertical-align:middle; }
     .badge { display:inline-block; padding:6px 10px; border-radius:6px; background:#f3f0e7; }
     .card { margin-bottom:20px; }
-
-    /* Notices area */
-    #noticesList .notice { margin:8px 0; padding:10px; border-radius:8px; background:#fff7ef; border:1px solid #ead6b6; display:flex; gap:8px; align-items:center; justify-content:space-between; }
-    #noticesList .notice .meta { font-size:13px; color:#6b5b4a; }
-    #noticesList .notice button { background:#b3822f; color:#fff; border:0; padding:6px 10px; border-radius:6px; cursor:pointer; }
-
-    @media (max-width:720px){
-      .hero-wrap { padding: 10px 0; }
-      .hero-banner { max-width: 320px; }
-    }
-
+    .muted { color:#6b5b4a; font-size:13px; }
+    .small { font-size:13px; color:#6b5b4a; }
+    .field { margin-bottom:8px; }
+    .field label { display:block; font-weight:700; margin-bottom:4px; }
+    .field input, .field textarea { width:100%; padding:8px; border-radius:8px; border:1px solid #d8c6aa; box-sizing:border-box; }
+    .special-list .item { border:1px solid #ead6b6; background:#fff8f0; padding:10px; border-radius:8px; margin-bottom:8px; display:flex; gap:8px; align-items:flex-start; justify-content:space-between; }
+    .special-list .meta { font-size:13px; color:#6b5b4a; }
+    .special-actions button { margin-left:8px; }
+    @media (max-width:520px){ .special-list .item { flex-direction:column; } }
   </style>
 </head>
 <body>
-  <!-- single logo (only once) -->
   <div class="hero-wrap" aria-hidden="false">
     <img id="heroBanner" class="hero-banner" src="/logo-hero.png" alt="Logo banner"/>
   </div>
 
   <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
-  <h1 style="text-align:center;margin-top:6px;">Admin</h1>
+  <h1>Admin</h1>
 
+  <!-- existing admin cards (unchanged) -->
   <div class="card">
     <h2>All reservations</h2>
     <div class="toolbar">
@@ -130,33 +114,43 @@
     <div id="closureList" style="margin-top:10px"></div>
   </div>
 
+  <!-- NEW: Special date notices -->
   <div class="card">
-    <h2>Date notices (informational popups for customers)</h2>
-    <p>Set short informational messages that are shown to customers immediately when they pick that date (eg. Christmas menu, special event). These notices are informational only and do not block booking.</p>
+    <h2>Special date notices (show to customers when they pick a date)</h2>
+    <div class="small muted">Create date-specific notices (e.g. "24.12.2025 Christmas Menue — surcharge / fixed menu info"). These appear directly on the booking page when the customer clicks that date.</div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <div style="flex:0 0 220px;">
+    <div style="margin-top:12px;">
+      <div class="field">
         <label>Date</label>
-        <input id="noticeDate" type="date"/>
+        <input id="sdDate" type="date"/>
       </div>
-      <div style="flex:1;">
-        <label>Message (short)</label>
-        <input id="noticeMsg" placeholder="E.g. 24.12: Christmas menu — limited seats" />
+      <div class="field">
+        <label>Title</label>
+        <input id="sdTitle" placeholder="e.g. Christmas Menue 24.12.2025"/>
       </div>
-      <div style="flex:0 0 140px;align-self:flex-end;">
-        <button id="btnAddNotice" class="btn">Save notice</button>
+      <div class="field">
+        <label>Message (HTML allowed)</label>
+        <textarea id="sdMessage" rows="3" placeholder="Short message to show customers when they pick this date"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="sdSave" class="btn" type="button">Save notice</button>
+        <span id="sdMsg" class="badge"></span>
+      </div>
+
+      <div style="margin-top:14px;">
+        <h3>Existing notices</h3>
+        <div class="special-list" id="specialList"></div>
       </div>
     </div>
-
-    <div id="noticesList" style="margin-top:12px;"></div>
   </div>
 
 <script>
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
   document.getElementById("fltDate").value = today();
   document.getElementById("wDate").value = today();
-  document.getElementById("noticeDate").value = today();
+  document.getElementById("sdDate").value = today();
 
+  // existing admin scripts (loadList, fillWalkInTimes, closures, etc.) -- kept identical to your provided admin file
   function fillWalkInTimes(){
     const sel = document.getElementById("wTime");
     sel.innerHTML = "";
@@ -232,6 +226,7 @@
     if(r.ok){ m.textContent="Saved"; loadList(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
   });
 
+  // closures (unchanged)
   async function loadClosures(){
     const r = await fetch("/api/admin/closure");
     const list = await r.json();
@@ -273,52 +268,74 @@
     if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
   });
 
-  /* -------------------- Notices (new) -------------------- */
-  async function loadNotices(){
-    const r = await fetch('/api/admin/notices');
-    if(!r.ok) return;
-    const list = await r.json();
-    const box = document.getElementById('noticesList');
-    box.innerHTML = '';
-    list.forEach(n=>{
-      const div = document.createElement('div');
-      div.className = 'notice';
-      div.innerHTML = `<div>
-          <div class="meta"><strong>${n.date}</strong></div>
-          <div style="margin-top:6px">${n.msg}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button data-id="${n.id}" class="btn">Delete</button>
-        </div>`;
-      box.appendChild(div);
-    });
-    // attach deletes
-    box.querySelectorAll('button[data-id]').forEach(b=>{
-      b.addEventListener('click', async ()=>{
-        const id = b.getAttribute('data-id');
-        await fetch(`/api/admin/notices/${encodeURIComponent(id)}`, { method:'DELETE' });
-        loadNotices();
-      });
-    });
-  }
+  // ------------------- Special-dates management (NEW) -------------------
+  // endpoints:
+  // GET  /api/admin/special-dates        -> returns array of notices
+  // POST /api/admin/special-date        -> body { date: "YYYY-MM-DD", title, message }
+  // DELETE /api/admin/special-date/:date
 
-  document.getElementById('btnAddNotice').addEventListener('click', async ()=>{
-    const date = document.getElementById('noticeDate').value;
-    const msg = (document.getElementById('noticeMsg').value || '').trim();
-    if(!date || !msg){ alert('Please set date and message'); return; }
-    const payload = { date, msg };
-    const r = await fetch('/api/admin/notices', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
-    if(r.ok){
-      document.getElementById('noticeMsg').value = '';
-      loadNotices();
-    } else {
-      const e = await r.json().catch(()=>({})); alert(e.error || 'Failed to save notice');
+  async function loadSpecialDates(){
+    try{
+      const r = await fetch("/api/admin/special-dates");
+      const list = await r.json();
+      const container = document.getElementById("specialList");
+      container.innerHTML = "";
+      list.sort((a,b)=> (a.date > b.date)?1:-1).forEach(item=>{
+        const div = document.createElement("div");
+        div.className = "item";
+        const left = document.createElement("div");
+        left.innerHTML = `<div class="meta"><strong>${item.title || item.date}</strong> — <span class="small">${item.date}</span></div>
+                          <div style="margin-top:6px;">${item.message || ""}</div>`;
+        const actions = document.createElement("div");
+        actions.className = "special-actions";
+        const del = document.createElement("button");
+        del.className = "btn";
+        del.textContent = "Delete";
+        del.onclick = async ()=>{
+          if(!confirm("Delete this special notice?")) return;
+          const rr = await fetch(`/api/admin/special-date/${encodeURIComponent(item.date)}`, { method: "DELETE" });
+          if(rr.ok) { loadSpecialDates(); document.getElementById('sdMsg').textContent = "Deleted"; setTimeout(()=>document.getElementById('sdMsg').textContent = "",1500); }
+          else { const e = await rr.json(); alert(e.error || "Delete failed"); }
+        };
+        actions.appendChild(del);
+        div.appendChild(left);
+        div.appendChild(actions);
+        container.appendChild(div);
+      });
+    }catch(e){
+      console.error("loadSpecialDates", e);
+    }
+  }
+  loadSpecialDates();
+
+  document.getElementById("sdSave").addEventListener("click", async ()=>{
+    const date = document.getElementById("sdDate").value;
+    const title = document.getElementById("sdTitle").value.trim();
+    const message = document.getElementById("sdMessage").value.trim();
+    const msg = document.getElementById("sdMsg");
+    msg.textContent = "";
+    if(!date || !message){ msg.textContent = "Date and message required"; return; }
+    try{
+      const r = await fetch("/api/admin/special-date", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({ date, title, message })
+      });
+      if(r.ok){
+        msg.textContent = "Saved";
+        document.getElementById("sdTitle").value = "";
+        document.getElementById("sdMessage").value = "";
+        loadSpecialDates();
+        setTimeout(()=>msg.textContent = "", 1800);
+      } else {
+        const e = await r.json();
+        msg.textContent = e.error || "Failed";
+      }
+    }catch(er){
+      console.error("sdSave", er);
+      msg.textContent = "Error";
     }
   });
-
-  // load existing notices on startup
-  loadNotices();
-
 </script>
 
 </body>
