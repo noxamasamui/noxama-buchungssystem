@@ -2,54 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Reservation — ROESTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
-  <style>
-    /* small local overrides to ensure consistent modal visuals, logo centering etc. */
-    .hero-wrap { text-align:center;margin-top:18px; }
-    .hero-banner { max-width:640px;width:76%;border-radius:12px;box-shadow:0 25px 50px rgba(0,0,0,.18); display:block; margin:0 auto; }
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
-    /* loyalty modal styling (requested) */
-    #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; }
-    #loyalty-modal > .box {
-      background: #d6c7b2; /* requested */
-      border: 1px solid #e0d7c5;
-      border-radius: 12px;
-      max-width: 720px;
-      width: 96%;
-      padding: 8px;
-      box-shadow: 0 10px 35px rgba(0,0,0,0.25);
-      text-align: center;
-      overflow: hidden;
-      position: relative;
-    }
-    #fw-canvas { width:100%; height:220px; display:block; border-radius:8px; margin:8px 0; background: linear-gradient(180deg,#fff,#fff8f2); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03); }
-    #loyalty-body { padding:8px 12px 18px 12px; color:#2f2318; font-family: Georgia, serif; }
-    #loyalty-msg { background: rgba(255,255,255,0.95); padding:10px 14px; border-radius:8px; display:inline-block; margin-top:8px; }
-    .loy-btn { background:#b3822f; color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
-    .loy-close { background:transparent; border:1px solid rgba(0,0,0,0.06); padding:8px 12px; border-radius:8px; cursor:pointer; }
+<style>
+/* mobile fix: time field smaller on phones */
+@media (max-width: 520px) {
+  .date-time { display:flex; gap:10px; flex-wrap:wrap; }
 
-    /* Large-party modal (11+) */
-    #largeparty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:99998; align-items:center; justify-content:center; }
-    #largeparty-modal .box { background:#fff8f0; border-radius:12px; width:520px; max-width:96%; padding:18px; box-shadow:0 10px 30px rgba(0,0,0,.25); text-align:center; border:1px solid #e0d7c5; font-family:Georgia,serif; color:#2f2318; }
+  .date-time > div:nth-child(1) { flex: 1 1 100%; }
 
-    /* General small helper */
-    .hidden { display:none !important; }
-    @keyframes popIn { from { transform: translateY(8px); opacity:0 } to { transform: translateY(0); opacity:1 } }
-    #loyalty-modal > .box, #largeparty-modal .box { animation: popIn .22s ease both; }
-  </style>
+  .date-time > div:nth-child(2),
+  .date-time > div:nth-child(3) {
+    flex: 0 0 auto;
+    min-width: 92px;
+    max-width: 140px;
+  }
+
+  #rTime, #rGuests {
+    font-size: 15px;
+    padding: 8px 10px;
+    height: 42px;
+    border-radius: 8px;
+    box-sizing: border-box;
+  }
+
+  #rDate {
+    padding: 12px 14px;
+    height: 48px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+}
+</style>
+
 </head>
 <body>
-  <div class="hero-wrap">
-    <img id="heroBanner" class="hero-banner" alt="Logo banner" src="/logo-hero.png"/>
+
+  <div class="hero-wrap" style="text-align:center;margin-top:18px;">
+    <img id="heroBanner" class="hero-banner"
+         alt="Logo banner"
+         style="max-width:640px;width:76%;border-radius:12px;box-shadow:0 25px 50px rgba(0,0,0,.18);" />
   </div>
 
   <div class="container">
-    <h1 style="text-align:center;margin-top:8px;">Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
-    <p style="text-align:center;margin-top:6px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
+    <h1 style="text-align:center;margin-top:8px;">Reservation — ROESTILAND BY NOXAMA SAMUI</h1>
+    <p style="text-align:center;margin-top:6px;">
+      Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675
+    </p>
 
-    <div class="card booking-card booking-compact" style="max-width:760px;margin:18px auto;padding:18px;">
+    <div class="card booking-card booking-compact"
+         style="max-width:760px;margin:18px auto;padding:18px;">
       <h2>Book a table</h2>
 
       <div class="row date-time">
@@ -57,13 +61,19 @@
           <label>Date</label>
           <input id="rDate" type="date"/>
         </div>
-        <div style="flex:0 0 130px;">
+
+        <div style="flex:0 0 110px;">
           <label>Guests</label>
-          <select id="rGuests" aria-label="Guests"></select>
+          <select id="rGuests">
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+            <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+            <option value="11plus">11+</option>
+          </select>
         </div>
+
         <div style="flex:0 0 140px;">
           <label>Time</label>
-          <select id="rTime" aria-label="Time"></select>
+          <select id="rTime"></select>
         </div>
       </div>
 
@@ -91,7 +101,8 @@
 
       <div style="margin-top:8px;">
         <label>Notes</label>
-        <textarea id="rNotes" rows="2" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
+        <textarea id="rNotes" rows="2"
+          style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
       </div>
 
       <div style="margin-top:12px;text-align:left;">
@@ -101,9 +112,11 @@
     </div>
   </div>
 
-  <!-- confirm modal for normal success / errors -->
-  <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:99997;">
-    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5;">
+  <div id="confirm-modal"
+       style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+              align-items:center;justify-content:center;z-index:9999;">
+    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;
+                width:92%;text-align:center;border:1px solid #e0d7c5;">
       <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
       <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
       <div style="display:flex;gap:10px;justify-content:center;">
@@ -112,409 +125,185 @@
     </div>
   </div>
 
-  <!-- Large party (11+) modal -->
-  <div id="largeparty-modal" aria-hidden="true">
-    <div class="box" role="dialog" aria-modal="true">
-      <h3 style="margin-top:0;">Large party request</h3>
-      <p>For parties of 11 or more please contact us so we can arrange a suitable table and confirm availability.</p>
-      <div style="display:flex;gap:12px;justify-content:center;margin-top:12px;">
-        <a href="tel:+66077270675" class="loy-btn" style="text-decoration:none;">Call +66 077 270 675</a>
-        <a href="mailto:info@noxamasamui.com" class="loy-btn" style="text-decoration:none;">Email info@noxamasamui.com</a>
-      </div>
-      <p style="margin-top:10px;font-size:13px;">Or use the chat / contact form on our site — we will help you find the best option.</p>
-      <div style="margin-top:12px;"><button id="largeparty-ok" class="loy-btn">OK</button></div>
-    </div>
-  </div>
-/* --- mobile: kompaktere Inputs für Datum / Gäste / Zeit --- */
-@media (max-width: 520px) {
-  /* Container der drei Felder: Date / Guests / Time auf kleinen Displays */
-  .date-time { display:flex; gap:10px; flex-wrap:wrap; }
-
-  /* Datum bleibt breit, Gäste + Zeit kompakter */
-  .date-time > div:nth-child(1) { flex: 1 1 100%; }
-  .date-time > div:nth-child(2),
-  .date-time > div:nth-child(3) {
-    flex: 0 0 auto;
-    min-width: 92px;
-    max-width: 140px;
-  }
-
-  /* speziell die Time-Select (kleinerer Innenabstand + Schrift) */
-  #rTime, #rGuests {
-    font-size: 15px;
-    padding: 8px 10px;
-    height: 42px;
-    border-radius: 8px;
-    box-sizing: border-box;
-  }
-
-  /* Datum-Input bleibt groß, aber mit etwas Padding */
-  #rDate {
-    padding: 12px 14px;
-    height: 48px;
-    font-size: 16px;
-    border-radius: 10px;
-  }
-}
-
-  <!-- Loyalty modal + fireworks -->
-  <div id="loyalty-modal" aria-hidden="true">
-    <div class="box" role="dialog" aria-modal="true" aria-labelledby="loyalty-title">
-      <canvas id="fw-canvas" aria-hidden="true"></canvas>
-      <div id="loyalty-body">
-        <h2 id="loyalty-title" style="margin:6px 0 4px 0;">You earned a loyalty reward</h2>
-        <p id="loyalty-sub" style="margin:0 0 8px 0;">Congratulations — loyalty reward unlocked!</p>
-        <div id="loyalty-msg"><strong id="loyalty-percent">Enjoy a 5% thank-you discount on your next visit</strong></div>
-        <div style="margin-top:12px;"><button id="loyalty-ok" class="loy-btn">Okay</button></div>
-      </div>
-    </div>
-  </div>
-
 <script>
-/*
-  Main client script:
-   - fills logo from /api/config
-   - populates guests dropdown (1..10 + "11+" option)
-   - updates times by calling /api/slots?date=&guests=
-   - hides times that are not allowed (only allowed slots shown)
-   - on date change: if no allowed slots -> immediate modal informing user (Sunday/Blocked)
-   - on selecting guests "11+" -> large party modal
-   - booking posts to /api/reservations; on success triggers loyalty modal via window.__showLoyaltyModal(percent)
-*/
+const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-(function(){
-  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-
-  // load logo + basic config
-  (async ()=>{
-    try{
-      const r = await fetch('/api/config', { cache: "no-store" });
-      if (!r.ok) return;
-      const cfg = await r.json();
-      const hero = document.getElementById('heroBanner');
-      if (hero) {
-        hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
-        hero.alt = cfg.brand || 'Banner';
-        hero.style.display = "block";
-        hero.style.margin = "0 auto";
-      }
-    }catch(e){ console.warn('config load', e); }
-  })();
-
-  // initialize inputs
-  const dateInput = document.getElementById('rDate');
-  const guestsSelect = document.getElementById('rGuests');
-  const timeSelect = document.getElementById('rTime');
-  const reserveBtn = document.getElementById('btnReserve');
-  const msgSpan = document.getElementById('rMsg');
-
-  dateInput.value = today();
-
-  // populate guests: 1..10 then "11+"
-  function populateGuests(){
-    guestsSelect.innerHTML = '';
-    for(let i=1;i<=10;i++){
-      const o = document.createElement('option'); o.value = String(i); o.textContent = String(i); guestsSelect.appendChild(o);
-    }
-    const o = document.createElement('option'); o.value = 'large'; o.textContent = '11+'; guestsSelect.appendChild(o);
-  }
-  populateGuests();
-
-  // large-party modal handler
-  const largeModal = document.getElementById('largeparty-modal');
-  const largeOk = document.getElementById('largeparty-ok');
-  function showLargeModal(){ if (!largeModal) return; largeModal.style.display = 'flex'; largeModal.setAttribute('aria-hidden','false'); }
-  function hideLargeModal(){ if (!largeModal) return; largeModal.style.display = 'none'; largeModal.setAttribute('aria-hidden','true'); }
-  largeOk && largeOk.addEventListener('click', ()=>{ hideLargeModal(); guestsSelect.value = '1'; updateTimes(); });
-
-  guestsSelect.addEventListener('change', (e)=>{
-    if (guestsSelect.value === 'large') {
-      // show large party modal and reset to 1 (prevents booking)
-      showLargeModal();
-    } else {
-      updateTimes(); // update times for new guest count
-    }
-  });
-
-  // function to call /api/slots and fill only allowed times
-  let lastSlotCall = 0;
-  async function updateTimes(){
-    const date = dateInput.value;
-    const guestsVal = guestsSelect.value === 'large' ? 11 : Number(guestsSelect.value || 1);
-    timeSelect.innerHTML = '';
-    msgSpan.textContent = '';
-
-    if (!date) return;
-
-    const callAt = Date.now(); lastSlotCall = callAt;
-    try{
-      const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guestsVal)}`, { cache: "no-store" });
-      if (!resp.ok) {
-        console.warn('slots fetch failed');
-        return;
-      }
-      if (callAt !== lastSlotCall) return; // aborted by newer call
-
-      const slots = await resp.json();
-      if (!Array.isArray(slots)){
-        console.warn('unexpected slots response', slots);
-        return;
-      }
-
-      const allowed = slots.filter(s => s.allowed);
-
-      if (allowed.length === 0) {
-        // immediate modal: closed/blocked/fully booked for the whole date
-        // pick reason priority: Sunday, Blocked, Fully booked
-        const reasons = Array.from(new Set(slots.map(s=>s.reason).filter(Boolean)));
-        let reasonText = reasons.find(r=>/sunday/i.test(r)) || reasons.find(r=>/blocked|closed/i.test(r)) || reasons[0] || "This date is not available";
-        showConfirm("Reservation not possible", reasonText + ". Please choose another date.");
-        // leave timeSelect empty
-        return;
-      }
-
-      // fill only allowed times (no remaining-seat numbers shown)
-      allowed.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.time;
-        opt.textContent = s.time;
-        timeSelect.appendChild(opt);
-      });
-
-    }catch(err){
-      console.error('updateTimes error', err);
-      msgSpan.textContent = 'Network error';
-    }
-  }
-
-  function showConfirm(title, text){
-    const modal = document.getElementById('confirm-modal');
-    const t = document.getElementById('confirm-title');
-    const c = document.getElementById('confirm-text');
-    t.textContent = title;
-    c.textContent = text;
-    modal.style.display = 'flex';
-    document.getElementById('confirm-ok').onclick = ()=> { modal.style.display = 'none'; };
-  }
-
-  dateInput.addEventListener('change', ()=> updateTimes());
-  // also update when page loads or guests changes
-  document.addEventListener('DOMContentLoaded', ()=> updateTimes());
-  guestsSelect.addEventListener('change', ()=> {
-    if (guestsSelect.value !== 'large') updateTimes();
-  });
-
-  // reserve action
-  reserveBtn.addEventListener('click', async ()=>{
-    msgSpan.textContent = '';
-    const payload = {
-      date: dateInput.value,
-      time: timeSelect.value,
-      firstName: (document.getElementById('rFirst').value || "").trim(),
-      name: (document.getElementById('rLast').value || "").trim(),
-      email: (document.getElementById('rEmail').value || "").trim(),
-      phone: (document.getElementById('rPhone').value || "").trim(),
-      guests: guestsSelect.value === 'large' ? 11 : Number(guestsSelect.value),
-      notes: (document.getElementById('rNotes').value || "").trim()
-    };
-
-    // basic validation
-    if (!payload.date || !payload.time) { msgSpan.textContent = 'Please choose date and time'; return; }
-    if (!payload.firstName || !payload.name || !payload.email || !payload.guests) { msgSpan.textContent = 'Please fill first name, last name, email and guests'; return; }
-    if (payload.guests > 10) { showLargeModal(); return; } // safety
-
-    try{
-      const r = await fetch('/api/reservations', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const json = await r.json().catch(()=>({}));
-      if (r.ok) {
-        // if server says loyalty unlocked -> show loyalty modal
-        if (json && (json.nowUnlockedTier === 5 || json.nowUnlockedTier === 10 || json.nowUnlockedTier === 15)) {
-          // show loyalty
-          if (typeof window.__showLoyaltyModal === 'function') {
-            window.__showLoyaltyModal(json.nowUnlockedTier);
-          } else {
-            // fallback simple confirmation
-            showConfirm('Reservation received', `A confirmation mail will be sent to ${payload.email}`);
-          }
-        } else {
-          showConfirm('Reservation received', `Thank you. A confirmation mail will be sent to ${payload.email}.`);
-        }
-      } else {
-        const err = (json && json.error) ? String(json.error).toLowerCase() : "Failed to create reservation";
-        if (err.includes('sunday') || err.includes('closed') || err.includes('blocked') || err.includes('fully booked')) {
-          showConfirm('Not available', json.error || 'This slot/date is not available. Please choose another.');
-        } else {
-          msgSpan.textContent = json.error || 'Error saving reservation';
-        }
-      }
-    }catch(e){
-      console.error('reservation error', e);
-      msgSpan.textContent = 'Network error';
-    }
-  });
-
-  // quick safety: when large party modal closed, reset guests to 1 so user can continue
-  document.getElementById('largeparty-ok').addEventListener('click', ()=> { guestsSelect.value = '1'; updateTimes(); });
-
+(async()=>{
+  try {
+    const r = await fetch('/api/config');
+    const cfg = await r.json();
+    const hero = document.getElementById('heroBanner');
+    hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
+    hero.alt = cfg.brand || 'Banner';
+  } catch(e) {}
 })();
-</script>
 
-<!-- FIREWORKS + LOYALTY modal implementation -->
-<script>
-(function(){
-  // guard against double init
-  if (window.__noxama_fireworks_initialized) return;
-  window.__noxama_fireworks_initialized = true;
+document.getElementById('rDate').value = today();
 
-  const modal = document.getElementById('loyalty-modal');
-  const canvas = document.getElementById('fw-canvas');
-  const ok = document.getElementById('loyalty-ok');
-  const percentEl = document.getElementById('loyalty-percent');
+async function updateTimes() {
+  const date = document.getElementById('rDate').value;
+  const guests = document.getElementById('rGuests').value;
 
-  if (!modal || !canvas || !ok || !percentEl) {
-    console.warn('loyalty modal elements not found');
+  if (guests === "11plus") {
+    showModal(`
+      For parties of 11 or more please contact us directly.
+      <br><br>
+      <a href="tel:+66077270675" class="btn">Call +66 077 270 675</a>
+      <a href="mailto:info@noxamasamui.com" class="btn">Email info@noxamasamui.com</a>
+    `, "Large party request");
     return;
   }
 
-  const ctx = canvas.getContext('2d');
-  let raf = null;
-  let particles = [];
-  let running = false;
-  let last = performance.now();
+  const sel = document.getElementById('rTime');
+  sel.innerHTML = '';
 
-  const COLORS = ['#ff2e63','#ff9f1c','#ffd166','#7bd389','#6ad3f8','#b892ff','#ff6bcb','#ffd54f','#ffb86b'];
+  if (!date) return;
 
-  function resizeCanvas(){
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    canvas.style.width = canvas.clientWidth + 'px';
-    canvas.style.height = canvas.clientHeight + 'px';
-    canvas.width = Math.floor(canvas.clientWidth * dpr);
-    canvas.height = Math.floor(canvas.clientHeight * dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+  const r = await fetch(`/api/slots?date=${date}&guests=${guests}`);
+  const slots = await r.json();
+  const allowed = slots.filter(s => s.allowed);
+
+  if (allowed.length === 0) {
+    showModal(`This date is not available. Please choose another date.`, "Reservation not possible");
+    return;
   }
 
-  function spawn(cx, cy, count){
-    for(let i=0;i<count;i++){
-      const angle = Math.random()*Math.PI*2;
-      const speed = 2 + Math.random()*7;
-      particles.push({
-        x: cx,
-        y: cy,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        life: 700 + Math.random()*1300,
-        born: performance.now(),
-        size: 2 + Math.random()*6,
-        color: COLORS[Math.floor(Math.random()*COLORS.length)],
-        gravity: 0.03 + Math.random()*0.06,
-        decay: 0.98 - Math.random()*0.02
-      });
-    }
-  }
+  allowed.forEach(s=>{
+    const opt = document.createElement("option");
+    opt.value = s.time;
+    opt.textContent = s.time;
+    sel.appendChild(opt);
+  });
+}
 
-  function update(dt){
-    // occasionally spawn fireworks across width
-    if (Math.random() < 0.03) {
-      const cx = Math.random() * canvas.clientWidth;
-      const cy = Math.random() * (canvas.clientHeight * 0.6);
-      spawn(cx, cy, 80 + Math.floor(Math.random()*120));
-    }
-    const now = performance.now();
-    for (let i = particles.length-1; i >= 0; i--) {
-      const p = particles[i];
-      p.vy += p.gravity * (dt/16);
-      p.x += p.vx * (dt/16);
-      p.y += p.vy * (dt/16);
-      p.vx *= p.decay;
-      p.vy *= p.decay;
-      if (now - p.born > p.life || p.y > canvas.clientHeight + 50 || p.x < -50 || p.x > canvas.clientWidth + 50) {
-        particles.splice(i,1);
-      }
-    }
-  }
+document.getElementById("rDate").addEventListener("change", updateTimes);
+document.getElementById("rGuests").addEventListener("change", updateTimes);
+updateTimes();
 
-  function draw(){
-    // gentle clear with slight opacity to create trails
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    ctx.fillRect(0,0,canvas.clientWidth, canvas.clientHeight);
 
-    ctx.globalCompositeOperation = 'lighter';
-    for (const p of particles){
-      const age = (performance.now() - p.born) / p.life;
-      const alpha = Math.max(0, 1 - age);
-      const sz = p.size * (1.0 + (1-age)*1.2);
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, sz*3);
-      g.addColorStop(0, `rgba(255,255,255,${Math.min(0.95, alpha*0.9)})`);
-      g.addColorStop(0.1, p.color);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, sz*2, 0, Math.PI*2);
-      ctx.fill();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-  }
+document.getElementById('btnReserve').addEventListener('click', async ()=>{
 
-  function loop(now){
-    const dt = Math.max(8, now - last);
-    last = now;
-    update(dt);
-    ctx.clearRect(0,0,canvas.clientWidth, canvas.clientHeight);
-    draw();
-    if (running) raf = requestAnimationFrame(loop);
-  }
+  if (document.getElementById('rGuests').value === "11plus") return;
 
-  function start(){
-    if (running) return;
-    running = true;
-    resizeCanvas();
-    last = performance.now();
-    raf = requestAnimationFrame(loop);
-    window.addEventListener('resize', resizeCanvas);
-  }
-  function stop(){
-    running = false;
-    if (raf) cancelAnimationFrame(raf);
-    raf = null;
-    particles = [];
-    ctx && ctx.clearRect(0,0,canvas.clientWidth, canvas.clientHeight);
-    window.removeEventListener('resize', resizeCanvas);
-  }
-
-  // expose show function
-  window.__showLoyaltyModal = function(percent){
-    percent = Number(percent) || 5;
-    percentEl.textContent = `Enjoy a ${percent}% thank-you discount on your next visit`;
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden','false');
-    start();
+  const payload = {
+    date: document.getElementById('rDate').value,
+    time: document.getElementById('rTime').value,
+    firstName: document.getElementById('rFirst').value.trim(),
+    name: document.getElementById('rLast').value.trim(),
+    email: document.getElementById('rEmail').value.trim(),
+    phone: document.getElementById('rPhone').value.trim(),
+    guests: Number(document.getElementById('rGuests').value),
+    notes: document.getElementById('rNotes').value.trim()
   };
 
-  ok.addEventListener('click', ()=>{
-    stop();
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden','true');
-  });
+  try {
+    const r = await fetch('/api/reservations', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-  document.addEventListener('keydown', (ev)=>{
-    if (ev.key === 'Escape' && modal.style.display === 'flex') {
-      stop();
-      modal.style.display = 'none';
-      modal.setAttribute('aria-hidden','true');
+    const json = await r.json();
+
+    if (r.ok) {
+
+      if (json.nowUnlockedTier)
+        showLoyaltyModal(json.nowUnlockedTier);
+
+      const title = document.getElementById('confirm-title');
+      const txt = document.getElementById('confirm-text');
+      title.textContent = "Reservation received";
+      txt.innerHTML = `Thank you. A confirmation mail was sent to <b>${payload.email}</b>.`;
+
+      document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href="/"; };
+      showConfirmModal();
+
+    } else {
+      const err = json.error?.toLowerCase() || "";
+      if (err.includes("blocked") || err.includes("closed"))
+        showModal("This day is not available. Please choose another date.","Reservation not possible");
     }
-  });
 
-  // cleanup on unload
-  window.addEventListener('beforeunload', stop);
+  } catch(e) {
+    document.getElementById('rMsg').textContent = "Network error";
+  }
+});
 
-  // expose stop for debugging
-  window.__stopLoyaltyFireworks = stop;
+function showConfirmModal(){ document.getElementById('confirm-modal').style.display = 'flex'; }
+function hideConfirmModal(){ document.getElementById('confirm-modal').style.display = 'none'; }
 
-})();
+function showModal(content, title="") {
+  const ex = document.getElementById("__modal");
+  if (ex) ex.remove();
+
+  const o = document.createElement("div");
+  o.id = "__modal";
+  o.style = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999;";
+
+  const box = document.createElement("div");
+  box.style = "background:#fff8f0;border-radius:12px;padding:18px;max-width:520px;width:92%;text-align:center;border:1px solid #e0d7c5;";
+
+  box.innerHTML = `${title ? `<h3>${title}</h3>`:""}<div>${content}</div>
+      <button style="margin-top:14px;padding:10px 18px;border:none;border-radius:8px;background:#b3822f;color:#fff;">OK</button>`;
+
+  box.querySelector("button").onclick = ()=> o.remove();
+  o.appendChild(box);
+  document.body.appendChild(o);
+}
+
+
+/* Loyalty modal + fullscreen fireworks */
+function showLoyaltyModal(tier){
+  const ex = document.getElementById("__loyalty");
+  if (ex) ex.remove();
+
+  const o = document.createElement("div");
+  o.id = "__loyalty";
+  o.style = "position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:999999;";
+
+  const box = document.createElement("div");
+  box.style = "background:#d6c7b2;border-radius:12px;max-width:520px;width:92%;padding:18px;text-align:center;border:1px solid #bcae9a;position:relative;overflow:hidden;";
+
+  box.innerHTML = `
+      <h2>You earned a loyalty reward</h2>
+      <p>Congratulations — loyalty reward unlocked!</p>
+      <p>You just reached visit ${tier}</p>
+      <p style="font-size:18px;">Enjoy a ${tier < 10 ? "5" : tier < 15 ? "10" : "15"} percent discount on your next visit</p>
+      <button id="closeL" style="margin-top:18px;padding:10px 18px;border:none;border-radius:8px;background:#b3822f;color:#fff;">Okay</button>
+  `;
+
+  o.appendChild(box);
+  document.body.appendChild(o);
+
+  document.getElementById("closeL").onclick = ()=> o.remove();
+
+  startFireworks(box);
+}
+
+/* full area fireworks */
+function startFireworks(container){
+  const colors = ['#f8e7c5','#b3822f','#fff','#ffe9c0'];
+
+  const spawn = ()=>{
+    const p = document.createElement("div");
+    p.style.position="absolute";
+    p.style.width=p.style.height=`${6+Math.random()*18}px`;
+    p.style.left=`${Math.random()*100}%`;
+    p.style.top=`${Math.random()*100}%`;
+    p.style.background=colors[Math.floor(Math.random()*colors.length)];
+    p.style.borderRadius="50%";
+    p.style.opacity="1";
+    p.style.transition="opacity 1200ms linear, transform 1200ms ease-out";
+
+    container.appendChild(p);
+
+    setTimeout(()=>{ p.style.opacity="0"; p.style.transform="scale(2)"; },60);
+    setTimeout(()=> p.remove(),1300);
+  };
+
+  const loop=setInterval(spawn,50);
+  setTimeout(()=> clearInterval(loop),1500);
+}
 </script>
 
 </body>
