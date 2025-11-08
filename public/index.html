@@ -2,40 +2,46 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
+  <title>Reservation — ROESTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    /* Minimal local styles added only for modals/canvas and to ensure the hero banner stays centered */
-    .hero-wrap { text-align:center; margin-top:18px; }
-    .hero-banner { max-width:640px; width:76%; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,.18); display:inline-block; }
-
-    /* confirmation modal */
-    #confirm-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); align-items:center; justify-content:center; z-index:9999; }
-    #confirm-modal .inner { background:#fff8f0; border-radius:12px; padding:18px; max-width:420px; width:92%; text-align:center; border:1px solid #e0d7c5; box-shadow:0 10px 30px rgba(0,0,0,0.18); }
-
-    /* loyalty modal (canvas covers the card area, canvas behind content but inside card) */
+    /* Ergänzungen, nur Minimales für modals / fireworks */
     #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; }
-    #loyalty-modal .card { position:relative; max-width:520px; width:92%; border-radius:12px; overflow:visible; box-shadow:0 10px 35px rgba(0,0,0,0.25); }
-    #loyalty-modal canvas { position:absolute; inset:0; width:100%; height:100%; border-radius:12px; z-index:1; pointer-events:none; }
-    #loyalty-modal .content { position:relative; z-index:2; background:#d6c7b2; border-radius:12px; padding:18px; border:1px solid rgba(0,0,0,0.06); text-align:center; }
-    #loyalty-modal h2 { margin:8px 0 6px; font-family:Georgia,serif;color:#3a2f28; }
+    #loyalty-modal > .card {
+      background:#d6c7b2;
+      border:1px solid rgba(0,0,0,0.06);
+      border-radius:12px;
+      max-width:520px;
+      width:92%;
+      padding:14px;
+      box-shadow:0 10px 35px rgba(0,0,0,0.25);
+      text-align:center;
+      position:relative;
+      overflow:visible;
+    }
+    #fw-canvas { width:100%; height:200px; display:block; border-radius:10px; margin-bottom:12px; background:linear-gradient(180deg,#fff,#fff8f2); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03); }
+    #loyalty-modal h2 { margin:8px 0 4px; font-size:22px; color:#3a2f28; }
     #loyalty-modal p { margin:6px 0; color:#3a2f28; }
-    #loyalty-ok { margin-top:12px; background:#b3822f; color:#fff; border:0; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:700; }
+    #loyalty-modal .btn { margin-top:10px; background:#b3822f; color:#fff; border-radius:8px; padding:8px 14px; border:0; cursor:pointer; font-weight:700; }
 
-    /* large party modal */
     #largeparty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:99998; align-items:center; justify-content:center; }
-    #largeparty-modal .box { background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center; }
+    #largeparty-modal > .box {
+      background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center;
+    }
     #largeparty-modal .contact-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:12px; }
     #largeparty-modal .contact-row a { background:#b3822f; color:#fff; padding:10px 14px; border-radius:8px; text-decoration:none; font-weight:700; display:inline-block; min-width:120px; text-align:center; }
-
-    @media (max-width:520px){
-      #loyalty-modal .card { width:92%; }
-      #loyalty-modal canvas { height:140px; }
-      #largeparty-modal .contact-row a { flex:1 1 100%; min-width:0; }
+    @media (max-width:520px) {
+      #largeparty-modal .contact-row a { min-width:120px; flex:1 1 100%; }
+      #loyalty-modal > .card { padding:12px; }
+      #fw-canvas { height:140px; }
+      /* ensure modal content fits mobile */
+      #loyalty-modal > .card, #largeparty-modal > .box { margin: 12px; width: calc(100% - 24px); }
     }
 
-    .hidden { display:none !important; }
+    /* ensure hero centered */
+    .hero-wrap { text-align:center; margin-top:18px; }
+    .hero-banner { max-width:640px; width:76%; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,.18); display:inline-block; }
   </style>
 </head>
 <body>
@@ -103,9 +109,9 @@
     </div>
   </div>
 
-  <!-- Confirmation modal -->
+  <!-- confirmation modal -->
   <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:9999;">
-    <div class="inner">
+    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5;">
       <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
       <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
       <div style="display:flex;gap:10px;justify-content:center;">
@@ -114,20 +120,18 @@
     </div>
   </div>
 
-  <!-- Loyalty modal (with canvas behind content) -->
+  <!-- loyalty modal (with fireworks canvas) -->
   <div id="loyalty-modal" aria-hidden="true">
     <div class="card" role="dialog" aria-modal="true" aria-labelledby="loyalty-title">
-      <canvas id="fw-canvas"></canvas>
-      <div class="content">
-        <h2 id="loyalty-title">You earned a loyalty reward</h2>
-        <p id="loyalty-sub">Congratulations — loyalty reward unlocked!</p>
-        <p id="loyalty-msg"></p>
-        <button id="loyalty-ok">Okay</button>
-      </div>
+      <canvas id="fw-canvas" class="hidden"></canvas>
+      <h2 id="loyalty-title">You earned a loyalty reward</h2>
+      <p id="loyalty-sub">Congratulations — loyalty reward unlocked!</p>
+      <p id="loyalty-msg"></p>
+      <button id="loyalty-ok" class="btn">Okay</button>
     </div>
   </div>
 
-  <!-- Large party modal -->
+  <!-- large party modal -->
   <div id="largeparty-modal" aria-hidden="true">
     <div class="box" role="dialog" aria-modal="true" aria-labelledby="lp-title">
       <h2 id="lp-title">Large party request</h2>
@@ -146,119 +150,120 @@
   // helper: today string yyyy-mm-dd
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
-  // load banner from /api/config (keeps logo center and works with your existing backend)
+  // fill banner from /api/config
   (async()=>{
     try{
-      const r = await fetch('/api/config', {cache:"no-store"});
-      if(!r.ok) return;
-      const cfg = await r.json();
+      const r = await fetch('/api/config'); const cfg = await r.json();
       const hero = document.getElementById('heroBanner');
-      hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
       hero.alt = cfg.brand || 'Banner';
-    }catch(e){ console.error("cfg", e); }
+    }catch(e){ console.error(e); }
   })();
 
   document.getElementById('rDate').value = today();
 
-  // Fill times by calling /api/slots and only show allowed slots (no remaining seats visible)
+  // fill times select by calling API to get allowed slots
   async function updateTimes(){
     const date = document.getElementById('rDate').value;
     const guestsSel = document.getElementById('rGuests');
-    const guestsVal = (guestsSel.value === '11plus') ? 1 : Number(guestsSel.value || 1);
     const sel = document.getElementById('rTime');
     sel.innerHTML = '';
 
     if(!date) return;
 
+    const guestsVal = guestsSel.value === '11plus' ? 1 : Number(guestsSel.value || 1);
     try{
       const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guestsVal)}`, {cache:"no-store"});
       if(!resp.ok) return;
       const slots = await resp.json();
       if(!Array.isArray(slots)) return;
 
-      // If none allowed -> immediate modal
+      // if nothing allowed -> immediate friendly alert
       const anyAllowed = slots.some(s => s.allowed === true);
       if(!anyAllowed){
-        const reasons = Array.from(new Set(slots.map(s => s.reason || '').filter(Boolean)));
-        let reason = reasons.find(r => r.toLowerCase().includes('sunday')) || reasons[0] || 'This date is not available';
-        showLargeAlert("Reservation not possible", reason + ". Please choose another date.");
+        const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
+        const reasonText = reasons.find(r=>r.toLowerCase().includes('sunday')) || reasons[0] || 'This day is not available';
+        showLargeAlert("Reservation not possible", reasonText + ". Please choose another day.");
         return;
       }
 
-      // Add allowed times only
-      slots.filter(s => s.allowed).forEach(s=>{
+      // show allowed times only, and do not show remaining counts
+      slots.filter(s=>s.allowed).forEach(s=>{
         const opt = document.createElement('option');
         opt.value = s.time;
         opt.textContent = s.time;
         sel.appendChild(opt);
       });
     }catch(e){
-      console.error("updateTimes error", e);
+      console.error("updateTimes", e);
     }
   }
 
   // initial fill
   updateTimes();
 
-  // When date changes we must check immediately and show popup for closed/blocked days
-/* --- Start: small patch to show admin date-specific notices (Customer notices) --- */
-/* Replace the existing rDate change listener with the code below */
-
-document.getElementById('rDate').addEventListener('change', async function(){
-  const date = this.value;
-  if(!date) { updateTimes(); return; }
-
-  try {
-    // 1) check admin closures / notices for that date
-    const resp = await fetch('/api/admin/closure', { cache: "no-store" });
-    if (resp.ok) {
-      const list = await resp.json();
-      // normalize selected date to midnight
-      const sel = new Date(date + 'T00:00:00');
-      // find closures where selected date is within startTs .. endTs (date-aware)
-      const match = list.find(c=>{
-        if(!c.startTs || !c.endTs) return false;
-        const s = new Date(c.startTs);
-        const e = new Date(c.endTs);
-        // consider whole-day closures too: if any overlap on that date -> match
-        // we test if selected day's range intersects closure range
-        const dayStart = new Date(sel.getFullYear(), sel.getMonth(), sel.getDate(), 0,0,0);
-        const dayEnd   = new Date(sel.getFullYear(), sel.getMonth(), sel.getDate(), 23,59,59,999);
-        return (s <= dayEnd && e >= dayStart);
-      });
-
-      if (match) {
-        // show a friendly modal with the closure reason (and optional title if present)
-        const title = match.title && String(match.title).trim() ? String(match.title) : "Notice";
-        const text  = match.reason && String(match.reason).trim() ? String(match.reason) : "This day has a special notice. Please review.";
-        showLargeAlert(title, text); // reuses existing large alert UI so styling stays identical
-        // still update times: but we do not auto-close the notice; user must dismiss it
-        updateTimes();
-        return;
-      }
+  // date change handler (enhanced): will check admin closures/notices and show popup immediately
+  document.getElementById('rDate').addEventListener('change', async function(){
+    const date = this.value;
+    if(!date){
+      updateTimes();
+      return;
     }
-  } catch (err) {
-    console.error("check notices error", err);
-    // on error we continue to fill times (do not block)
-  }
 
-  // 2) fallback: original behaviour — update time slots and show immediate popup if fully closed
-  updateTimes();
-});
-/* --- End: small patch --- */
+    // check closures/notes from admin
+    try{
+      const resp = await fetch('/api/admin/closure', {cache: "no-store"});
+      if(resp.ok){
+        const list = await resp.json();
+        const selStart = new Date(date + 'T00:00:00');
+        const dayStart = new Date(selStart.getFullYear(), selStart.getMonth(), selStart.getDate(), 0,0,0);
+        const dayEnd   = new Date(selStart.getFullYear(), selStart.getMonth(), selStart.getDate(), 23,59,59,999);
 
+        const match = list.find(c=>{
+          if(!c.startTs || !c.endTs) return false;
+          const s = new Date(c.startTs);
+          const e = new Date(c.endTs);
+          return (s <= dayEnd && e >= dayStart);
+        });
 
-  // Reservation submit logic (kept minimal/unchanged)
+        if(match){
+          // if admin provided a title in previous UI, show it; otherwise use reason
+          const title = (match.title && String(match.title).trim()) ? String(match.title) : "Important information";
+          const text  = (match.reason && String(match.reason).trim()) ? String(match.reason) : "This day has a special note. Please check details.";
+          showLargeAlert(title, text);
+          updateTimes();
+          return;
+        }
+      }
+    }catch(err){
+      console.error("check notices error", err);
+    }
+
+    updateTimes();
+  });
+
+  document.getElementById('rGuests').addEventListener('change', function(){
+    const v = this.value;
+    if(v === '11plus'){
+      showLargePartyModal();
+      // revert selection to 1 after a short moment so UI stays consistent
+      setTimeout(()=>{ this.value='1'; updateTimes(); }, 10);
+      return;
+    }
+    updateTimes();
+  });
+
+  // reserve button submission
   document.getElementById('btnReserve').addEventListener('click', async ()=>{
     const payload = {
       date: document.getElementById('rDate').value,
       time: document.getElementById('rTime').value,
-      firstName: (document.getElementById('rFirst').value||"").trim(),
-      name: (document.getElementById('rLast').value||"").trim(),
-      email: (document.getElementById('rEmail').value||"").trim(),
-      phone: (document.getElementById('rPhone').value||"").trim(),
+      firstName: (document.getElementById('rFirst').value || "").trim(),
+      name: (document.getElementById('rLast').value || "").trim(),
+      email: (document.getElementById('rEmail').value || "").trim(),
+      phone: (document.getElementById('rPhone').value || "").trim(),
       guests: Number(document.getElementById('rGuests').value || 1),
-      notes: (document.getElementById('rNotes').value||"").trim()
+      notes: (document.getElementById('rNotes').value || "").trim()
     };
     const msg = document.getElementById('rMsg');
     msg.textContent = '';
@@ -274,13 +279,11 @@ document.getElementById('rDate').addEventListener('change', async function(){
         headers: { 'Content-Type':'application/json' },
         body: JSON.stringify(payload)
       });
-
       const json = await r.json().catch(()=>({}));
       if(r.ok){
-        // if loyalty unlocked → show loyalty modal (canvas fireworks)
         if(json && (json.nowUnlockedTier === 5 || json.nowUnlockedTier === 10 || json.nowUnlockedTier === 15)){
           showLoyaltyModal(json.nowUnlockedTier, json.visitNo || null);
-          // when loyalty closed -> show confirm
+          // when loyalty modal closed, show confirm
           document.getElementById('loyalty-ok').onclick = ()=>{
             hideLoyaltyModal();
             showConfirm("Reservation received", `Thank you. A confirmation mail was sent to <b>${payload.email}</b>.`);
@@ -289,9 +292,9 @@ document.getElementById('rDate').addEventListener('change', async function(){
           showConfirm("Reservation received", `Thank you. A confirmation mail was sent to <b>${payload.email}</b>.`);
         }
       } else {
-        const err = (json && json.error) ? String(json.error).toLowerCase() : "";
-        if(err.includes("sunday") || err.includes("blocked") || err.includes("fully booked")){
-          showLargeAlert("Reservation not possible", (json.error || "This date or slot is not available. Please choose another date or time."));
+        const err = (json && json.error) ? String(json.error).toLowerCase() : "Reservation failed";
+        if(err.includes("sunday") || err.includes("closed") || err.includes("blocked") || err.includes("fully booked")){
+          showLargeAlert("Not available", json.error || "This day is not available. Please choose another day.");
         } else {
           msg.textContent = json.error || 'Error saving reservation';
         }
@@ -302,7 +305,7 @@ document.getElementById('rDate').addEventListener('change', async function(){
     }
   });
 
-  // Confirm modal helpers
+  // small confirm modal helpers
   function showConfirm(title, html){
     const m = document.getElementById('confirm-modal');
     document.getElementById('confirm-title').textContent = title;
@@ -312,7 +315,7 @@ document.getElementById('rDate').addEventListener('change', async function(){
   }
   function hideConfirm(){ document.getElementById('confirm-modal').style.display = 'none'; }
 
-  // Large party modal functions (11+)
+  // large party modal
   function showLargePartyModal(){
     const m = document.getElementById('largeparty-modal');
     m.style.display = 'flex';
@@ -334,118 +337,147 @@ document.getElementById('rDate').addEventListener('change', async function(){
     };
   }
 
-  // ---------------- Loyalty fireworks (canvas covers entire modal area) ----------------
-  let fwRunning = false;
-  let fwCanvas = null;
-  let fwCtx = null;
-  let fwParticles = [];
-  let fwRAF = null;
-  let fwInterval = null;
+  // ---------- Loyalty modal & fireworks (improved, full-card canvas) ----------
+  let _fwRunning = false;
+  let _fwRAF = null;
+  let _fwCanvas = null;
+  let _fwCtx = null;
+  let _fwParticles = [];
 
   function showLoyaltyModal(tier, visitNo = null){
-    const modal = document.getElementById('loyalty-modal');
-    document.getElementById('loyalty-msg').innerHTML = `You just reached visit ${visitNo || ''}<br><strong>Enjoy a ${tier}% thank-you discount on your next visit</strong>`;
-    modal.style.display = 'flex';
-    startFireworks(document.getElementById('fw-canvas'));
+    const m = document.getElementById('loyalty-modal');
+    m.style.display = 'flex';
+    const msgEl = document.getElementById('loyalty-msg');
+    const percent = tier;
+    msgEl.innerHTML = `You just reached visit ${visitNo || ''}<br><strong>Enjoy a ${percent}% thank-you discount on your next visit</strong>`;
+
+    // ensure full-card canvas exists
+    let canvas = document.getElementById('__fw_full');
+    const card = m.querySelector('.card');
+    card.style.position = 'relative';
+    if(!canvas){
+      canvas = document.createElement('canvas');
+      canvas.id = '__fw_full';
+      canvas.style.position = 'absolute';
+      canvas.style.left = '0';
+      canvas.style.top = '0';
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.pointerEvents = 'none';
+      canvas.style.borderRadius = '12px';
+      card.insertBefore(canvas, card.firstChild);
+    }
+    startFireworks(canvas);
   }
 
   function hideLoyaltyModal(){
     stopFireworks();
-    document.getElementById('loyalty-modal').style.display = 'none';
+    const m = document.getElementById('loyalty-modal');
+    m.style.display = 'none';
+    const canvas = document.getElementById('__fw_full');
+    if(canvas) canvas.remove();
   }
 
   function startFireworks(canvas){
-    if(fwRunning) return;
-    fwRunning = true;
-    fwCanvas = canvas;
+    if(_fwRunning) return;
+    _fwCanvas = canvas;
+    const w = Math.max(200, canvas.clientWidth);
+    const h = Math.max(120, canvas.clientHeight);
+    canvas.width = Math.floor(w * devicePixelRatio);
+    canvas.height = Math.floor(h * devicePixelRatio);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    _fwCtx = canvas.getContext('2d');
+    _fwCtx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    _fwParticles = [];
+    _fwRunning = true;
 
-    // size canvas to element * devicePixelRatio
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    canvas.width = Math.max(1, Math.floor(w * devicePixelRatio));
-    canvas.height = Math.max(1, Math.floor(h * devicePixelRatio));
-    fwCtx = canvas.getContext('2d');
-    fwCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    const colors = ['#e74c3c','#f39c12','#ffd54f','#f06292','#9b59b6','#8e44ad','#3498db','#2ecc71','#ff7043','#ffe082','#00bfa5','#ff4081'];
 
-    fwParticles = [];
-
-    function spawnBurst(count, cx, cy){
-      const colors = ['#e74c3c','#f39c12','#ffd54f','#f06292','#9b59b6','#8e44ad','#3498db','#2ecc71','#ff7043','#ffe082'];
+    function spawnBigBurst(cx, cy, strength){
+      const count = Math.floor(120 * strength);
       for(let i=0;i<count;i++){
         const ang = Math.random()*Math.PI*2;
-        const speed = 1 + Math.random()*6;
-        const vx = Math.cos(ang)*speed;
-        const vy = Math.sin(ang)*speed*0.9 - (Math.random()*2);
-        const size = 2 + Math.random()*6;
-        const life = 40 + Math.floor(Math.random()*110);
+        const speed = (2 + Math.random()*8) * (0.6 + strength*0.8);
+        const vx = Math.cos(ang) * speed;
+        const vy = Math.sin(ang) * speed * 0.9 - (Math.random()*2);
+        const size = 2 + Math.random()*6 * (0.6 + strength*0.6);
+        const life = 60 + Math.floor(Math.random()*120);
         const color = colors[Math.floor(Math.random()*colors.length)];
-        fwParticles.push({
-          x: cx + (Math.random()*8-4),
-          y: cy + (Math.random()*8-4),
-          vx, vy, size,
-          life, maxLife: life,
-          color, weight: 0.9 + Math.random()*0.9
+        _fwParticles.push({
+          x: cx + (Math.random()*10-5),
+          y: cy + (Math.random()*10-5),
+          vx, vy,
+          size,
+          life,
+          maxLife: life,
+          color,
+          weight: 0.85 + Math.random()*1.4
         });
       }
     }
 
-    // initial big burst and then repeated bursts for show
-    spawnBurst(230, w/2, h/2);
-    fwInterval = setInterval(()=> spawnBurst(120 + Math.floor(Math.random()*120), 40 + Math.random()*(w-80), 40 + Math.random()*(h-80)), 520);
+    spawnBigBurst(w*0.5, h*0.35, 1.2);
+    setTimeout(()=> spawnBigBurst(w*0.25, h*0.4, 1.0), 150);
+    setTimeout(()=> spawnBigBurst(w*0.75, h*0.4, 1.0), 250);
+    const interval = setInterval(()=>{
+      const cx = 40 + Math.random()*(w-80);
+      const cy = 30 + Math.random()*(Math.max(80, h/2));
+      spawnBigBurst(cx, cy, 0.7 + Math.random()*0.8);
+      if(Math.random() < 0.12) spawnBigBurst(30 + Math.random()*(w-60), 20 + Math.random()*(h/2), 1.6);
+    }, 350);
 
     function loop(){
-      if(!fwRunning){
-        if(fwInterval) clearInterval(fwInterval);
-        fwRAF = null;
-        return;
-      }
-      fwCtx.clearRect(0,0,w,h);
-      // faint warm overlay for trailing
-      fwCtx.fillStyle = 'rgba(214,199,178,0.06)';
-      fwCtx.fillRect(0,0,w,h);
+      if(!_fwRunning){ clearInterval(interval); if(_fwRAF) cancelAnimationFrame(_fwRAF); _fwRAF = null; return; }
+      _fwCtx.clearRect(0,0,canvas.clientWidth, canvas.clientHeight);
+      _fwCtx.fillStyle = 'rgba(214,199,178,0.06)';
+      _fwCtx.fillRect(0,0,canvas.clientWidth, canvas.clientHeight);
 
-      for(let i=fwParticles.length-1;i>=0;i--){
-        const p = fwParticles[i];
+      for(let i=_fwParticles.length-1;i>=0;i--){
+        const p = _fwParticles[i];
         p.vy += 0.03 * p.weight;
         p.x += p.vx;
         p.y += p.vy;
-        p.vx *= 0.995; p.vy *= 0.995;
+        p.vx *= 0.994;
+        p.vy *= 0.994;
         p.life -= 1;
         const alpha = Math.max(0, p.life / p.maxLife);
-        fwCtx.globalAlpha = alpha;
-        const g = fwCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size*2.2);
-        g.addColorStop(0, p.color);
-        g.addColorStop(0.6, p.color);
-        g.addColorStop(1, 'rgba(255,255,255,0)');
-        fwCtx.fillStyle = g;
-        fwCtx.beginPath();
-        fwCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-        fwCtx.fill();
 
-        // tiny sparkles
-        if(Math.random() < 0.02){
-          fwCtx.fillStyle = 'rgba(255,255,255,0.9)';
-          fwCtx.fillRect(p.x+Math.random()*2-1, p.y+Math.random()*2-1, 1.5, 1.5);
+        const g = _fwCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size*2.2);
+        g.addColorStop(0, p.color);
+        g.addColorStop(0.5, p.color);
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        _fwCtx.globalAlpha = Math.min(1, alpha*1.1);
+        _fwCtx.fillStyle = g;
+        _fwCtx.beginPath();
+        _fwCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+        _fwCtx.fill();
+
+        if(Math.random() < 0.03){
+          _fwCtx.globalAlpha = Math.min(1, alpha);
+          _fwCtx.fillStyle = 'rgba(255,255,255,0.9)';
+          _fwCtx.fillRect(p.x + Math.random()*3 - 1.5, p.y + Math.random()*3 - 1.5, 1.5, 1.5);
         }
 
-        if(p.life <= 0 || p.y > h + 40) fwParticles.splice(i,1);
+        if(p.life <= 0 || p.y > canvas.clientHeight + 80) {
+          _fwParticles.splice(i,1);
+        }
       }
-
-      fwCtx.globalAlpha = 1;
-      fwRAF = requestAnimationFrame(loop);
+      _fwCtx.globalAlpha = 1;
+      _fwRAF = requestAnimationFrame(loop);
     }
     loop();
   }
 
   function stopFireworks(){
-    fwRunning = false;
-    if(fwRAF) cancelAnimationFrame(fwRAF);
-    if(fwInterval) { clearInterval(fwInterval); fwInterval = null; }
-    if(fwCtx && fwCanvas) fwCtx.clearRect(0,0,fwCanvas.width, fwCanvas.height);
-    fwParticles = [];
+    _fwRunning = false;
+    if(_fwRAF) { cancelAnimationFrame(_fwRAF); _fwRAF = null; }
+    if(_fwCanvas && _fwCtx){
+      _fwCtx.clearRect(0,0,_fwCanvas.clientWidth, _fwCanvas.clientHeight);
+    }
+    _fwParticles = [];
   }
 
-  // Close loyalty modal button
   document.getElementById('loyalty-ok').addEventListener('click', ()=> hideLoyaltyModal());
 
   // accessibility: Escape closes modals
@@ -457,18 +489,14 @@ document.getElementById('rDate').addEventListener('change', async function(){
     }
   });
 
-  // resize canvas on window resize for crisp result
   window.addEventListener('resize', ()=>{
-    if(fwCanvas && fwRunning){
-      try {
-        fwCanvas.width = Math.max(1, Math.floor(fwCanvas.clientWidth * devicePixelRatio));
-        fwCanvas.height = Math.max(1, Math.floor(fwCanvas.clientHeight * devicePixelRatio));
-        if(fwCtx) fwCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-      } catch(e){ /* ignore */ }
+    if(_fwCanvas && _fwCanvas.parentElement && _fwRunning){
+      _fwCanvas.width = _fwCanvas.clientWidth * devicePixelRatio;
+      _fwCanvas.height = _fwCanvas.clientHeight * devicePixelRatio;
+      if(_fwCtx) _fwCtx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
     }
   });
 
-  // ensure updateTimes when page gains focus
   window.addEventListener('focus', ()=> updateTimes());
 </script>
 </body>
