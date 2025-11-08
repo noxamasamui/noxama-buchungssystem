@@ -19,10 +19,26 @@
     .card { margin-bottom:20px; }
     .notices-list { display:flex;flex-direction:column;gap:8px; }
     .notice-item { background:#fff8f0;border:1px solid #e0d7c5;padding:10px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px; }
-    .notice-item small{color:#6b5b4a}
-    .notice-actions button{margin-left:8px}
+    .notice-item .notice-left { flex:1 1 auto; min-width:0; }
+    .notice-item .notice-left strong{ display:block; margin-bottom:6px; }
+    .notice-item .notice-body { white-space:pre-wrap; color:#6b5b4a; } /* preserve line breaks */
+    .notice-actions { margin-left:12px; display:flex; gap:8px; align-items:center; }
     .form-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
     @media(max-width:520px){ .form-row { flex-direction:column; } }
+
+    /* keep textarea styling consistent with site inputs */
+    textarea.admin-textarea {
+      width:100%;
+      box-sizing: border-box;
+      padding:8px 10px;
+      border-radius:6px;
+      border:1px solid #c8b99e;
+      font-family: inherit;
+      font-size:15px;
+      min-height:72px;
+      background:#fff;
+      resize:vertical;
+    }
   </style>
 </head>
 <body>
@@ -116,7 +132,10 @@
   <div style="margin-bottom:10px;" class="form-row">
     <div style="flex:0 0 160px;"><label>Date</label><input id="nDate" type="date"/></div>
     <div style="flex:1 1 200px;"><label>Title</label><input id="nTitle" placeholder="Title (shown in modal header)"/></div>
-    <div style="flex:2 1 300px;"><label>Message</label><input id="nMessage" placeholder="Short message or HTML snippet"/></div>
+    <div style="flex:2 1 300px;"><label>Message</label>
+      <!-- changed from input to textarea to allow Enter/newlines -->
+      <textarea id="nMessage" class="admin-textarea" placeholder="Short message or HTML snippet - use Enter for line breaks"></textarea>
+    </div>
     <div style="flex:0 0 140px;align-self:flex-end;"><button id="btnAddNotice" class="btn">Add notice</button></div>
   </div>
 
@@ -246,7 +265,7 @@
   }
   loadClosures();
 
-  // ------------------ Notices management (title + message) ------------------
+  // ------------------ Notices management (title + message, message supports newlines) ------------------
   async function loadNotices(){
     const r = await fetch("/api/admin/notices");
     if(!r.ok) return;
@@ -256,8 +275,8 @@
     if(!Array.isArray(list) || list.length===0){ box.innerHTML = "<small>No notices set</small>"; return; }
     list.forEach(n=>{
       const div = document.createElement("div"); div.className = "notice-item";
-      const left = document.createElement("div");
-      left.innerHTML = `<strong>${n.date} — ${ (n.title) ? (n.title) : '' }</strong><div><small>${n.message}</small></div>`;
+      const left = document.createElement("div"); left.className = "notice-left";
+      left.innerHTML = `<strong>${n.date} — ${ (n.title) ? (n.title) : '' }</strong><div class="notice-body">${escapeHtml(n.message)}</div>`;
       const actions = document.createElement("div"); actions.className = "notice-actions";
       const btnDel = document.createElement("button"); btnDel.className = "btn"; btnDel.textContent = "Delete"; btnDel.onclick = async ()=>{
         const r = await fetch(`/api/admin/notice/${encodeURIComponent(n.date)}`, { method:"DELETE" });
@@ -269,10 +288,19 @@
       box.appendChild(div);
     });
   }
+
+  // simple escaper but preserve line breaks: replace HTML special chars then convert \n to <br>
+  function escapeHtml(str){
+    if(!str) return "";
+    const s = String(str)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    return s.replace(/\r\n?/g,"\n").replace(/\n/g,"<br>");
+  }
+
   document.getElementById("btnAddNotice").addEventListener("click", async ()=>{
     const date = document.getElementById("nDate").value;
     const title = document.getElementById("nTitle").value.trim();
-    const message = document.getElementById("nMessage").value.trim();
+    const message = document.getElementById("nMessage").value;
     if(!date || !message){ alert("Set both date and message"); return; }
     const payload = { date, message, title: title || "Important information" };
     const r = await fetch("/api/admin/notice", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
