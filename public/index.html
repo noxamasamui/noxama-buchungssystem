@@ -350,6 +350,30 @@
       m.style.display='none';
     };
   }
+  // call after date changed (inside your existing change handler)
+async function checkDateNotices(date) {
+  try {
+    if (!date) return;
+    const resp = await fetch(`/api/admin/notices`);
+    if (!resp.ok) return;
+    const list = await resp.json();
+    if (!Array.isArray(list) || list.length === 0) return;
+    const match = list.find(n => n.date === date);
+    if (match) {
+      // show a friendly modal (reuse showModal if available)
+      const content = `<div style="font-family:Georgia,serif;color:#3a2f28;">
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Note for ${date}</div>
+        <div style="font-size:15px">${match.msg}</div>
+      </div>`;
+      if (typeof showModal === "function") {
+        showModal(content, "Important information");
+      } else {
+        alert(match.msg);
+      }
+    }
+  } catch (e) { console.error("checkDateNotices", e); }
+}
+
 
   /* ----------------- loyalty fireworks (unchanged) ------------------ */
   // (The fireworks code is identical to what worked; omitted here for brevity in commentary)
