@@ -1,145 +1,122 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <title>Reservation — ROESTILAND BY NOXAMA SAMUI</title>
-  <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="/style.css"/>
   <style>
-    /* retained theme + small adjustments */
-    body { background:#d9c8b0; font-family: Georgia, "Times New Roman", serif; color:#3a2f28; margin:0; }
-    /* --- Logo: zwingend mittig und skalierend --- */
-.hero-wrap {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 18px;
-  padding: 8px 0;
-  pointer-events: none; /* verhindert versehentliche Drag/Selection */
-}
-.hero-wrap .hero-banner {
-  max-width: 640px;
-  width: min(76%, 640px);
-  height: auto;
-  margin: 0 auto;
-  border-radius: 12px;
-  box-shadow: 0 25px 50px rgba(0,0,0,.18);
-  object-fit: contain;
-  display: block;
-  pointer-events: auto;
-}
+    /* --- ensure logo centered and responsive --- */
+    .hero-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 18px;
+      padding: 8px 0;
+      pointer-events: none;
+    }
+    .hero-wrap .hero-banner {
+      max-width: 640px;
+      width: min(76%, 640px);
+      height: auto;
+      margin: 0 auto;
+      border-radius: 12px;
+      box-shadow: 0 25px 50px rgba(0,0,0,.18);
+      object-fit: contain;
+      display: block;
+      pointer-events: auto;
+    }
 
-    .container { max-width:980px; margin:18px auto; padding:0 14px; }
-    .card { background: linear-gradient(180deg,#fffaf6,#fff3e8); border-radius:10px; padding:18px; box-shadow:0 8px 30px rgba(0,0,0,0.12); border:1px solid rgba(200,170,130,0.16); }
-    h1,h2 { margin:0 0 8px 0; text-align:center; }
-    label { font-weight:600; display:block; margin-bottom:6px; }
-    input, select, textarea { width:100%; box-sizing:border-box; padding:10px; border-radius:8px; border:1px solid #d9c2a8; background:#fff; }
-    .row { display:flex; gap:12px; align-items:center; }
-    .date-time .row > div { flex:1; }
-    .form-grid-2 .row > div { flex:1; }
-    .btn { padding:10px 14px; border-radius:8px; border:none; cursor:pointer; background:#b3822f; color:#fff; font-weight:700; }
-    .btn-primary-book { background:#b3822f; box-shadow:0 4px 10px rgba(0,0,0,.12); }
+    /* Confirmation modal (existing) left unchanged visually */
+    #confirm-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); align-items:center; justify-content:center; z-index:9999; }
+    #confirm-modal > div { background:#fff8f0; border-radius:12px; padding:18px; max-width:420px; width:92%; text-align:center; border:1px solid #e0d7c5; box-shadow:0 10px 35px rgba(0,0,0,.25); }
 
-    .badge { display:inline-block; background:#fff3df; padding:6px 10px; border-radius:8px; border:1px solid #ead6b6; color:#3a2f28; }
+    /* contact modal for 11+ guests */
+    #contact-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:99998; align-items:center; justify-content:center; }
+    #contact-modal > div { background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center; }
+    #contact-modal a.btn-contact { display:inline-block; margin:8px 6px; padding:10px 14px; background:#b3822f; color:#fff; text-decoration:none; border-radius:8px; }
 
-    /* loyalty modal + fireworks (your example adapted) */
-    #loyalty-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9999; align-items: center; justify-content: center; }
-   /* Loyalty panel — Hintergrundfarbe entsprechend Wunsch */
-#loyalty-modal > div {
-  background: #d6c7b2;               /* <- hier die gewünschte Farbe */
-  border: 1px solid rgba(224,215,197,0.9);
-  border-radius: 12px;
-  max-width: 520px;
-  width: 92%;
-  padding: 18px;
-  box-shadow: 0 10px 35px rgba(0,0,0,0.25);
-  text-align: center;
-  animation: fadein .18s ease both;
-  color: #3a2f28;
-}
-#fw-canvas { 
-  width: 100%;
-  height: 160px;
-  display: block;
-  border-radius: 10px;
-  margin-bottom: 10px;
-  background: linear-gradient(180deg,#f9f3ea,#f0e6d8); /* dezenter canvas-hintergrund */
-  box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03);
-}
-
-    #fw-canvas { width: 100%; height: 160px; display: block; border-radius: 10px; margin-bottom: 10px; background: linear-gradient(180deg,#fff,#fff8f2); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03); }
-
-    /* small utilities */
-    .hidden { display: none !important; }
-    .text-center { text-align: center; }
-
-    /* images */
-    img { max-width: 100%; height: auto; display: block; }
+    /* loyalty modal + fireworks (user requested style + bg color) */
+    #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; }
+    #loyalty-modal > div {
+      background: #d6c7b2;               /* requested background color */
+      border: 1px solid rgba(224,215,197,0.9);
+      border-radius: 12px;
+      max-width: 520px;
+      width: 92%;
+      padding: 18px;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.25);
+      text-align: center;
+      color: #3a2f28;
+      animation: fadein .18s ease both;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    #fw-canvas { width:100%; height:160px; display:block; border-radius:10px; margin-bottom:10px; background: linear-gradient(180deg,#fff,#fff8f2); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03); }
 
     /* subtle animation */
-    @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-    @media (max-width:520px){ #fw-canvas { height:120px; } }
+    @keyframes fadein { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+    /* small utilities */
+    .hidden { display:none !important; }
+    .text-center { text-align:center; }
+
   </style>
 </head>
 <body>
-  <div class="hero-wrap">
-    <img id="heroBanner" class="hero-banner" alt="Logo banner" />
+  <div class="hero-wrap" style="text-align:center;">
+    <img id="heroBanner" class="hero-banner" alt="Logo banner" src="/logo-hero.png"/>
   </div>
 
   <div class="container">
     <h1 style="text-align:center;margin-top:8px;">Reservation — ROESTILAND BY NOXAMA SAMUI</h1>
-    <p style="text-align:center;margin-top:6px;">
-      Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675
-    </p>
+    <p style="text-align:center;margin-top:6px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
 
     <div class="card booking-card booking-compact" style="max-width:760px;margin:18px auto;padding:18px;">
       <h2>Book a table</h2>
 
-      <div class="row date-time" style="margin-top:12px;">
+      <div class="row date-time">
         <div style="flex:1 1 220px;">
-          <label for="rDate">Date</label>
+          <label>Date</label>
           <input id="rDate" type="date"/>
         </div>
         <div style="flex:0 0 110px;">
-          <label for="rGuests">Guests</label>
+          <label>Guests</label>
           <select id="rGuests">
-            <!-- extended options up to 20, but 11+ triggers contact modal -->
             <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
             <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
             <option>11</option><option>12</option><option>13</option><option>14</option><option>15</option>
-            <option>16</option><option>17</option><option>18</option><option>19</option><option>20</option>
           </select>
         </div>
         <div style="flex:0 0 140px;">
-          <label for="rTime">Time</label>
+          <label>Time</label>
           <select id="rTime"></select>
         </div>
       </div>
 
-      <div class="row form-grid-2" style="margin-top:12px;">
+      <div class="row form-grid-2" style="margin-top:6px;">
         <div>
-          <label for="rFirst">First name</label>
+          <label>First name</label>
           <input id="rFirst" type="text"/>
         </div>
         <div>
-          <label for="rLast">Last name</label>
+          <label>Last name</label>
           <input id="rLast" type="text"/>
         </div>
       </div>
 
-      <div class="row form-grid-2" style="margin-top:12px;">
+      <div class="row form-grid-2" style="margin-top:6px;">
         <div>
-          <label for="rEmail">Email</label>
+          <label>Email</label>
           <input id="rEmail" type="email"/>
         </div>
         <div>
-          <label for="rPhone">Phone</label>
+          <label>Phone</label>
           <input id="rPhone" type="tel"/>
         </div>
       </div>
 
-      <div style="margin-top:12px;">
-        <label for="rNotes">Notes</label>
+      <div style="margin-top:8px;">
+        <label>Notes</label>
         <textarea id="rNotes" rows="2" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
       </div>
 
@@ -151,8 +128,8 @@
   </div>
 
   <!-- confirmation modal -->
-  <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:9999;">
-    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5;">
+  <div id="confirm-modal">
+    <div>
       <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
       <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
       <div style="display:flex;gap:10px;justify-content:center;">
@@ -161,402 +138,350 @@
     </div>
   </div>
 
-  <!-- loyalty modal (white panel + canvas) -->
-  <div id="loyalty-modal" aria-hidden="true">
-    <div role="dialog" aria-modal="true">
-      <canvas id="fw-canvas" width="800" height="160"></canvas>
-      <div style="text-align:center;">
-        <h3 style="margin:6px 0 4px 0;color:#3a2f28;">You earned a loyalty reward</h3>
-        <div id="loyalty-sub" style="font-family:Georgia,serif;color:#3a2f28;margin-bottom:8px;">🎉 Congratulations — loyalty reward unlocked!</div>
-        <div id="loyalty-visit" style="margin-bottom:10px;color:#3a2f28;"></div>
-        <div class="loyalty-reward" style="display:inline-block;background: linear-gradient(180deg,#f7dfc7,#e8caa0); color:#5a3610; padding:12px 18px; border-radius:10px; font-weight:700;"></div>
-        <div style="margin-top:12px;"><button id="loyalty-ok" class="btn" style="min-width:120px;margin-top:8px;">Okay</button></div>
+  <!-- contact modal for 11+ guests -->
+  <div id="contact-modal">
+    <div>
+      <h3 style="margin-top:0;">Large party request</h3>
+      <p>For parties of 11 or more please contact us directly so we can arrange a suitable table and confirm availability.</p>
+      <div style="margin:10px 0;">
+        <a class="btn-contact" href="tel:+66077270675">Call +66 077 270 675</a>
+        <a class="btn-contact" href="mailto:info@noxamasamui.com">Email info@noxamasamui.com</a>
+      </div>
+      <div style="font-size:13px;color:#3a2f28;margin-top:6px;">Or use the chat / contact form on our site — we will help you find the best option.</div>
+      <div style="margin-top:12px;">
+        <button id="contact-close" class="btn" style="padding:8px 12px;border-radius:8px;background:#b3822f;color:#fff;border:none;">OK</button>
       </div>
     </div>
   </div>
 
-  <!-- contact modal for 11+ guests -->
-  <div id="contact-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:9999;">
-    <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:520px;width:92%;text-align:center;border:1px solid #e0d7c5;">
-      <h3 style="margin-top:0;color:#3a2f28;">For large groups, please contact us</h3>
-      <p style="color:#3a2f28;">For reservations of 11 or more guests we kindly ask you to call or email so we can assist with seating and special requests.</p>
-      <p style="margin-top:10px;">
-        <a id="tel-link" href="tel:+66077270675" style="display:inline-block;margin-right:8px;padding:10px 14px;border-radius:8px;background:#b3822f;color:#fff;text-decoration:none;">Call +66 077 270 675</a>
-        <a id="mail-link" href="mailto:info@noxamasamui.com" style="display:inline-block;margin-left:8px;padding:10px 14px;border-radius:8px;background:#8b6a36;color:#fff;text-decoration:none;">Email info@noxamasamui.com</a>
-      </p>
-      <div style="margin-top:12px;"><button id="contact-ok" class="btn" style="min-width:120px;">Close</button></div>
+  <!-- loyalty modal with fireworks -->
+  <div id="loyalty-modal">
+    <div>
+      <h3 id="loy-title" style="margin:6px 0 8px 0;">You earned a loyalty reward</h3>
+      <div id="loy-sub" style="margin-bottom:6px;color:#3a2f28;"></div>
+      <canvas id="fw-canvas" aria-hidden="true"></canvas>
+      <div id="loy-cta" style="margin-top:6px;"></div>
+      <div style="margin-top:10px;">
+        <button id="loy-ok" class="btn" style="padding:8px 14px;border-radius:8px;background:#b3822f;color:#fff;border:none;">Okay</button>
+      </div>
     </div>
   </div>
 
 <script>
-/* small helpers */
+/* ---------- utilities ---------- */
 const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-const BOOKING_BG = '#d9c8b0';
 
 (async()=>{
   try {
-    const r = await fetch('/api/config', {cache:"no-store"});
-    if(!r.ok) return;
-    const cfg = await r.json();
-    const hero = document.getElementById('heroBanner');
-    hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
-    hero.alt = cfg.brand || 'Banner';
-  } catch(e){ console.error("cfg", e); }
+    const r = await fetch('/api/config',{cache:"no-store"});
+    if (r.ok) {
+      const cfg = await r.json();
+      const hero = document.getElementById('heroBanner');
+      if (cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim()) hero.src = cfg.mailHeaderUrl;
+      else if (cfg.mailLogoUrl && cfg.mailLogoUrl.trim()) hero.src = cfg.mailLogoUrl;
+      else hero.src = '/logo-hero.png';
+      hero.alt = cfg.brand || 'Banner';
+    }
+  } catch(e) { /* ignore */ }
 })();
 
 document.getElementById('rDate').value = today();
 
-/* update times: request /api/slots and only list allowed times
-   if none allowed => inspect reasons and show immediate modal
-   if guests >=11 => show contact modal and don't load times
-*/
+/* ---------- fill times by querying /api/slots (only allowed shown) ---------- */
 async function updateTimes(){
   const date = document.getElementById('rDate').value;
- // --- Enforce 11+ -> contact (prevent booking) ---
-const guestsSel = document.getElementById('rGuests');
-const timeSel = document.getElementById('rTime');
-const reserveBtn = document.getElementById('btnReserve');
-
-function handleGuestsChange() {
-  const g = Number(guestsSel.value || 1);
-  if (g >= 11) {
-    // prevent booking: clear times, disable Book button and show contact modal
-    timeSel.innerHTML = '';
-    reserveBtn.disabled = true;
-    reserveBtn.style.opacity = '0.7';
-    // show contact modal with clearly visible call-to-action
-    showContactModal();
-  } else {
-    // re-enable booking UI
-    reserveBtn.disabled = false;
-    reserveBtn.style.opacity = '1';
-    hideContactModal();         // hide if open
-    // refresh allowed times for the selected date/guest count
-    updateTimes();
-  }
-}
-
-// hook up
-guestsSel.removeEventListener?.('change', handleGuestsChange); // defensive
-guestsSel.addEventListener('change', handleGuestsChange);
-
+  const guests = Number(document.getElementById('rGuests').value || 1);
   const sel = document.getElementById('rTime');
   sel.innerHTML = '';
 
-  // 11+ guests -> contact modal
-  if(guests >= 11){
-    showContactModal();
-    return;
-  } else {
-    hideContactModal();
-  }
-
-  if(!date) return;
+  if (!date) return;
 
   try {
-    const res = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache:"no-store"});
-    if(!res.ok){
-      fillFallbackTimes(sel);
-      return;
-    }
-    const slots = await res.json();
-    if(!Array.isArray(slots)){
-      fillFallbackTimes(sel);
+    const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guests)}`, {cache:"no-store"});
+    if (!resp.ok) { showGenericModal("Could not load slots. Please try again later."); return; }
+    const slots = await resp.json();
+    if (!Array.isArray(slots) || slots.length === 0) {
+      showGenericModal("No availability for this date. Please choose another day.");
       return;
     }
 
-    const allowed = slots.filter(s => s.allowed === true);
-    if(allowed.length === 0){
-      // gather reasons
-      const reasons = Array.from(new Set(slots.map(s => (s.reason||"")).filter(Boolean)));
-      const sunday = reasons.find(r => /sunday/i.test(r));
-      const blocked = reasons.find(r => /blocked|closed/i.test(r));
-      const reasonText = sunday || blocked || reasons[0] || "This date is not available";
-      showSimpleModal("Reservation not possible", `
-        <div style="font-family:Georgia,serif;color:#3a2f28;">
-          <div style="font-size:20px;margin-bottom:8px;">Oh no — this day is not available</div>
-          <div style="margin-bottom:10px;">${escapeHtml(reasonText)}</div>
-          <div>Please choose another date — we would love to welcome you.</div>
-        </div>
-      `);
+    // Only show allowed slots (no "left" counts)
+    const allowed = slots.filter(s => s.allowed);
+    if (allowed.length === 0) {
+      // If all blocked/closed -> immediate friendly modal
+      const reasonSet = Array.from(new Set(slots.map(s => s.reason || "").filter(Boolean)));
+      const reason = reasonSet.find(r => /sunday/i.test(r)) ? "We are closed on Sundays." : (reasonSet[0] || "This date is not available.");
+      showGenericModal(reason + " Please choose another day.");
       return;
     }
 
-    // populate only allowed times (do not show remaining counts)
-    for(const s of allowed){
-      const opt = document.createElement('option');
+    // populate times
+    allowed.forEach(s => {
+      const opt = document.createElement("option");
       opt.value = s.time;
-      opt.textContent = s.time;
+      opt.textContent = s.time; // intentionally NOT showing remaining seats
       sel.appendChild(opt);
+    });
+
+  } catch(e) {
+    console.error("updateTimes error", e);
+    showGenericModal("Network error while fetching times");
+  }
+}
+
+/* ---------- helper modals ---------- */
+function showGenericModal(msg, title="Reservation not possible"){
+  const ex = document.getElementById("__generic_modal");
+  if (ex) ex.remove();
+  const o = document.createElement("div");
+  o.id = "__generic_modal";
+  o.style = "position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:999997;";
+  const b = document.createElement("div");
+  b.style = "background:#fff8f0;border-radius:12px;padding:18px;max-width:520px;width:92%;text-align:center;border:1px solid #e0d7c5;box-shadow:0 10px 35px rgba(0,0,0,0.25);";
+  b.innerHTML = `<h3 style="margin-top:0">${title}</h3><div style="color:#3a2f28;margin:8px 0 12px 0;">${msg}</div><button style="padding:8px 12px;border-radius:8px;background:#b3822f;color:#fff;border:none;">OK</button>`;
+  b.querySelector("button").onclick = ()=> o.remove();
+  o.appendChild(b);
+  document.body.appendChild(o);
+}
+
+/* ---------- contact modal for large party ---------- */
+const contactModal = document.getElementById('contact-modal');
+document.getElementById('contact-close').addEventListener('click', ()=> contactModal.style.display='none');
+function showContactModal(){ contactModal.style.display='flex'; }
+function hideContactModal(){ contactModal.style.display='none'; }
+
+/* ---------- loyalty modal & fireworks ---------- */
+const loyModal = document.getElementById('loyalty-modal');
+const fwCanvas = document.getElementById('fw-canvas');
+
+function showLoyaltyModalForVisit(visitNo){
+  // determine tier from visitNo (5..9 => 5, 10..14 =>10, >=15 =>15)
+  let tier = 0;
+  if (visitNo >= 15) tier = 15;
+  else if (visitNo >= 10) tier = 10;
+  else if (visitNo >= 5) tier = 5;
+  if (!tier) return;
+
+  document.getElementById('loy-sub').innerHTML = `You just reached visit <b>${visitNo}</b>`;
+  document.getElementById('loy-cta').innerHTML = `<div style="font-size:18px;padding:10px 12px;border-radius:8px;background:#fff8ea;display:inline-block;">Enjoy a <b style="color:#b3822f">${tier}%</b> thank-you discount on your next visit</div>`;
+  loyModal.style.display = 'flex';
+  startFireworks(); // heavy, colorful effect
+}
+
+document.getElementById('loy-ok').addEventListener('click', ()=>{
+  stopFireworks();
+  loyModal.style.display = 'none';
+});
+
+/* ---------- canvas fireworks implementation (more colorful / more particles) ---------- */
+let fwCtx, fwW, fwH, fwAnim, particles = [];
+
+function resizeCanvas(){
+  if (!fwCanvas) return;
+  fwW = fwCanvas.width = Math.floor(fwCanvas.clientWidth * devicePixelRatio);
+  fwH = fwCanvas.height = Math.floor(fwCanvas.clientHeight * devicePixelRatio);
+  fwCanvas.style.width = fwCanvas.clientWidth + "px";
+  fwCanvas.style.height = fwCanvas.clientHeight + "px";
+  fwCtx = fwCanvas.getContext('2d');
+  fwCtx && fwCtx.scale(devicePixelRatio, devicePixelRatio);
+}
+function rand(min,max){ return min + Math.random()*(max-min); }
+
+function spawnBurst(x,y, count){
+  const colors = ['#e74c3c','#f39c12','#f1c40f','#2ecc71','#3498db','#9b59b6','#e67e22','#ffd54f','#ff6bcb','#7bed9f'];
+  for(let i=0;i<count;i++){
+    const a = rand(0, Math.PI*2);
+    const speed = rand(60, 360);
+    particles.push({
+      x, y,
+      vx: Math.cos(a)*speed,
+      vy: Math.sin(a)*speed,
+      life: rand(900,1600),
+      age: 0,
+      size: rand(3,8),
+      color: colors[Math.floor(Math.random()*colors.length)],
+      rotate: rand(0,720),
+      spin: rand(-0.5,0.5)
+    });
+  }
+}
+
+function startFireworks(){
+  resizeCanvas();
+  particles = [];
+  // schedule bursts: center + offsets
+  const w = fwCanvas.clientWidth;
+  spawnBurst(w*0.5, 120, 120);
+  setTimeout(()=> spawnBurst(w*0.3, 110, 80), 220);
+  setTimeout(()=> spawnBurst(w*0.7, 100, 90), 300);
+  setTimeout(()=> spawnBurst(w*0.45, 50, 120), 600);
+  // continuous smaller sparkles
+  let t=0;
+  (function loop(now){
+    fwAnim = requestAnimationFrame(loop);
+    if(!fwCtx) return;
+    fwCtx.clearRect(0,0,fwW,fwH);
+    const dt = 16;
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.age += dt;
+      // simple physics, gravity and drag
+      const dtSec = dt/1000;
+      p.vy += 200 * dtSec; // gravity
+      p.vx *= 0.995;
+      p.vy *= 0.995;
+      p.x += p.vx * dtSec;
+      p.y += p.vy * dtSec;
+      p.rotate += p.spin * dtSec * 60;
+
+      const alpha = Math.max(0, 1 - p.age / p.life);
+      fwCtx.save();
+      fwCtx.globalAlpha = alpha;
+      fwCtx.translate(p.x, p.y);
+      fwCtx.rotate(p.rotate * Math.PI / 180);
+      fwCtx.fillStyle = p.color;
+      fwCtx.beginPath();
+      fwCtx.arc(0, 0, p.size, 0, Math.PI*2);
+      fwCtx.fill();
+      fwCtx.restore();
+
+      if (p.age >= p.life || p.y > fwCanvas.clientHeight + 20) {
+        particles.splice(i,1);
+      }
     }
-
-    if(!sel.options.length) fillFallbackTimes(sel);
-  } catch(e){
-    console.error("updateTimes", e);
-    fillFallbackTimes(sel);
-  }
+    // occasionally spawn trailing sparkles
+    t += dt;
+    if (t % 1200 < 20) {
+      const x = rand(40, fwCanvas.clientWidth - 40);
+      const y = rand(40, fwCanvas.clientHeight/2);
+      spawnBurst(x,y, Math.floor(rand(30,70)));
+    }
+  })();
 }
 
-function fillFallbackTimes(sel){
-  sel.innerHTML = '';
-  const from = 10*60, to = 22*60, interval = 15;
-  for(let m=from;m<to;m+=interval){
-    const hh = String(Math.floor(m/60)).padStart(2,"0");
-    const mm = String(m%60).padStart(2,"0");
-    const o = document.createElement('option'); o.value = `${hh}:${mm}`; o.textContent = `${hh}:${mm}`; sel.appendChild(o);
-  }
+function stopFireworks(){
+  cancelAnimationFrame(fwAnim);
+  particles = [];
+  if(fwCtx) fwCtx.clearRect(0,0,fwW,fwH);
 }
 
-/* immediate refresh when user changes date or guests */
-document.getElementById('rDate').addEventListener('change', ()=> updateTimes());
-document.getElementById('rGuests').addEventListener('change', ()=> updateTimes());
+/* ---------- input wiring: date / guests / times ---------- */
+document.getElementById('rDate').addEventListener('change', ()=> {
+  updateTimes();
+});
+document.getElementById('rGuests').addEventListener('change', ()=> {
+  const g = Number(document.getElementById('rGuests').value || 1);
+  // if >= 11: disable booking, clear times and show contact modal
+  if (g >= 11) {
+    document.getElementById('rTime').innerHTML = '';
+    document.getElementById('btnReserve').disabled = true;
+    document.getElementById('btnReserve').style.opacity = '0.7';
+    showContactModal();
+  } else {
+    document.getElementById('btnReserve').disabled = false;
+    document.getElementById('btnReserve').style.opacity = '1';
+    hideContactModal();
+    updateTimes();
+  }
+});
+
+/* initial fill */
 updateTimes();
 
-/* reserve button: posts to /api/reservations, shows loyalty modal for tier 5/10/15 */
+/* ---------- reserve click handling ---------- */
 document.getElementById('btnReserve').addEventListener('click', async ()=>{
-  const guests = Number(document.getElementById('rGuests').value || 1);
-  if(guests >= 11){
-    // block booking and show contact
-    showContactModal();
-    return;
-  }
+  const btn = document.getElementById('btnReserve');
+  const msg = document.getElementById('rMsg');
+  msg.textContent = '';
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
 
   const payload = {
     date: document.getElementById('rDate').value,
     time: document.getElementById('rTime').value,
-    firstName: (document.getElementById('rFirst').value || '').trim(),
-    name: (document.getElementById('rLast').value || '').trim(),
-    email: (document.getElementById('rEmail').value || '').trim(),
-    phone: (document.getElementById('rPhone').value || '').trim(),
-    guests: guests,
-    notes: (document.getElementById('rNotes').value || '').trim()
+    firstName: (document.getElementById('rFirst').value||'').trim(),
+    name: (document.getElementById('rLast').value||'').trim(),
+    email: (document.getElementById('rEmail').value||'').trim(),
+    phone: (document.getElementById('rPhone').value||'').trim(),
+    guests: Number(document.getElementById('rGuests').value || 1),
+    notes: (document.getElementById('rNotes').value||'').trim()
   };
 
-  const rMsg = document.getElementById('rMsg');
-  rMsg.textContent = '';
-
-  // minimal client validation
-  if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
-    rMsg.textContent = 'Please fill first name, last name, email and guests';
+  // client side guard
+  if (!payload.firstName || !payload.name || !payload.email || !payload.guests) {
+    msg.textContent = 'Please fill first name, last name, email and guests';
+    btn.disabled = false; btn.style.opacity = '1';
+    return;
+  }
+  if (payload.guests >= 11) {
+    // should not happen because we disable button, but just in case
+    showContactModal();
+    btn.disabled = false; btn.style.opacity = '1';
     return;
   }
 
   try {
     const res = await fetch('/api/reservations', {
       method: 'POST',
-      headers: { 'Content-Type':'application/json' },
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     });
     const json = await res.json().catch(()=>({}));
-
-    if(res.ok){
-      const visitNo = Number(json.visitNo || json.visit || 0);
-      let tier = 0;
-      if(visitNo >= 15) tier = 15;
-      else if(visitNo >= 10) tier = 10;
-      else if(visitNo >= 5) tier = 5;
-
-      if(tier > 0){
-        // show loyalty, then confirmation
-        showLoyaltyModal(tier, visitNo);
-        setTimeout(()=> showConfirmModal("Reservation received", `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${escapeHtml(payload.email)}</b>.`, true), 1300);
+    if (res.ok) {
+      // show loyalty modal if visitNo >= 5
+      const visitNo = Number(json.visitNo || 0);
+      if (visitNo >= 5) {
+        // show loyalty modal with fireworks background color #d6c7b2
+        showLoyaltyModalForVisit(visitNo);
+        // when loyalty modal closed it continues with confirmation
+        document.getElementById('loy-ok').onclick = ()=>{
+          stopFireworks();
+          loyModal.style.display = 'none';
+          // show simple confirmation afterwards
+          showConfirmation(`Thank you! A confirmation mail was sent to <b>${payload.email}</b>.`);
+        };
       } else {
-        showConfirmModal("Reservation received", `Thank you! Your reservation is confirmed. A confirmation mail will be sent to <b>${escapeHtml(payload.email)}</b>.`, true);
+        showConfirmation(`Thank you! A confirmation mail was sent to <b>${payload.email}</b>.`);
       }
     } else {
-      const err = (json && json.error) ? String(json.error).toLowerCase() : '';
-      if(err.includes("sunday") || err.includes("closed") || err.includes("blocked") || err.includes("fully booked")){
-        showSimpleModal("Reservation not possible", `
-          <div style="font-family:Georgia,serif;color:#3a2f28;">
-            <div style="font-size:20px;margin-bottom:8px;">This day is not available</div>
-            <div style="margin-bottom:10px;">${escapeHtml(String(json.error || "This date is not available"))}</div>
-            <div>Please choose another date — we would love to welcome you.</div>
-          </div>
-        `);
-        updateTimes();
+      const err = (json && json.error) ? String(json.error) : "Reservation failed";
+      if (/sunday/i.test(err) || /closed/i.test(err) || /blocked/i.test(err) || /fully booked/i.test(err)) {
+        // friendly immediate modal
+        showGenericModal(err + ". Please choose another date.");
       } else {
-        rMsg.textContent = json.error || 'Error saving reservation';
+        msg.textContent = err;
       }
     }
-  } catch(e){
-    console.error("post reservation", e);
-    document.getElementById('rMsg').textContent = 'Network error';
+  } catch(e) {
+    console.error(e);
+    msg.textContent = 'Network error';
+  } finally {
+    btn.disabled = false; btn.style.opacity = '1';
+    updateTimes(); // refresh times to reflect new occupancy
   }
 });
 
-/* simple confirmation modal helpers */
-function showConfirmModal(title, html, redirectAfterOk=false){
-  const cm = document.getElementById('confirm-modal');
-  document.getElementById('confirm-title').textContent = title;
+/* confirmation modal helpers */
+function showConfirmation(html){
+  document.getElementById('confirm-title').textContent = "Reservation received";
   document.getElementById('confirm-text').innerHTML = html;
-  cm.style.display = 'flex';
-  document.getElementById('confirm-ok').onclick = ()=> {
-    cm.style.display = 'none';
-    if(redirectAfterOk) window.location.href = '/';
-  };
-}
-function hideConfirmModal(){ document.getElementById('confirm-modal').style.display = 'none'; }
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[c]); }
-
-/* simple message modal */
-function showSimpleModal(title, innerHtml){
-  const id = '__simple_modal';
-  const ex = document.getElementById(id); if(ex) ex.remove();
-  const overlay = document.createElement('div'); overlay.id = id;
-  overlay.style = 'position:fixed;inset:0;background:rgba(6,4,3,0.65);display:flex;align-items:center;justify-content:center;z-index:99998;';
-  const panel = document.createElement('div');
-  panel.style = 'background:#fff8f0;border-radius:12px;padding:18px;max-width:520px;width:92%;text-align:center;border:1px solid #e0d7c5;';
-  panel.innerHTML = `<div style="text-align:left;">${innerHtml}</div><div style="text-align:center;margin-top:12px;"><button id="__simple_ok" class="btn" style="min-width:120px;">Okay</button></div>`;
-  overlay.appendChild(panel);
-  document.body.appendChild(overlay);
-  panel.querySelector('#__simple_ok').onclick = ()=> overlay.remove();
+  document.getElementById('confirm-ok').onclick = ()=> { document.getElementById('confirm-modal').style.display='none'; window.location.href = '/'; };
+  document.getElementById('confirm-modal').style.display = 'flex';
 }
 
-/* contact modal controls */
-function showContactModal(){
-  document.getElementById('contact-modal').style.display = 'flex';
-}
-function hideContactModal(){
-  document.getElementById('contact-modal').style.display = 'none';
-}
-document.getElementById('contact-ok').addEventListener('click', hideContactModal);
+/* responsive canvas resize when modal shown */
+new ResizeObserver(()=> { if (loyModal.style.display === 'flex') resizeCanvas(); }).observe(document.body);
 
-/* LOYALTY Modal + Fireworks (canvas-based) */
-function showLoyaltyModal(tier, visitNo){
-  const modal = document.getElementById('loyalty-modal');
-  document.getElementById('loyalty-visit').textContent = `You just reached visit ${visitNo}`;
-  const reward = modal.querySelector('.loyalty-reward');
-  reward.textContent = `Enjoy a ${tier}% thank-you discount on your next visit`;
-  modal.style.display = 'flex';
-  // start canvas fireworks
-  const canvas = document.getElementById('fw-canvas');
-  if(canvas) startCanvasFireworks(canvas);
-  // ok button closes modal
-  document.getElementById('loyalty-ok').onclick = ()=> {
-    modal.style.display = 'none';
-    // clear canvas (stop)
-    if(canvas && canvas.getContext) {
-      const ctx = canvas.getContext('2d'); ctx && ctx.clearRect(0,0,canvas.width,canvas.height);
-    }
-  };
-}
-
-/* Fireworks engine adjusted for canvas element (richer, denser)
-   Works on the <canvas id="fw-canvas"> element */
-function startCanvasFireworks(canvas){
-  if(!canvas) return;
-  // size canvas to displayed size (devicePixelRatio aware)
-  function fit(){
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.max(300, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(120, Math.floor(rect.height * dpr));
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
+/* hide modals on escape */
+document.addEventListener('keydown', (e)=> {
+  if (e.key === 'Escape') {
+    if (loyModal.style.display==='flex') { stopFireworks(); loyModal.style.display='none'; }
+    document.getElementById('confirm-modal').style.display='none';
+    contactModal.style.display='none';
+    const g = document.getElementById("__generic_modal"); if (g) g.remove();
   }
-  fit();
-  window.addEventListener('resize', fit);
-  const ctx = canvas.getContext('2d');
-  if(!ctx) return;
-
-  const colors = [
-    '#ff3b30','#ff6b6b','#ff9500','#ffb74d','#ffd54f',
-    '#8bc34a','#4caf50','#00b894','#00bcd4','#3498db',
-    '#7e57c2','#9c27b0','#e91e63','#ff4081','#f06292',
-    '#ffd180','#ffd699', '#c9a24a', '#ffd700'
-  ];
-
-  // particle arrays
-  const parts = [];
-  let last = performance.now();
-  let running = true;
-
-  class P {
-    constructor(x,y,vx,vy,r,color,life,type){
-      this.x = x; this.y = y; this.vx = vx; this.vy = vy;
-      this.r = r; this.color = color; this.life = life; this.age = 0; this.type = type || 'p';
-    }
-    update(dt){
-      this.vy += 0.06 * dt;
-      this.x += this.vx * dt;
-      this.y += this.vy * dt;
-      this.age += dt*16;
-    }
-    draw(ctx){
-      const a = Math.max(0, 1 - this.age/this.life);
-      ctx.globalAlpha = a;
-      if(this.type === 'p'){
-        ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fill();
-      } else {
-        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.age/20); ctx.fillStyle = this.color; ctx.fillRect(-this.r/2,-this.r/2,this.r,this.r); ctx.restore();
-      }
-      ctx.globalAlpha = 1;
-    }
-  }
-
-  function burst(x,y,scale=1){
-    const n = Math.floor(80*scale) + Math.floor(Math.random()*120*scale);
-    for(let i=0;i<n;i++){
-      const a = Math.random()*Math.PI*2;
-      const s = (2 + Math.random()*8) * (0.6 + Math.random()*0.8) * scale;
-      const vx = Math.cos(a) * s * (0.6 + Math.random()*0.8);
-      const vy = Math.sin(a) * s * (0.6 + Math.random()*0.8) - (2+Math.random()*2);
-      const r = 1 + Math.random()*4;
-      const color = colors[Math.floor(Math.random()*colors.length)];
-      const life = 700 + Math.random()*1600;
-      parts.push(new P(x,y,vx,vy,r,color,life,'p'));
-    }
-    // confetti
-    for(let i=0;i<40;i++){
-      const vx = (Math.random()-0.5)*6;
-      const vy = -2 - Math.random()*6;
-      const r = 5 + Math.random()*8;
-      const color = colors[Math.floor(Math.random()*colors.length)];
-      parts.push(new P(x,y,vx,vy,r,color,1200,'c'));
-    }
-  }
-
-  function frame(now){
-    const dt = Math.min(60, now-last)/16; last = now;
-    // fade background with slight tint to keep canvas soft
-    ctx.fillStyle = 'rgba(255,250,246,0.18)';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    for(let i=parts.length-1;i>=0;i--){
-      const p = parts[i];
-      p.update(dt);
-      p.draw(ctx);
-      if(p.age > p.life || p.y > canvas.height + 40) parts.splice(i,1);
-    }
-
-    // auto bursts
-    if(running && (parts.length < 900) && Math.random() < 0.14) {
-      burst(Math.random()*(canvas.width-120)+60, Math.random()*(canvas.height*0.45)+30, 0.9 + Math.random()*1.6);
-    }
-    requestAnimationFrame(frame);
-  }
-
-  // choreograph: big central bursts + random stream
-  burst(canvas.width*0.5, canvas.height*0.28, 2.6);
-  setTimeout(()=> burst(canvas.width*0.35, canvas.height*0.22, 1.4), 160);
-  setTimeout(()=> burst(canvas.width*0.65, canvas.height*0.26, 1.4), 260);
-  let i=0; const iv = setInterval(()=>{ burst(60 + Math.random()*(canvas.width-120), 40 + Math.random()*canvas.height*0.45, 0.8+Math.random()*1.0); i++; if(i>26) clearInterval(iv); }, 80);
-
-  requestAnimationFrame(frame);
-  // stop after 10.5s and clear
-  setTimeout(()=>{ running=false; setTimeout(()=>{ ctx.clearRect(0,0,canvas.width,canvas.height); }, 900); }, 10500);
-}
-
-/* contact modal buttons (tel/mail links adjusted) */
-document.getElementById('tel-link').addEventListener('click', ()=> { /* nothing needed, native call */ });
-document.getElementById('mail-link').addEventListener('click', ()=> { /* opens mail client */ });
-
-/* close contact modal */
-document.getElementById('contact-ok').addEventListener('click', ()=> { hideContactModal(); });
-
-/* ensure times refreshed on page load */
-window.addEventListener('load', ()=> updateTimes());
+});
 </script>
+
 </body>
 </html>
