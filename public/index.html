@@ -201,21 +201,52 @@
   updateTimes();
 
   // When date changes we must check immediately and show popup for closed/blocked days
-  document.getElementById('rDate').addEventListener('change', ()=>{
-    updateTimes();
-  });
+/* --- Start: small patch to show admin date-specific notices (Customer notices) --- */
+/* Replace the existing rDate change listener with the code below */
 
-  // Guests change: 11+ triggers large party modal and resets selection to 1
-  document.getElementById('rGuests').addEventListener('change', function(){
-    const v = this.value;
-    if(v === '11plus'){
-      showLargePartyModal();
-      // reset after a brief tick so UI shows 11+ momentarily but then becomes 1 (prevents booking >10)
-      setTimeout(()=>{ this.value = '1'; updateTimes(); }, 10);
-      return;
+document.getElementById('rDate').addEventListener('change', async function(){
+  const date = this.value;
+  if(!date) { updateTimes(); return; }
+
+  try {
+    // 1) check admin closures / notices for that date
+    const resp = await fetch('/api/admin/closure', { cache: "no-store" });
+    if (resp.ok) {
+      const list = await resp.json();
+      // normalize selected date to midnight
+      const sel = new Date(date + 'T00:00:00');
+      // find closures where selected date is within startTs .. endTs (date-aware)
+      const match = list.find(c=>{
+        if(!c.startTs || !c.endTs) return false;
+        const s = new Date(c.startTs);
+        const e = new Date(c.endTs);
+        // consider whole-day closures too: if any overlap on that date -> match
+        // we test if selected day's range intersects closure range
+        const dayStart = new Date(sel.getFullYear(), sel.getMonth(), sel.getDate(), 0,0,0);
+        const dayEnd   = new Date(sel.getFullYear(), sel.getMonth(), sel.getDate(), 23,59,59,999);
+        return (s <= dayEnd && e >= dayStart);
+      });
+
+      if (match) {
+        // show a friendly modal with the closure reason (and optional title if present)
+        const title = match.title && String(match.title).trim() ? String(match.title) : "Notice";
+        const text  = match.reason && String(match.reason).trim() ? String(match.reason) : "This day has a special notice. Please review.";
+        showLargeAlert(title, text); // reuses existing large alert UI so styling stays identical
+        // still update times: but we do not auto-close the notice; user must dismiss it
+        updateTimes();
+        return;
+      }
     }
-    updateTimes();
-  });
+  } catch (err) {
+    console.error("check notices error", err);
+    // on error we continue to fill times (do not block)
+  }
+
+  // 2) fallback: original behaviour — update time slots and show immediate popup if fully closed
+  updateTimes();
+});
+/* --- End: small patch --- */
+
 
   // Reservation submit logic (kept minimal/unchanged)
   document.getElementById('btnReserve').addEventListener('click', async ()=>{
