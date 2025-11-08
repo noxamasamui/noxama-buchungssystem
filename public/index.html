@@ -2,48 +2,42 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>Reservation — RÖSTILAND BY NOXAMA SAMUI</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Reservation — ROESTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    /* only minimal modal/fireworks CSS needed (keeps rest of style.css unchanged) */
+    /* Ergänzungen (minimal, nichts anderes verändern) */
+    #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; }
+    #loyalty-modal > .card {
+      background:#d6c7b2; /* requested */
+      border:1px solid rgba(0,0,0,0.06);
+      border-radius:12px;
+      max-width:520px;
+      width:92%;
+      padding:14px;
+      box-shadow:0 10px 35px rgba(0,0,0,0.25);
+      text-align:center;
+      position:relative;
+      overflow:visible;
+    }
+    #fw-canvas { width:100%; height:220px; display:block; border-radius:10px; margin-bottom:12px; background:transparent; box-shadow:none; position:relative; }
+    /* ensure hero banner centered */
     .hero-wrap { text-align:center; margin-top:18px; }
     .hero-banner { max-width:640px; width:76%; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,.18); display:inline-block; }
-
-    #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; }
-    #loyalty-modal .card {
-      background:#d6c7b2; border:1px solid rgba(0,0,0,0.06); border-radius:12px;
-      max-width:520px; width:92%; padding:14px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center; position:relative; overflow:visible;
-    }
-    /* keep canvas full-cover inside modal so particles float across the whole card (no white box) */
-    #fw-canvas { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:2; border-radius:12px; }
-
-    #loyalty-modal .content { position:relative; z-index:3; padding-top:18px; }
-    #loyalty-modal h2 { margin:8px 0 4px; font-size:22px; color:#3a2f28; }
-    #loyalty-modal p { margin:6px 0; color:#3a2f28; }
-
+    /* large-party modal */
     #largeparty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:99998; align-items:center; justify-content:center; }
-    #largeparty-modal .box { background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center; }
-    #largeparty-modal .contact-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:12px; }
-    #largeparty-modal .contact-row a { background:#b3822f; color:#fff; padding:10px 14px; border-radius:8px; text-decoration:none; font-weight:700; display:inline-block; min-width:120px; text-align:center; }
-
-    /* show modal content pre-wrapped (line breaks visible) */
-    .modal-text { white-space: pre-wrap; color:#3a2f28; }
-
-    @media (max-width:520px) {
-      #loyalty-modal .card { padding:12px; }
-      #fw-canvas { height:140px; }
-      #largeparty-modal .contact-row a { min-width:120px; flex:1 1 100%; }
+    #largeparty-modal > .box {
+      background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center;
     }
   </style>
 </head>
 <body>
-  <div class="hero-wrap">
-    <img id="heroBanner" class="hero-banner" alt="Logo banner" src="/logo-hero.png"/>
+  <div class="hero-wrap" style="text-align:center;margin-top:18px;">
+    <img id="heroBanner" class="hero-banner" alt="Logo banner" style="max-width:640px;width:76%;border-radius:12px;box-shadow:0 25px 50px rgba(0,0,0,.18);"/>
   </div>
 
   <div class="container">
-    <h1 style="text-align:center;margin-top:8px;">Reservation — RÖSTILAND BY NOXAMA SAMUI</h1>
+    <h1 style="text-align:center;margin-top:8px;">Reservation — ROESTILAND BY NOXAMA SAMUI</h1>
     <p style="text-align:center;margin-top:6px;">Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675</p>
 
     <div class="card booking-card booking-compact" style="max-width:760px;margin:18px auto;padding:18px;">
@@ -92,7 +86,7 @@
 
       <div style="margin-top:8px;">
         <label>Notes</label>
-        <textarea id="rNotes" rows="3" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
+        <textarea id="rNotes" rows="2" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
       </div>
 
       <div style="margin-top:12px;text-align:left;">
@@ -106,23 +100,22 @@
   <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:9999;">
     <div style="background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5;">
       <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
-      <div id="confirm-text" class="modal-text" style="margin:8px 0 12px 0;"></div>
+      <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
       <div style="display:flex;gap:10px;justify-content:center;">
         <button id="confirm-ok" class="btn" style="min-width:120px;">Continue</button>
       </div>
     </div>
   </div>
 
-  <!-- loyalty modal (fireworks) -->
+  <!-- loyalty modal (with fireworks canvas) -->
   <div id="loyalty-modal" aria-hidden="true">
     <div class="card" role="dialog" aria-modal="true" aria-labelledby="loyalty-title">
-      <canvas id="fw-canvas" aria-hidden="true"></canvas>
-      <div class="content">
-        <h2 id="loyalty-title">You earned a loyalty reward</h2>
-        <p id="loyalty-sub">Congratulations — loyalty reward unlocked!</p>
-        <p id="loyalty-msg" class="modal-text"></p>
-        <button id="loyalty-ok" class="btn">Okay</button>
-      </div>
+      <!-- canvas placed on top (transparent) so particles draw across whole area -->
+      <canvas id="fw-canvas"></canvas>
+      <h2 id="loyalty-title">You earned a loyalty reward</h2>
+      <p id="loyalty-sub">Congratulations — loyalty reward unlocked!</p>
+      <p id="loyalty-msg" style="margin:8px 0;color:#3a2f28;"></p>
+      <button id="loyalty-ok" class="btn">Okay</button>
     </div>
   </div>
 
@@ -130,10 +123,10 @@
   <div id="largeparty-modal" aria-hidden="true">
     <div class="box" role="dialog" aria-modal="true" aria-labelledby="lp-title">
       <h2 id="lp-title">Large party request</h2>
-      <p id="lp-text">For parties of 11 or more please contact us directly so we can arrange a suitable table and confirm availability.</p>
+      <p>For parties of 11 or more please contact us directly so we can arrange a suitable table and confirm availability.</p>
       <div class="contact-row" style="margin-top:12px;">
-        <a href="tel:+66077270675" id="lp-call">Call +66 077 270 675</a>
-        <a href="mailto:info@noxamasamui.com" id="lp-email">Email info@noxamasamui.com</a>
+        <a href="tel:+66077270675" id="lp-call" style="background:#b3822f;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;">Call +66 077 270 675</a>
+        <a href="mailto:info@noxamasamui.com" id="lp-email" style="background:#b3822f;color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;">Email info@noxamasamui.com</a>
       </div>
       <div style="margin-top:12px;">
         <button id="lp-ok" class="btn">OK</button>
@@ -142,62 +135,90 @@
   </div>
 
 <script>
-  // helpers
+  // helper: today string yyyy-mm-dd
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-  document.getElementById('rDate').value = today();
 
-  // load banner
+  // load banner from /api/config
   (async()=>{
     try{
-      const r = await fetch('/api/config', {cache:"no-store"});
-      if(!r.ok) return;
-      const cfg = await r.json();
+      const r = await fetch('/api/config'); const cfg = await r.json();
       const hero = document.getElementById('heroBanner');
-      hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+      hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
       hero.alt = cfg.brand || 'Banner';
-    }catch(e){ console.error("cfg",e); }
+    }catch(e){ console.error(e); }
   })();
 
-  // fill times using /api/slots
+  document.getElementById('rDate').value = today();
+
+  // times are populated from /api/slots - show only allowed slots
   async function updateTimes(){
     const date = document.getElementById('rDate').value;
     const guestsSel = document.getElementById('rGuests');
     const guestsVal = guestsSel.value === '11plus' ? 1 : Number(guestsSel.value || 1);
     const sel = document.getElementById('rTime');
     sel.innerHTML = '';
-    if(!date) return;
+
+    if (!date) return;
+
     try{
       const resp = await fetch(`/api/slots?date=${encodeURIComponent(date)}&guests=${encodeURIComponent(guestsVal)}`, {cache:"no-store"});
-      if(!resp.ok) return;
-      const slots = await resp.json();
-      if(!Array.isArray(slots)) return;
-      const anyAllowed = slots.some(s=>s.allowed===true);
-      if(!anyAllowed){
-        const reasons = Array.from(new Set(slots.map(s=>s.reason||'').filter(Boolean)));
-        let reason = reasons.find(r=>r.toLowerCase().includes('sunday')) || reasons[0] || 'This date is not available';
-        showLargeAlert("Reservation not possible", reason + ". Please choose another day.");
+      if(!resp.ok){
+        console.error("slots fetch failed", resp.status);
         return;
       }
-      slots.filter(s=>s.allowed).forEach(s=>{
+      const slots = await resp.json();
+      if(!Array.isArray(slots)) return;
+
+      const allowed = slots.filter(s => s.allowed);
+      if(allowed.length === 0){
+        // immediate friendly popup (choose another date)
+        // prefer reason from slots
+        const reason = (slots[0] && slots[0].reason) ? slots[0].reason : "This date is not available";
+        showAlertModal("Reservation not possible", reason + ". Please choose another date.");
+        return;
+      }
+      allowed.forEach(s=>{
         const opt = document.createElement('option');
-        opt.value = s.time; opt.textContent = s.time; sel.appendChild(opt);
+        opt.value = s.time;
+        opt.textContent = s.time;
+        sel.appendChild(opt);
       });
-    }catch(e){ console.error(e); }
+    }catch(e){
+      console.error("updateTimes", e);
+    }
   }
+
+  // fetch and show date-specific notice (Customer notices)
+  async function checkNoticeForDate(date){
+    if(!date) return;
+    try{
+      const r = await fetch(`/api/admin/notice?date=${encodeURIComponent(date)}`, {cache:"no-store"});
+      if(!r.ok) return;
+      const list = await r.json();
+      if(!Array.isArray(list) || list.length === 0) return;
+      // show first notice (administrators may set multiple; show the one(s))
+      // Use title + message; message may contain newlines.
+      list.forEach(n => {
+        const title = n.title || "";
+        const msg = n.message || n.reason || "";
+        showAlertModal(title || "Notice", msg);
+      });
+    }catch(e){ console.error("notice fetch", e); }
+  }
+
+  // initial
   updateTimes();
 
-  // on date change: check both closures and notices
-  document.getElementById('rDate').addEventListener('change', async (ev)=>{
-    const val = ev.target.value;
-    // clear caches
-    __closuresCache = null;
-    __noticesCache = null;
-    await checkAndShowCustomerNoticeForDate(val);
-    await updateTimes();
+  document.getElementById('rDate').addEventListener('change', (e)=>{
+    const date = e.target.value;
+    updateTimes();
+    // check notice immediately
+    checkNoticeForDate(date);
   });
 
   document.getElementById('rGuests').addEventListener('change', function(){
     if(this.value === '11plus'){
+      // show large party modal and revert selection to 1 (prevent booking 11+ online)
       showLargePartyModal();
       setTimeout(()=>{ this.value = '1'; updateTimes(); }, 10);
       return;
@@ -205,49 +226,59 @@
     updateTimes();
   });
 
-  // reserve
+  // reserve button
   document.getElementById('btnReserve').addEventListener('click', async ()=>{
     const payload = {
       date: document.getElementById('rDate').value,
       time: document.getElementById('rTime').value,
-      firstName: (document.getElementById('rFirst').value||"").trim(),
-      name: (document.getElementById('rLast').value||"").trim(),
-      email: (document.getElementById('rEmail').value||"").trim(),
-      phone: (document.getElementById('rPhone').value||"").trim(),
+      firstName: (document.getElementById('rFirst').value || "").trim(),
+      name: (document.getElementById('rLast').value || "").trim(),
+      email: (document.getElementById('rEmail').value || "").trim(),
+      phone: (document.getElementById('rPhone').value || "").trim(),
       guests: Number(document.getElementById('rGuests').value || 1),
-      notes: (document.getElementById('rNotes').value||"").trim()
+      notes: (document.getElementById('rNotes').value || "").trim()
     };
-    const msg = document.getElementById('rMsg'); msg.textContent = '';
+    const msg = document.getElementById('rMsg');
+    msg.textContent = '';
+
+    // minimal validation
     if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
-      msg.textContent = 'Please fill first name, last name, email and guests'; return;
+      msg.textContent = 'Please fill first name, last name, email and guests';
+      return;
     }
+
     try{
       const r = await fetch('/api/reservations', {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload)
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
       });
       const json = await r.json().catch(()=>({}));
       if(r.ok){
-        if(json && (json.nowUnlockedTier === 5 || json.nowUnlockedTier === 10 || json.nowUnlockedTier === 15)){
+        // loyalty popup handling
+        if(json && (json.nowUnlockedTier===5 || json.nowUnlockedTier===10 || json.nowUnlockedTier===15)){
           showLoyaltyModal(json.nowUnlockedTier, json.visitNo || null);
-          document.getElementById('loyalty-ok').onclick = ()=>{
+          document.getElementById('loyalty-ok').onclick = ()=> {
             hideLoyaltyModal();
-            showConfirm("Reservation received", `Thank you. A confirmation mail was sent to <b>${payload.email}</b>. Please also check your spam folder.`);
+            showConfirm("Reservation received", `Thank you. A confirmation mail was sent to <b>${payload.email}</b>.`);
           };
         } else {
-          showConfirm("Reservation received", `Thank you. A confirmation mail was sent to <b>${payload.email}</b>. Please also check your spam folder.`);
+          showConfirm("Reservation received", `Thank you. A confirmation mail was sent to <b>${payload.email}</b>.`);
         }
       } else {
-        const err = (json && json.error) ? String(json.error).toLowerCase() : '';
-        if(err.includes('sunday') || err.includes('closed') || err.includes('blocked') || err.includes('fully booked')){
-          showLargeAlert("Reservation not possible", (json.error || "This date or slot is not available. Please choose another day."));
+        const err = (json && json.error) ? String(json.error).toLowerCase() : "Error";
+        if(err.includes("closed") || err.includes("blocked") || err.includes("fully booked") || err.includes("sunday")){
+          showAlertModal("Reservation not possible", json.error || "This date or slot is not available. Please choose another day.");
         } else {
           msg.textContent = json.error || 'Error saving reservation';
         }
       }
-    }catch(e){ console.error(e); msg.textContent = 'Network error'; }
+    }catch(e){
+      console.error('reservation post error', e);
+      msg.textContent = 'Network error';
+    }
   });
 
-  // confirm modal helpers
   function showConfirm(title, html){
     const m = document.getElementById('confirm-modal');
     document.getElementById('confirm-title').textContent = title;
@@ -257,168 +288,178 @@
   }
   function hideConfirm(){ document.getElementById('confirm-modal').style.display = 'none'; }
 
-  // large party
-  function showLargePartyModal(){ const m=document.getElementById('largeparty-modal'); m.style.display='flex'; document.getElementById('lp-ok').onclick=()=>m.style.display='none'; }
-  function showLargeAlert(title, text){
-    const m=document.getElementById('largeparty-modal'); const box=m.querySelector('.box'); const cr=box.querySelector('.contact-row');
-    const original = cr.innerHTML; cr.style.display='none'; box.querySelector('h2').textContent=title; box.querySelector('p').textContent=text; m.style.display='flex';
-    document.getElementById('lp-ok').onclick = ()=>{
-      cr.style.display=''; cr.innerHTML = original;
-      box.querySelector('h2').textContent='Large party request';
-      box.querySelector('p').textContent='For parties of 11 or more please contact us directly so we can arrange a suitable table and confirm availability.';
-      m.style.display='none';
-    };
-  }
+  // --------- Alert modal (used for notices and immediate errors) ----------
+  function showAlertModal(title, message){
+    // ensure message newlines -> <br>, keep simple styling to match site
+    const html = (typeof message === "string") ? message.replace(/\n/g,"<br/>") : String(message);
+    const ex = document.getElementById("__alert_modal");
+    if(ex) ex.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "__alert_modal";
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.background = "rgba(0,0,0,0.45)";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.zIndex = 99997;
 
-  // ------------------- Notices & Closures check -------------------
-  // caches (cleared on focus or date change)
-  let __closuresCache = null;
-  let __noticesCache = null;
-
-  async function fetchClosures(){
-    try{ const r = await fetch('/api/admin/closure', {cache:"no-store"}); if(!r.ok) return []; return await r.json(); }
-    catch(e){ console.error("fetchClosures",e); return []; }
-  }
-  async function fetchNotices(){
-    try{ const r = await fetch('/api/admin/notice', {cache:"no-store"}); if(!r.ok) return []; return await r.json(); }
-    catch(e){ console.error("fetchNotices",e); return []; }
-  }
-
-  async function ensureClosuresCached(){ if(__closuresCache===null) __closuresCache = await fetchClosures(); return __closuresCache; }
-  async function ensureNoticesCached(){ if(__noticesCache===null) __noticesCache = await fetchNotices(); return __noticesCache; }
-
-  // check both closures (blocked days) and notices (date-specific messages).
-  async function checkAndShowCustomerNoticeForDate(ymd){
-    if(!ymd) return false;
-    const dayStart=new Date(ymd+"T00:00:00"), dayEnd=new Date(ymd+"T23:59:59.999");
-    const closures = await ensureClosuresCached();
-    // if closures contain blocked interval covering date -> showBlock (this was existing behavior)
-    const blocked = closures.find(c=>{
-      const s = c.startTs ? new Date(c.startTs) : null;
-      const e = c.endTs ? new Date(c.endTs) : null;
-      return s && e && s <= dayEnd && e >= dayStart;
-    });
-    if(blocked){
-      // show friendly message (reuse alert)
-      const reason = blocked.reason || "Closed";
-      showLargeAlert("Reservation not possible", reason + ". Please choose another day.");
-      return true;
+    const box = document.createElement("div");
+    box.style.background = "#fff8f0";
+    box.style.border = "1px solid #e0d7c5";
+    box.style.borderRadius = "12px";
+    box.style.padding = "18px";
+    box.style.maxWidth = "520px";
+    box.style.width = "92%";
+    box.style.boxShadow = "0 10px 35px rgba(0,0,0,0.25)";
+    box.style.textAlign = "center";
+    if(title){
+      const h = document.createElement("h3");
+      h.textContent = title;
+      h.style.marginTop = "0";
+      box.appendChild(h);
     }
-    // Notices (separate) -> show popup but DO NOT block
-    const notices = await ensureNoticesCached();
-    const matchedNotice = notices.find(n=>{
-      // notice.expected to have date (ISO yyyy-mm-dd) or startTs/endTs
-      if(n.date){
-        return String(n.date) === ymd;
-      }
-      const s = n.start ? new Date(n.start) : null;
-      const e = n.end ? new Date(n.end) : null;
-      return s && e && s <= dayEnd && e >= dayStart;
-    });
-    if(matchedNotice){
-      // show title + message (non-blocking)
-      const title = matchedNotice.title || "Notice";
-      const message = matchedNotice.message || matchedNotice.reason || "Important information for this date";
-      showNoticeModal(title, message);
-      return true;
-    }
-    return false;
+    const inner = document.createElement("div");
+    inner.style.margin = "10px 0";
+    inner.innerHTML = html;
+    box.appendChild(inner);
+    const ok = document.createElement("button");
+    ok.textContent = "OK";
+    ok.className = "btn";
+    ok.style.marginTop = "8px";
+    ok.onclick = ()=> overlay.remove();
+    box.appendChild(ok);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
   }
 
-  function showNoticeModal(title, message){
-    // reuse largeparty-modal layout but present Title and message; hide contact-row
-    const m=document.getElementById('largeparty-modal'); const box = m.querySelector('.box'); const cr=box.querySelector('.contact-row');
-    const original = cr.innerHTML;
-    cr.style.display='none';
-    box.querySelector('h2').textContent = title;
-    box.querySelector('p').textContent = message;
-    m.style.display='flex';
-    document.getElementById('lp-ok').onclick = ()=>{
-      cr.style.display=''; cr.innerHTML = original;
-      box.querySelector('h2').textContent='Large party request';
-      box.querySelector('p').textContent='For parties of 11 or more please contact us directly so we can arrange a suitable table and confirm availability.';
-      m.style.display='none';
-    };
+  // ---------- Large party modal ----------
+  function showLargePartyModal(){
+    const m = document.getElementById('largeparty-modal');
+    m.style.display = 'flex';
+    document.getElementById('lp-ok').onclick = ()=>{ m.style.display = 'none'; };
   }
 
-  // clear caches on focus to pick up admin changes
-  window.addEventListener('focus', ()=>{ __closuresCache = null; __noticesCache = null; });
-
-  // ------------------- Loyalty fireworks (keeps previous high-quality behavior) -------------------
-  let _fwRunning=false,_fwRAF=null,_fwCtx=null,_fwCanvas=null,_fwParticles=[];
+  // ---------- Loyalty fireworks ----------
+  let _fwRunning=false;
+  let _fwCtx=null;
+  let _fwCanvas=null;
+  let _fwParticles=[];
 
   function showLoyaltyModal(tier, visitNo=null){
-    const m=document.getElementById('loyalty-modal'); const msgEl=document.getElementById('loyalty-msg');
-    const percent = tier;
-    msgEl.textContent = `You just reached visit ${visitNo || ''}\nEnjoy a ${percent}% thank-you discount on your next visit`;
+    const m = document.getElementById('loyalty-modal');
+    m.style.display = 'flex';
+    const msgEl = document.getElementById('loyalty-msg');
+    const pct = tier;
+    msgEl.innerHTML = `You just reached visit ${visitNo || ''}<br><strong>Enjoy a ${pct}% thank-you discount on your next visit</strong>`;
     startFireworks(document.getElementById('fw-canvas'));
-    m.style.display='flex';
   }
-  function hideLoyaltyModal(){ stopFireworks(); document.getElementById('loyalty-modal').style.display='none'; }
+  function hideLoyaltyModal(){
+    stopFireworks();
+    document.getElementById('loyalty-modal').style.display = 'none';
+  }
 
+  // Fireworks engine (compact, many particles)
   function startFireworks(canvas){
     if(_fwRunning) return;
+    _fwRunning = true;
     _fwCanvas = canvas;
     const DPR = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * DPR; canvas.height = canvas.clientHeight * DPR;
-    _fwCtx = canvas.getContext('2d'); _fwCtx.scale(DPR,DPR);
-    _fwParticles = []; _fwRunning=true;
+    canvas.width = canvas.clientWidth * DPR;
+    canvas.height = canvas.clientHeight * DPR;
+    _fwCtx = canvas.getContext('2d');
+    _fwCtx.scale(DPR, DPR);
+    _fwParticles = [];
 
-    const burstInterval = setInterval(()=> spawnBurst(90 + Math.floor(Math.random()*120), 20 + Math.random()*(canvas.clientWidth-40), 20 + Math.random()*(canvas.clientHeight-40)), 420);
+    // spawn repeated bursts
+    const spawnInterval = setInterval(()=>{
+      spawnBurst(80 + Math.floor(Math.random()*120), 40 + Math.random()*(canvas.clientWidth-80), 30 + Math.random()*(canvas.clientHeight-60));
+    }, 500);
 
-    function loop(){
-      if(!_fwRunning){ clearInterval(burstInterval); _fwRAF=null; return; }
+    function frame(){
+      if(!_fwRunning){ clearInterval(spawnInterval); return; }
       _fwCtx.clearRect(0,0,canvas.clientWidth, canvas.clientHeight);
-      _fwCtx.fillStyle = 'rgba(214,199,178,0.03)'; _fwCtx.fillRect(0,0,canvas.clientWidth, canvas.clientHeight);
+      // warm overlay subtle
+      _fwCtx.fillStyle = 'rgba(214,199,178,0.06)';
+      _fwCtx.fillRect(0,0,canvas.clientWidth, canvas.clientHeight);
 
       for(let i=_fwParticles.length-1;i>=0;i--){
         const p=_fwParticles[i];
         p.vy += 0.03 * p.weight;
-        p.x += p.vx; p.y += p.vy;
-        p.vx *= 0.997; p.vy *= 0.997;
-        p.life -= 1;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.995;
+        p.vy *= 0.995;
+        p.life--;
         const alpha = Math.max(0, p.life / p.maxLife);
         _fwCtx.globalAlpha = alpha;
-        const g = _fwCtx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*2);
-        g.addColorStop(0,p.color); g.addColorStop(0.6,p.color); g.addColorStop(1,'rgba(255,255,255,0)');
-        _fwCtx.fillStyle = g;
-        _fwCtx.beginPath(); _fwCtx.arc(p.x,p.y,p.size,0,Math.PI*2); _fwCtx.fill();
-        if(Math.random()<0.03){ _fwCtx.fillStyle='rgba(255,255,255,0.9)'; _fwCtx.fillRect(p.x+Math.random()*2-1,p.y+Math.random()*2-1,1.5,1.5); }
-        if(p.life<=0 || p.y > canvas.clientHeight + 60) _fwParticles.splice(i,1);
-      }
-      _fwCtx.globalAlpha = 1; _fwRAF = requestAnimationFrame(loop);
-    }
-    loop();
+        const r = p.size;
+        const grad = _fwCtx.createRadialGradient(p.x,p.y,0,p.x,p.y,r*1.8);
+        grad.addColorStop(0, p.color);
+        grad.addColorStop(0.6, p.color);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        _fwCtx.fillStyle = grad;
+        _fwCtx.beginPath();
+        _fwCtx.arc(p.x,p.y,r,0,Math.PI*2);
+        _fwCtx.fill();
 
-    function spawnBurst(count,cx,cy){
+        if(Math.random() < 0.02){
+          _fwCtx.fillStyle = 'rgba(255,255,255,0.9)';
+          _fwCtx.fillRect(p.x+Math.random()*2-1, p.y+Math.random()*2-1, 1.5, 1.5);
+        }
+
+        if(p.life <= 0 || p.y > canvas.clientHeight + 40) _fwParticles.splice(i,1);
+      }
+      _fwCtx.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    }
+    frame();
+
+    function spawnBurst(count, cx, cy){
       const colors = ['#e74c3c','#f39c12','#ffd54f','#f06292','#9b59b6','#8e44ad','#3498db','#2ecc71','#ff7043','#ffe082'];
       for(let i=0;i<count;i++){
-        const ang=Math.random()*Math.PI*2; const speed = 1 + Math.random()*6;
-        const vx = Math.cos(ang)*speed, vy = Math.sin(ang)*speed*0.9 - (Math.random()*2);
-        const size = 2 + Math.random()*6; const life = 40 + Math.floor(Math.random()*110);
+        const ang = Math.random()*Math.PI*2;
+        const speed = 1 + Math.random()*6;
+        const vx = Math.cos(ang)*speed;
+        const vy = Math.sin(ang)*speed*0.9 - (Math.random()*2);
+        const size = 2 + Math.random()*5;
+        const life = 40 + Math.floor(Math.random()*90);
         const color = colors[Math.floor(Math.random()*colors.length)];
         _fwParticles.push({
-          x: cx + (Math.random()*20-10), y: cy + (Math.random()*20-10), vx, vy, size, life, maxLife: life, color, weight: 0.8 + Math.random()*1.2
+          x: cx + (Math.random()*8-4),
+          y: cy + (Math.random()*8-4),
+          vx, vy, size,
+          life, maxLife: life,
+          color, weight: 0.8 + Math.random()*0.8
         });
       }
     }
   }
 
   function stopFireworks(){
-    _fwRunning=false; if(_fwRAF) cancelAnimationFrame(_fwRAF); _fwRAF=null;
-    if(_fwCanvas && _fwCtx) _fwCtx.clearRect(0,0,_fwCanvas.clientWidth,_fwCanvas.clientHeight);
-    _fwParticles=[];
+    _fwRunning = false;
+    if(_fwCanvas && _fwCtx){ _fwCtx.clearRect(0,0,_fwCanvas.clientWidth,_fwCanvas.clientHeight); }
+    _fwParticles = [];
+    _fwCanvas = null; _fwCtx = null;
   }
 
   document.getElementById('loyalty-ok').addEventListener('click', ()=> hideLoyaltyModal());
-  window.addEventListener('resize', ()=> { if(_fwCanvas && _fwRunning){ const DPR = window.devicePixelRatio || 1; _fwCanvas.width = _fwCanvas.clientWidth * DPR; _fwCanvas.height = _fwCanvas.clientHeight * DPR; _fwCtx.scale(DPR,DPR); } });
+  document.getElementById('lp-ok').addEventListener('click', ()=> document.getElementById('largeparty-modal').style.display = 'none');
 
-  // close modals with ESC
-  document.addEventListener('keydown',(e)=>{ if(e.key==='Escape'){ document.getElementById('largeparty-modal').style.display='none'; hideConfirm(); hideLoyaltyModal(); } });
+  // ensure canvas resizes crisp on window resize
+  window.addEventListener('resize', ()=>{
+    if(_fwCanvas && _fwRunning){
+      const DPR = window.devicePixelRatio || 1;
+      _fwCanvas.width = _fwCanvas.clientWidth * DPR;
+      _fwCanvas.height = _fwCanvas.clientHeight * DPR;
+      _fwCtx.scale(DPR, DPR);
+    }
+  });
 
-  // expose small helpers for debugging if needed
-  window.checkNotices = checkAndShowCustomerNoticeForDate;
+  // update times when page regains focus
+  window.addEventListener('focus', ()=> updateTimes());
 
 </script>
+
 </body>
 </html>
