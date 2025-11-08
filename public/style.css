@@ -221,3 +221,75 @@ small{
   .container { padding-left: 12px; padding-right: 12px; }
   .booking-card { padding: 12px; margin: 12px 8px; }
 }
+/* -----------------------
+   Mobile: kompakter Zeit/Gäste-Block
+   (Einfügen ans Ende von style.css)
+   ----------------------- */
+
+@media (max-width: 520px) {
+
+  /* Date/Guests/Time Zeile: Datum full-width, Guests+Time klein */
+  .row.date-time {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /* Datum oben als volle Zeile */
+  .row.date-time > div:first-child {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  /* Guests und Time kompakt nebeneinander */
+  .row.date-time > div:nth-child(2),
+  .row.date-time > div:nth-child(3) {
+    flex: 0 0 auto;
+    min-width: 92px;
+    max-width: 150px;
+  }
+
+  /* Einheitliche, kleinere Inputs für mobile */
+  #rTime, #rGuests, .row.date-time select, .row.date-time input {
+    -webkit-appearance: none;
+    appearance: none;
+    font-size: 15px;
+    padding: 8px 10px;
+    height: 44px;
+    border-radius: 10px;
+    box-sizing: border-box;
+    line-height: 1.1;
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+  }
+
+  /* Wenn du native spinner/arrow entfernen willst (iOS/Android) */
+  select::-ms-expand { display: none; }
+  select { background-image: none; }
+
+  /* Datum etwas größer */
+  #rDate {
+    padding: 12px 14px;
+    height: 48px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+
+  /* Buttons und Abstände */
+  .booking-card .btn, .booking-card .btn-primary-book {
+    display: block;
+    width: calc(100% - 8px);
+    margin: 8px auto 4px;
+  }
+
+  /* kleinere Grund-Container-Abstände auf Handy */
+  .container { padding-left: 12px; padding-right: 12px; }
+  .booking-card { padding: 12px; margin: 12px 8px; }
+
+  /* Visuelle Hervorhebung für "11+" Option */
+  select#rGuests option[value="11plus"] {
+    font-weight: 700;
+  }
+}
+
