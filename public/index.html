@@ -125,6 +125,37 @@
       <div style="margin-top:12px;"><button id="largeparty-ok" class="loy-btn">OK</button></div>
     </div>
   </div>
+/* --- mobile: kompaktere Inputs für Datum / Gäste / Zeit --- */
+@media (max-width: 520px) {
+  /* Container der drei Felder: Date / Guests / Time auf kleinen Displays */
+  .date-time { display:flex; gap:10px; flex-wrap:wrap; }
+
+  /* Datum bleibt breit, Gäste + Zeit kompakter */
+  .date-time > div:nth-child(1) { flex: 1 1 100%; }
+  .date-time > div:nth-child(2),
+  .date-time > div:nth-child(3) {
+    flex: 0 0 auto;
+    min-width: 92px;
+    max-width: 140px;
+  }
+
+  /* speziell die Time-Select (kleinerer Innenabstand + Schrift) */
+  #rTime, #rGuests {
+    font-size: 15px;
+    padding: 8px 10px;
+    height: 42px;
+    border-radius: 8px;
+    box-sizing: border-box;
+  }
+
+  /* Datum-Input bleibt groß, aber mit etwas Padding */
+  #rDate {
+    padding: 12px 14px;
+    height: 48px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+}
 
   <!-- Loyalty modal + fireworks -->
   <div id="loyalty-modal" aria-hidden="true">
