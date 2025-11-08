@@ -3,26 +3,25 @@
 <head>
   <meta charset="utf-8"/>
   <title>Reservation canceled</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    html,body{height:100%;margin:0;font-family:Georgia,"Times New Roman",serif;background:#d6c7b2;color:#3a2f28;}
-    .wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;padding:36px 18px;box-sizing:border-box;}
-    .logo{max-width:520px;width:72%;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,0.18);margin-bottom:18px;display:block;}
-    .card{background:#fff8f0;border-radius:12px;padding:18px;max-width:720px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,0.12);border:1px solid #e0d7c5;text-align:center;}
-    h1{margin:6px 0 12px 0;font-size:22px;}
-    p{margin:8px 0;color:#3a2f28;line-height:1.45;}
-    a.btn{display:inline-block;margin-top:12px;padding:10px 16px;background:#b3822f;color:white;border-radius:8px;text-decoration:none;font-weight:700;}
-    footer{margin-top:20px;color:#6b5b4a;font-size:13px;}
+    html,body{ margin:0; padding:0; background:#d8c6aa; color:#3a2f28; font-family:Georgia,serif; }
+    .wrap{ max-width:760px; margin:60px auto; padding:18px; }
+    .logo{ text-align:center; margin-bottom:18px; }
+    .logo img{ max-width:280px; width:80%; height:auto; display:inline-block; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.12); }
+    .card{ background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; padding:28px; box-shadow:0 8px 30px rgba(0,0,0,0.08); text-align:left; }
+    a{ color:#4c2a91; text-decoration:none; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <img id="heroLogo" class="logo" src="/logo-hero.png" alt="Logo banner" onerror="this.src='/logo-hero.png'"/>
-    <div class="card" role="main">
-      <h1>Reservation canceled</h1>
+    <div class="logo">
+      <img src="/logo-hero.png" alt="Logo"/>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Reservation canceled</h2>
       <p>We are sad to see you go. If you want to rebook please visit the reservation page.</p>
-      <p><a class="btn" href="/">Back to reservation</a></p>
-      <footer>If you think this was a mistake, please contact us at <a href="mailto:info@noxamasamui.com">info@noxamasamui.com</a></footer>
+      <p><a href="/">Back to reservation</a></p>
     </div>
   </div>
 </body>
