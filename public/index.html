@@ -8,33 +8,42 @@
   <style>
     /* Ergänzungen, nur Minimales für modals / fireworks */
     #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; }
-    #loyalty-modal > .card {
-      background:#d6c7b2;
-      border:1px solid rgba(0,0,0,0.06);
-      border-radius:12px;
-      max-width:520px;
-      width:92%;
-      padding:14px;
-      box-shadow:0 10px 35px rgba(0,0,0,0.25);
-      text-align:center;
-      position:relative;
-      overflow:visible;
-    }
-    #fw-canvas { width:100%; height:200px; display:block; border-radius:10px; margin-bottom:12px; background:linear-gradient(180deg,#fff,#fff8f2); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03); }
-    #loyalty-modal h2 { margin:8px 0 4px; font-size:22px; color:#3a2f28; }
-    #loyalty-modal p { margin:6px 0; color:#3a2f28; }
-    #loyalty-modal .btn { margin-top:10px; background:#b3822f; color:#fff; border-radius:8px; padding:8px 14px; border:0; cursor:pointer; font-weight:700; }
+/* loyalty modal + fireworks — replace existing loyalty CSS with this block */
+#loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:99999; align-items:center; justify-content:center; }
+#loyalty-modal > .card {
+  background:#d6c7b2; /* requested modal bg */
+  border:1px solid rgba(0,0,0,0.06);
+  border-radius:12px;
+  max-width:520px;
+  width:92%;
+  padding:14px;
+  box-shadow:0 10px 35px rgba(0,0,0,0.25);
+  text-align:center;
+  position:relative;
+  overflow:visible;
+}
 
-    #largeparty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:99998; align-items:center; justify-content:center; }
-    #largeparty-modal > .box {
-      background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center;
-    }
-    #largeparty-modal .contact-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:12px; }
-    #largeparty-modal .contact-row a { background:#b3822f; color:#fff; padding:10px 14px; border-radius:8px; text-decoration:none; font-weight:700; display:inline-block; min-width:120px; text-align:center; }
-    @media (max-width:520px) {
-      #largeparty-modal .contact-row a { min-width:120px; flex:1 1 100%; }
-      #loyalty-modal > .card { padding:12px; }
-      #fw-canvas { height:140px; }
+/* Canvas now covers the whole card and is transparent (no white rectangle) */
+#fw-canvas {
+  position:absolute;
+  inset:12px 12px 68px 12px; /* inset inside the card so header and buttons remain readable */
+  width: calc(100% - 24px);
+  height: calc(100% - 86px);
+  display:block;
+  border-radius:10px;
+  pointer-events:none;
+  z-index:1; /* behind the content area (which will be z-index:2) */
+  background: transparent !important; /* IMPORTANT: no white background */
+  box-shadow: none;
+}
+
+/* ensure content sits above canvas */
+#loyalty-modal > .card > * { position:relative; z-index:2; }
+
+/* small responsive tweak */
+@media (max-width:520px) {
+  #fw-canvas { inset:10px 10px 72px 10px; height:140px; }
+}
       /* ensure modal content fits mobile */
       #loyalty-modal > .card, #largeparty-modal > .box { margin: 12px; width: calc(100% - 24px); }
     }
@@ -338,145 +347,117 @@
   }
 
   // ---------- Loyalty modal & fireworks (improved, full-card canvas) ----------
-  let _fwRunning = false;
-  let _fwRAF = null;
-  let _fwCanvas = null;
-  let _fwCtx = null;
-  let _fwParticles = [];
+// Fireworks implementation (single instance) — REPLACE previous implementation with this
+let _fwRunning = false;
+let _fwRAF = null;
+let _fwCtx = null;
+let _fwCanvas = null;
+let _fwParticles = [];
 
-  function showLoyaltyModal(tier, visitNo = null){
-    const m = document.getElementById('loyalty-modal');
-    m.style.display = 'flex';
-    const msgEl = document.getElementById('loyalty-msg');
-    const percent = tier;
-    msgEl.innerHTML = `You just reached visit ${visitNo || ''}<br><strong>Enjoy a ${percent}% thank-you discount on your next visit</strong>`;
+function startFireworks(canvas){
+  if(_fwRunning) return;
+  _fwCanvas = canvas;
 
-    // ensure full-card canvas exists
-    let canvas = document.getElementById('__fw_full');
-    const card = m.querySelector('.card');
-    card.style.position = 'relative';
-    if(!canvas){
-      canvas = document.createElement('canvas');
-      canvas.id = '__fw_full';
-      canvas.style.position = 'absolute';
-      canvas.style.left = '0';
-      canvas.style.top = '0';
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.pointerEvents = 'none';
-      canvas.style.borderRadius = '12px';
-      card.insertBefore(canvas, card.firstChild);
-    }
-    startFireworks(canvas);
-  }
+  // size canvas to displayed size (account for devicePixelRatio)
+  const cw = Math.max(100, canvas.clientWidth);
+  const ch = Math.max(50, canvas.clientHeight);
+  canvas.width = Math.round(cw * devicePixelRatio);
+  canvas.height = Math.round(ch * devicePixelRatio);
+  canvas.style.width = cw + "px";
+  canvas.style.height = ch + "px";
 
-  function hideLoyaltyModal(){
-    stopFireworks();
-    const m = document.getElementById('loyalty-modal');
-    m.style.display = 'none';
-    const canvas = document.getElementById('__fw_full');
-    if(canvas) canvas.remove();
-  }
+  _fwCtx = canvas.getContext('2d');
+  _fwCtx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); // scale for DPR
+  _fwParticles = [];
+  _fwRunning = true;
 
-  function startFireworks(canvas){
-    if(_fwRunning) return;
-    _fwCanvas = canvas;
-    const w = Math.max(200, canvas.clientWidth);
-    const h = Math.max(120, canvas.clientHeight);
-    canvas.width = Math.floor(w * devicePixelRatio);
-    canvas.height = Math.floor(h * devicePixelRatio);
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    _fwCtx = canvas.getContext('2d');
-    _fwCtx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-    _fwParticles = [];
-    _fwRunning = true;
+  // spawn initial impressive bursts
+  spawnBurst(220, cw * 0.25, ch * 0.55);
+  spawnBurst(180, cw * 0.75, ch * 0.40);
+  const burstInterval = setInterval(()=> spawnBurst(80 + Math.random()*180, 40 + Math.random()*(cw-80), 30 + Math.random()*(ch-60)), 520);
 
-    const colors = ['#e74c3c','#f39c12','#ffd54f','#f06292','#9b59b6','#8e44ad','#3498db','#2ecc71','#ff7043','#ffe082','#00bfa5','#ff4081'];
+  function loop(){
+    if(!_fwRunning){ clearInterval(burstInterval); _fwRAF = null; return; }
+    // clear but keep slight warm tint using low alpha so modal bg shows through
+    _fwCtx.clearRect(0,0,cw,ch);
+    _fwCtx.globalCompositeOperation = 'lighter';
 
-    function spawnBigBurst(cx, cy, strength){
-      const count = Math.floor(120 * strength);
-      for(let i=0;i<count;i++){
-        const ang = Math.random()*Math.PI*2;
-        const speed = (2 + Math.random()*8) * (0.6 + strength*0.8);
-        const vx = Math.cos(ang) * speed;
-        const vy = Math.sin(ang) * speed * 0.9 - (Math.random()*2);
-        const size = 2 + Math.random()*6 * (0.6 + strength*0.6);
-        const life = 60 + Math.floor(Math.random()*120);
-        const color = colors[Math.floor(Math.random()*colors.length)];
-        _fwParticles.push({
-          x: cx + (Math.random()*10-5),
-          y: cy + (Math.random()*10-5),
-          vx, vy,
-          size,
-          life,
-          maxLife: life,
-          color,
-          weight: 0.85 + Math.random()*1.4
-        });
+    for(let i=_fwParticles.length-1;i>=0;i--){
+      const p = _fwParticles[i];
+      p.vy += 0.04 * p.weight;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.996;
+      p.vy *= 0.996;
+      p.life -= 1;
+      const alpha = Math.max(0, Math.min(1, p.life / p.maxLife));
+      // radial particle
+      const grad = _fwCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size*2.2);
+      const col = hexToRgba(p.color, alpha);
+      grad.addColorStop(0, col.replace('0.XX', String(alpha)));
+      grad.addColorStop(0.6, col.replace('0.XX', String(Math.max(0.25, alpha*0.9))));
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      _fwCtx.fillStyle = grad;
+      _fwCtx.beginPath();
+      _fwCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      _fwCtx.fill();
+
+      // occasional sparkle
+      if(Math.random() < 0.03){
+        _fwCtx.fillStyle = `rgba(255,255,255,${Math.min(1, alpha)})`;
+        _fwCtx.fillRect(p.x + (Math.random()*2-1), p.y + (Math.random()*2-1), 1.5, 1.5);
+      }
+
+      if(p.life <= 0 || p.y > ch + 40) {
+        _fwParticles.splice(i,1);
       }
     }
+    _fwCtx.globalCompositeOperation = 'source-over';
+    _fwRAF = requestAnimationFrame(loop);
+  }
+  loop();
 
-    spawnBigBurst(w*0.5, h*0.35, 1.2);
-    setTimeout(()=> spawnBigBurst(w*0.25, h*0.4, 1.0), 150);
-    setTimeout(()=> spawnBigBurst(w*0.75, h*0.4, 1.0), 250);
-    const interval = setInterval(()=>{
-      const cx = 40 + Math.random()*(w-80);
-      const cy = 30 + Math.random()*(Math.max(80, h/2));
-      spawnBigBurst(cx, cy, 0.7 + Math.random()*0.8);
-      if(Math.random() < 0.12) spawnBigBurst(30 + Math.random()*(w-60), 20 + Math.random()*(h/2), 1.6);
-    }, 350);
-
-    function loop(){
-      if(!_fwRunning){ clearInterval(interval); if(_fwRAF) cancelAnimationFrame(_fwRAF); _fwRAF = null; return; }
-      _fwCtx.clearRect(0,0,canvas.clientWidth, canvas.clientHeight);
-      _fwCtx.fillStyle = 'rgba(214,199,178,0.06)';
-      _fwCtx.fillRect(0,0,canvas.clientWidth, canvas.clientHeight);
-
-      for(let i=_fwParticles.length-1;i>=0;i--){
-        const p = _fwParticles[i];
-        p.vy += 0.03 * p.weight;
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.994;
-        p.vy *= 0.994;
-        p.life -= 1;
-        const alpha = Math.max(0, p.life / p.maxLife);
-
-        const g = _fwCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size*2.2);
-        g.addColorStop(0, p.color);
-        g.addColorStop(0.5, p.color);
-        g.addColorStop(1, 'rgba(255,255,255,0)');
-        _fwCtx.globalAlpha = Math.min(1, alpha*1.1);
-        _fwCtx.fillStyle = g;
-        _fwCtx.beginPath();
-        _fwCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-        _fwCtx.fill();
-
-        if(Math.random() < 0.03){
-          _fwCtx.globalAlpha = Math.min(1, alpha);
-          _fwCtx.fillStyle = 'rgba(255,255,255,0.9)';
-          _fwCtx.fillRect(p.x + Math.random()*3 - 1.5, p.y + Math.random()*3 - 1.5, 1.5, 1.5);
-        }
-
-        if(p.life <= 0 || p.y > canvas.clientHeight + 80) {
-          _fwParticles.splice(i,1);
-        }
-      }
-      _fwCtx.globalAlpha = 1;
-      _fwRAF = requestAnimationFrame(loop);
+  function spawnBurst(count, cx, cy){
+    const colors = ['#e74c3c','#f39c12','#ffd54f','#f06292','#9b59b6','#8e44ad','#3498db','#2ecc71','#ff7043','#ffe082'];
+    for(let i=0;i<count;i++){
+      const ang = Math.random()*Math.PI*2;
+      const speed = 1 + Math.random()*6;
+      const vx = Math.cos(ang)*speed;
+      const vy = Math.sin(ang)*speed*0.9 - (Math.random()*2);
+      const size = 2 + Math.random()*6;
+      const life = 40 + Math.floor(Math.random()*90);
+      const color = colors[Math.floor(Math.random()*colors.length)];
+      _fwParticles.push({
+        x: cx + (Math.random()*12-6),
+        y: cy + (Math.random()*12-6),
+        vx, vy,
+        size,
+        life,
+        maxLife: life,
+        color,
+        weight: 0.8 + Math.random()*0.9
+      });
     }
-    loop();
   }
 
-  function stopFireworks(){
-    _fwRunning = false;
-    if(_fwRAF) { cancelAnimationFrame(_fwRAF); _fwRAF = null; }
-    if(_fwCanvas && _fwCtx){
-      _fwCtx.clearRect(0,0,_fwCanvas.clientWidth, _fwCanvas.clientHeight);
-    }
-    _fwParticles = [];
+  // helper to convert hex color to rgba string placeholder (we insert alpha later)
+  function hexToRgba(hex, alpha){
+    hex = hex.replace('#','');
+    const r = parseInt(hex.substring(0,2),16);
+    const g = parseInt(hex.substring(2,4),16);
+    const b = parseInt(hex.substring(4,6),16);
+    return `rgba(${r},${g},${b},0.XX)`; // caller will replace 0.XX with actual alpha
   }
+}
+
+function stopFireworks(){
+  _fwRunning = false;
+  if(_fwRAF){ cancelAnimationFrame(_fwRAF); _fwRAF = null; }
+  if(_fwCanvas && _fwCtx){
+    _fwCtx.clearRect(0,0,_fwCanvas.width/_fwCanvas.ownerDocument.defaultView.devicePixelRatio, _fwCanvas.height/_fwCanvas.ownerDocument.defaultView.devicePixelRatio);
+  }
+  _fwParticles = [];
+}
 
   document.getElementById('loyalty-ok').addEventListener('click', ()=> hideLoyaltyModal());
 
