@@ -9,6 +9,9 @@ import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
+import fs from "fs/promises";
+import fsSync from "fs";
+
 
 dotenv.config();
 
@@ -625,6 +628,76 @@ app.get("/api/admin/closure", async (_req,res)=>{
 app.delete("/api/admin/closure/:id", async (req,res)=>{
   try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
   catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
+});
+/* ---------- Notices (file-backed, minimal) ---------- */
+const noticesDir = path.resolve(__dirname, "../data");
+const noticesFile = path.join(noticesDir, "notices.json");
+
+async function ensureNoticesFile(){
+  try{
+    if(!fsSync.existsSync(noticesDir)) await fs.mkdir(noticesDir, { recursive: true });
+    if(!fsSync.existsSync(noticesFile)) await fs.writeFile(noticesFile, "[]", "utf8");
+  }catch(e){ console.error("ensureNoticesFile", e); }
+}
+async function readNotices(): Promise<any[]>{
+  try{
+    await ensureNoticesFile();
+    const txt = await fs.readFile(noticesFile, "utf8");
+    return JSON.parse(txt || "[]");
+  }catch(e){ console.error("readNotices", e); return []; }
+}
+async function writeNotices(arr:any[]){
+  try{ await ensureNoticesFile(); await fs.writeFile(noticesFile, JSON.stringify(arr, null, 2), "utf8"); } catch(e){ console.error("writeNotices", e); }
+}
+
+// GET notice for a date (used by frontend)
+app.get("/api/notice", async (req,res)=>{
+  try{
+    const date = normalizeYmd(String(req.query.date || ""));
+    if(!date) return res.status(400).json({});
+    const list = await readNotices();
+    const found = list.find(x => x.date === date);
+    if(found) return res.json(found);
+    return res.json({});
+  }catch(e){ console.error("get notice", e); res.status(500).json({}); }
+});
+
+// ADMIN: list all notices
+app.get("/api/admin/notice", async (_req,res)=>{
+  try{
+    const list = await readNotices();
+    res.json(Array.isArray(list) ? list : []);
+  }catch(e){ console.error("admin notice list", e); res.status(500).json({ error: "Failed to load notices" }); }
+});
+
+// ADMIN: create notice
+app.post("/api/admin/notice", async (req,res)=>{
+  try{
+    const { date, title, message } = req.body || {};
+    const norm = normalizeYmd(String(date || ""));
+    if(!norm) return res.status(400).json({ error: "Invalid date" });
+    if(!message || String(message).trim().length===0) return res.status(400).json({ error: "Message required" });
+
+    const list = await readNotices();
+    const id = generateId(10);
+    const entry = { id, date: norm, title: String(title || ""), message: String(message || "") };
+    list.push(entry);
+    await writeNotices(list);
+    res.json(entry);
+  }catch(e){ console.error("create notice", e); res.status(500).json({ error: "Failed to create notice" }); }
+});
+
+// ADMIN: delete notice
+app.delete("/api/admin/notice/:id", async (req,res)=>{
+  try{
+    const id = String(req.params.id || "");
+    let list = await readNotices();
+    const before = list.length;
+    list = list.filter(x => x.id !== id);
+    if(list.length === before) return res.status(404).json({ error: "Not found" });
+    await writeNotices(list);
+    res.json({ ok:true });
+  }catch(e){ console.error("delete notice", e); res.status(500).json({ error: "Failed to delete notice" }); }
 });
 
 /* ───────────────────────────── Admin: Reset ────────────────────────────── */
