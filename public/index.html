@@ -294,7 +294,7 @@
       } else {
         const err = (json && json.error) ? String(json.error).toLowerCase() : "Reservation failed";
         if(err.includes("sunday") || err.includes("closed") || err.includes("blocked") || err.includes("fully booked")){
-          showLargeAlert("Not available", json.error || "This day is not available. Please choose another day.");
+          showLargeAlert("Not available", json.error || "This day or slot is not available. Please choose another day.");
         } else {
           msg.textContent = json.error || 'Error saving reservation';
         }
