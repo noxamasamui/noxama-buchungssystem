@@ -292,4 +292,138 @@ small{
     font-weight: 700;
   }
 }
+/* ------------------------------------------------------------------
+   Modal / Large-party / Loyalty: mobile-friendly tweaks
+   (Nur anhängen — verändert sonst nichts)
+   ------------------------------------------------------------------ */
+
+#__modal,
+#loyalty-modal,
+#confirm-modal {
+  /* z-index hoch genug, volle viewport-Überdeckung */
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  z-index: 99999;
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+/* modal inner box: responsive, nicht zu breit */
+#__modal > div,
+#loyalty-modal > div,
+#confirm-modal > div {
+  width: 100%;
+  max-width: 520px;          /* max breite auf desktop, kleiner auf mobile */
+  background: #fff8f0;
+  border: 1px solid #e0d7c5;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 10px 35px rgba(0,0,0,0.25);
+  box-sizing: border-box;
+  text-align: center;
+  overflow: visible;
+}
+
+/* Modal Titel/Content */
+#__modal h3,
+#loyalty-modal h3,
+#confirm-modal h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  line-height: 1.15;
+}
+#__modal div, #loyalty-modal div, #confirm-modal div {
+  color: #3a2f28;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* Buttongruppe: vermeide Überlappung; auf Handy gestapelt */
+#__modal .modal-btns,
+#loyalty-modal .modal-btns,
+#confirm-modal .modal-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* Buttons: gleiche Optik wie Site, aber responsiv */
+#__modal .modal-btn,
+#loyalty-modal .modal-btn,
+#confirm-modal .modal-btn {
+  background: #b3822f;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.12);
+  min-width: 120px;
+}
+
+/* speziell: link buttons (Call / Email) — visuell als Pill */
+#__modal .modal-call,
+#__modal .modal-email {
+  display: inline-block;
+  text-decoration: none;
+  color: #fff;
+}
+
+/* kleinere devices: Buttons untereinander, Box enger */
+@media (max-width: 520px) {
+  #__modal > div,
+  #loyalty-modal > div,
+  #confirm-modal > div {
+    padding: 14px;
+    max-width: 420px;
+  }
+
+  /* Buttons full width stacked */
+  #__modal .modal-btns,
+  #loyalty-modal .modal-btns,
+  #confirm-modal .modal-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #__modal .modal-btn,
+  #loyalty-modal .modal-btn,
+  #confirm-modal .modal-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Vermeide Button-Textschnitt: wrap erlauben */
+  #__modal .modal-btn,
+  #loyalty-modal .modal-btn,
+  #confirm-modal .modal-btn {
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  /* Inhalt: besserer Zeilenumbruch und kleinere Schrift */
+  #__modal > div p,
+  #loyalty-modal > div p,
+  #confirm-modal > div p {
+    font-size: 15px;
+    margin: 8px 0;
+  }
+
+  /* Wenn Links (Call/email) als Buttons erscheinen, etwas Abstand */
+  #__modal .modal-call, #__modal .modal-email { display: inline-block; width: 100%; box-sizing: border-box; text-align:center; }
+}
+
+/* Zusatz: sicherstellen, dass keine Overflow-Hickups durch lange Telefonnummern/Text */
+#__modal > div * {
+  word-break: break-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
 
