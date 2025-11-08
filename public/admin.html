@@ -150,6 +150,153 @@
   </div>
 </div>
 
+  <!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Admin — ROESTILAND BY NOXAMA SAMUI</title>
+  <link rel="stylesheet" href="/style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+  <style>
+    .hero-wrap { padding: 18px 0; text-align: center; }
+    .hero-banner { max-width: 480px; width: 100%; height: auto; display: inline-block; object-fit: contain; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
+    .hero-banner.img-fallback { max-height: 160px; }
+    .btn, button[type="submit"], .reserve-btn { padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; }
+    .table-wrap { overflow:auto; max-width:100%; }
+    table { border-collapse: collapse; width:100%; font-size:14px; }
+    table th, table td { padding:8px 10px; text-align:left; vertical-align:middle; }
+    .badge { display:inline-block; padding:6px 10px; border-radius:6px; background:#f3f0e7; }
+    .card { margin-bottom:20px; }
+    /* Notice card specifics */
+    .notice-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .notice-list .notice-item { padding:8px; border:1px solid #ead6b6; border-radius:8px; margin-bottom:8px; background:#fffefc; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .notice-list .notice-item .meta { font-size:14px; color:#6b5b4a; }
+    .notice-form input, .notice-form textarea { padding:8px; border-radius:6px; border:1px solid #c8b99e; width:100%; box-sizing:border-box; }
+    .notice-form .row { gap:8px; align-items:flex-start; }
+  </style>
+</head>
+<body>
+  <div class="hero-wrap" aria-hidden="false">
+    <img id="heroBanner" class="hero-banner" src="/logo-hero.png" alt="Logo banner"/>
+  </div>
+
+  <nav><a href="/">Reservation</a> <a class="active" href="/admin">Admin</a></nav>
+  <h1>Admin</h1>
+
+  <!-- existing cards (All reservations / Walk in / Block restaurant) remain unchanged -->
+
+  <!-- your existing cards ... (omitted here for brevity in this snippet) -->
+
+  <!-- NEW: Notices card (admin manages date-specific info popups) -->
+  <div class="card">
+    <h2>Date notices (informational popups for customers)</h2>
+
+    <div class="notice-form">
+      <div class="row">
+        <div style="flex:1 1 220px;">
+          <label>Date</label>
+          <input id="noticeDate" type="date"/>
+        </div>
+        <div style="flex:1 1 220px;">
+          <label>Title</label>
+          <input id="noticeTitle" type="text" placeholder="e.g. Christmas Menu (24.12)"/>
+        </div>
+      </div>
+      <div style="margin-top:8px;">
+        <label>Message</label>
+        <textarea id="noticeMsg" rows="3" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #c8b99e;" placeholder="Message customers will see when selecting the date"></textarea>
+      </div>
+
+      <div style="margin-top:10px;">
+        <button id="btnNoticeSave" class="btn" type="button">Save notice</button>
+        <span id="noticeMsgBadge" class="badge" style="margin-left:10px;"></span>
+      </div>
+    </div>
+
+    <h3 style="margin-top:14px;">Existing notices</h3>
+    <div class="notice-list" id="noticeList" style="margin-top:8px;"></div>
+  </div>
+
+<script>
+  // load admin banner (same method as before)
+  (async function(){
+    try{
+      const r = await fetch('/api/config', {cache: "no-store'});
+      if(r.ok){
+        const cfg = await r.json();
+        const hero = document.getElementById('heroBanner');
+        hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png');
+        hero.alt = cfg.brand || 'Banner';
+        hero.onerror = function(){ this.src = '/logo-hero.png'; this.classList.add('img-fallback'); };
+      }
+    }catch(e){ const hero = document.getElementById('heroBanner'); if(hero) hero.src='/logo-hero.png'; }
+  })();
+
+  // ensure default date
+  const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+  document.getElementById('noticeDate').value = today();
+
+  async function loadNotices(){
+    const r = await fetch('/api/admin/notice', {cache:"no-store"});
+    if(!r.ok) return;
+    const list = await r.json();
+    const box = document.getElementById('noticeList');
+    box.innerHTML = "";
+    if(!Array.isArray(list) || list.length===0){
+      box.innerHTML = '<div class="muted">No notices defined</div>';
+      return;
+    }
+    list.sort((a,b)=> a.date < b.date ? -1 : 1).forEach(n=>{
+      const div = document.createElement('div'); div.className = 'notice-item';
+      const left = document.createElement('div'); left.style.flex='1';
+      left.innerHTML = `<div style="font-weight:700">${n.title || '(no title)'}</div><div class="meta">${n.date}</div><div style="margin-top:6px;color:#3a2f28">${n.message}</div>`;
+      const right = document.createElement('div');
+      right.innerHTML = `<button data-id="${n.id}" class="btn" style="background:#c84c3c;border:0;padding:6px 10px;border-radius:6px;color:#fff">Delete</button>`;
+      div.appendChild(left); div.appendChild(right);
+      box.appendChild(div);
+    });
+    box.querySelectorAll('button[data-id]').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        const id = b.getAttribute('data-id');
+        if(!confirm('Delete this notice?')) return;
+        const r = await fetch('/api/admin/notice/'+encodeURIComponent(id), { method:'DELETE' });
+        if(r.ok) { loadNotices(); } else { alert('Failed to delete'); }
+      });
+    });
+  }
+
+  document.getElementById('btnNoticeSave').addEventListener('click', async ()=>{
+    const d = document.getElementById('noticeDate').value;
+    const title = (document.getElementById('noticeTitle').value || "").trim();
+    const msg = (document.getElementById('noticeMsg').value || "").trim();
+    const badge = document.getElementById('noticeMsgBadge');
+    badge.textContent = '';
+    if(!d || !msg) { badge.textContent = 'Please add date and message'; return; }
+    try{
+      const r = await fetch('/api/admin/notice', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ date: d, title, message: msg })
+      });
+      if(r.ok){
+        badge.textContent = 'Saved';
+        document.getElementById('noticeTitle').value=''; document.getElementById('noticeMsg').value='';
+        loadNotices();
+        setTimeout(()=> badge.textContent='', 2000);
+      } else {
+        const e = await r.json().catch(()=>({})); badge.textContent = e.error || 'Error';
+      }
+    }catch(err){ console.error(err); badge.textContent = 'Error'; }
+  });
+
+  // initialise
+  loadNotices();
+</script>
+</body>
+</html>
+
+  
 <script>
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
