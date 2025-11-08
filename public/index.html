@@ -5,140 +5,268 @@
   <title>Reservation — ROESTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <style>
-    /* --- minimal local CSS additions, keep look consistent --- */
-    .hero-wrap { text-align:center; margin-top:18px; display:flex; justify-content:center; }
-    .hero-banner { max-width:640px; width:76%; border-radius:12px; box-shadow:0 25px 50px rgba(0,0,0,.18); display:block; margin:0 auto; }
+  <!-- BEGIN: REPLACE-LOYALTY-MODAL-AND-FIREWORKS -->
+<style>
+  /* loyalty modal + fireworks (replaces previous snippet) */
+  #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; }
+  #loyalty-modal > .box {
+    position:relative;              /* important: canvas will be absolutely positioned inside */
+    background:#d6c7b2;
+    border:1px solid rgba(0,0,0,0.06);
+    border-radius:12px;
+    max-width:520px;
+    width:92%;
+    padding:18px;
+    box-shadow:0 10px 35px rgba(0,0,0,0.25);
+    text-align:center;
+    color:#3a2f28;
+    font-family: Georgia, serif;
+    overflow: hidden;               /* ensure canvas can extend to edges cleanly */
+  }
+  /* full-size canvas that covers the whole modal box */
+  #fw-canvas {
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:100%;
+    display:block;
+    border-radius:12px;
+    z-index:2;                      /* behind content? we'll place content above with z-index */
+    pointer-events:none;            /* don't block clicks */
+    background: linear-gradient(180deg,#f7efe2,#fff8f2);
+    mix-blend-mode: screen;
+  }
+  /* content wrapper sits above canvas */
+  #loyalty-content {
+    position:relative;
+    z-index:3;
+  }
+  #loyalty-modal h2 { margin:6px 0 8px; font-size:22px; }
+  #loyalty-modal .cta { margin-top:8px; }
+  #loyalty-modal button { background:#b3822f; color:#fff; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; z-index:4; position:relative; }
 
-    /* Loyalty modal + fireworks styling (as you requested) */
-    #loyalty-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center; }
-    #loyalty-modal > .box { background:#d6c7b2; border:1px solid rgba(0,0,0,0.06); border-radius:12px; max-width:520px; width:92%; padding:18px; box-shadow:0 10px 35px rgba(0,0,0,0.25); text-align:center; color:#3a2f28; font-family: Georgia, serif; }
-    #fw-canvas { width:100%; height:160px; display:block; border-radius:10px; margin-bottom:10px; background: linear-gradient(180deg,#f7efe2,#fff8f2); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03); }
-    #loyalty-modal h2 { margin:6px 0 8px; font-size:22px; }
-    #loyalty-modal .cta { margin-top:8px; }
-    #loyalty-modal button { background:#b3822f; color:#fff; border:none; padding:10px 16px; border-radius:8px; cursor:pointer; }
+  /* keep a subtle inner panel for text */
+  #loyalty-panel {
+    background: rgba(255,255,255,0.92);
+    padding:12px;
+    border-radius:8px;
+    display:inline-block;
+    margin-top:6px;
+    box-shadow: inset 0 -6px 12px rgba(0,0,0,0.03);
+    color:#3a2f28;
+  }
+</style>
 
-    /* Large party modal (matches site) */
-    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:99998; }
-    .modal-card { background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; max-width:620px; width:92%; padding:20px; box-shadow:0 12px 40px rgba(0,0,0,0.25); text-align:center; font-family: Georgia, serif; color:#3a2f28; }
+<!-- loyalty modal (hidden) -->
+<div id="loyalty-modal" aria-hidden="true">
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="loyalty-title">
+    <!-- canvas covers entire box -->
+    <canvas id="fw-canvas" aria-hidden="true"></canvas>
 
-    /* confirmation modal kept same; ensure centered */
-    #confirm-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); align-items:center; justify-content:center; z-index:9999; }
-    #confirm-modal .inner { background:#fff8f0;border-radius:12px;padding:18px;max-width:420px;width:92%;text-align:center;border:1px solid #e0d7c5; }
-
-    /* hide "remaining seats" (if any code tries to show it) ensure times only show hh:mm */
-    .time-left { display:none !important; }
-
-    /* Slight animation */
-    @keyframes subtlepop { from { transform: translateY(6px); opacity:0 } to { transform: translateY(0); opacity:1 } }
-    .modal-card, #loyalty-modal > .box, #confirm-modal .inner { animation: subtlepop .22s ease both; }
-
-    /* small utility for hidden class */
-    .hidden { display:none !important; }
-  </style>
-</head>
-<body>
-  <div class="hero-wrap">
-    <img id="heroBanner" class="hero-banner" alt="Logo banner" />
-  </div>
-
-  <div class="container">
-    <h1 style="text-align:center;margin-top:8px;">Reservation — ROESTILAND BY NOXAMA SAMUI</h1>
-    <p style="text-align:center;margin-top:6px;">
-      Moo 4 Lamai Beach, 84310 Suratthani, Thailand • +66 077 270 675
-    </p>
-
-    <div class="card booking-card booking-compact" style="max-width:760px;margin:18px auto;padding:18px;">
-      <h2>Book a table</h2>
-
-      <div class="row date-time">
-        <div style="flex:1 1 220px;">
-          <label>Date</label>
-          <input id="rDate" type="date"/>
-        </div>
-        <div style="flex:0 0 110px;">
-          <label>Guests</label>
-          <select id="rGuests" aria-label="Guests">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-            <option value="11">11+</option>
-          </select>
-        </div>
-        <div style="flex:0 0 140px;">
-          <label>Time</label>
-          <select id="rTime"></select>
-        </div>
-      </div>
-
-      <div class="row form-grid-2" style="margin-top:6px;">
-        <div>
-          <label>First name</label>
-          <input id="rFirst" type="text"/>
-        </div>
-        <div>
-          <label>Last name</label>
-          <input id="rLast" type="text"/>
-        </div>
-      </div>
-
-      <div class="row form-grid-2" style="margin-top:6px;">
-        <div>
-          <label>Email</label>
-          <input id="rEmail" type="email"/>
-        </div>
-        <div>
-          <label>Phone</label>
-          <input id="rPhone" type="tel"/>
-        </div>
-      </div>
-
-      <div style="margin-top:8px;">
-        <label>Notes</label>
-        <textarea id="rNotes" rows="2" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c8b99e;"></textarea>
-      </div>
-
-      <div style="margin-top:12px;text-align:left;">
-        <button id="btnReserve" class="btn btn-primary-book" type="button">Book</button>
-        <span id="rMsg" class="badge" style="margin-left:10px;"></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- confirmation modal -->
-  <div id="confirm-modal">
-    <div class="inner">
-      <h3 id="confirm-title" style="margin-top:0;">Reservation confirmed</h3>
-      <div id="confirm-text" style="margin:8px 0 12px 0;color:#3a2f28;"></div>
-      <div style="display:flex;gap:10px;justify-content:center;">
-        <button id="confirm-ok" class="btn" style="min-width:120px;">Continue</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- loyalty modal (hidden) -->
-  <div id="loyalty-modal" aria-hidden="true">
-    <div class="box">
+    <!-- textual content above canvas -->
+    <div id="loyalty-content">
       <h2 id="loyalty-title">You earned a loyalty reward</h2>
       <div id="loyalty-body">
-        <p style="margin:6px 0 12px 0;">Congratulations — loyalty reward unlocked!</p>
-        <div id="fw-canvas-wrap">
-          <canvas id="fw-canvas"></canvas>
+        <div id="loyalty-panel">
+          <div style="font-family:Georgia,serif;color:#3a2f28;">
+            <div style="font-size:18px;margin-bottom:6px;">Congratulations — loyalty reward unlocked!</div>
+            <div id="loyalty-sub" style="font-size:15px;margin-bottom:8px;">You just reached visit <span id="loyalty-visitno"></span></div>
+            <div id="loyalty-discount" style="font-size:16px;padding:10px;border-radius:6px;background:#fff8f0;display:inline-block;">Enjoy a <strong id="loyalty-percent"></strong> thank-you discount on your next visit</div>
+          </div>
         </div>
-        <div id="loyalty-text" style="margin-top:8px;font-size:16px;"></div>
-        <div class="cta"><button id="loyalty-ok">Okay</button></div>
+
+        <div class="cta" style="margin-top:12px;">
+          <button id="loyalty-ok">Okay</button>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- large party modal will be created dynamically when needed -->
+<script>
+/* fireworks over full modal box:
+   - canvas is sized to the .box element (DPR-aware)
+   - more particles, colorful bursts, and canvas cleared when closed
+*/
+let fwAnim = null;
+let fwCtx = null;
+let fwW = 0, fwH = 0;
+let fwParticles = [];
+let fwRockets = [];
+let fwBoxElement = null;
+
+function startFireworksInBox() {
+  const canvas = document.getElementById('fw-canvas');
+  if (!canvas) return;
+  stopFireworks(); // reset
+
+  // box reference for sizing
+  fwBoxElement = canvas.parentElement; // .box
+  const DPR = window.devicePixelRatio || 1;
+  // compute size based on box client size
+  fwW = Math.max(300, Math.floor(fwBoxElement.clientWidth * DPR));
+  fwH = Math.max(160, Math.floor(fwBoxElement.clientHeight * DPR));
+  canvas.width = fwW;
+  canvas.height = fwH;
+  canvas.style.width = fwBoxElement.clientWidth + "px";
+  canvas.style.height = fwBoxElement.clientHeight + "px";
+
+  fwCtx = canvas.getContext('2d');
+  fwCtx.clearRect(0,0,fwW,fwH);
+
+  fwParticles = [];
+  fwRockets = [];
+
+  const colors = ['#ff4d4d','#ff9f43','#ffd166','#7bed9f','#4dabf7','#b197fc','#ffd54f','#ff6bcb'];
+
+  // launch several waves
+  const rand = (a,b) => a + Math.random()*(b-a);
+  const launchRocket = (x, y, tx, ty, color) => {
+    fwRockets.push({ x, y, vx:(tx-x)/(800+Math.random()*400), vy:-0.35 - Math.random()*0.22, targetY: ty, size: 2 + Math.random()*3, color });
+  };
+
+  function launchWave(){
+    for (let i=0;i<16;i++){
+      const sx = rand(0.12,0.88) * fwW;
+      const tx = rand(0.2,0.8) * fwW;
+      const ty = rand(fwH*0.08, fwH*0.45);
+      const col = colors[Math.floor(Math.random()*colors.length)];
+      launchRocket(sx, fwH+10, tx, ty, col);
+    }
+  }
+
+  launchWave();
+  setTimeout(launchWave, 300);
+  setTimeout(launchWave, 620);
+
+  let last = performance.now();
+  function frame(now){
+    const dt = now - last;
+    last = now;
+
+    // soft background overlay (to tint)
+    fwCtx.globalCompositeOperation = 'source-over';
+    fwCtx.fillStyle = 'rgba(214,199,178,0.12)';
+    fwCtx.fillRect(0,0,fwW,fwH);
+
+    // rockets
+    for (let i = fwRockets.length - 1; i >= 0; i--) {
+      const r = fwRockets[i];
+      r.vy += 0.0009 * dt;
+      r.x += r.vx * dt;
+      r.y += r.vy * dt;
+      // draw
+      fwCtx.beginPath();
+      fwCtx.fillStyle = r.color;
+      fwCtx.arc(r.x, r.y, Math.max(1, r.size * DPR * 0.6), 0, Math.PI*2);
+      fwCtx.fill();
+      if (r.vy > -0.02 || r.y < r.targetY) {
+        explodeRocket(r);
+        fwRockets.splice(i,1);
+      }
+    }
+
+    // particles
+    for (let i = fwParticles.length - 1; i >= 0; i--) {
+      const p = fwParticles[i];
+      p.vy += 0.0005 * dt;
+      p.vx *= (1 - 0.00045*dt);
+      p.vy *= (1 - 0.00002*dt);
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+      const alpha = Math.max(0, Math.min(1, p.life / p.initialLife));
+      fwCtx.beginPath();
+      fwCtx.globalCompositeOperation = 'lighter';
+      fwCtx.fillStyle = `rgba(${p.r},${p.g},${p.b},${alpha})`;
+      fwCtx.arc(p.x, p.y, Math.max(1, p.size * DPR * 0.7), 0, Math.PI*2);
+      fwCtx.fill();
+      if (Math.random() < 0.03) {
+        fwCtx.globalCompositeOperation = 'source-over';
+        fwCtx.fillStyle = `rgba(255,255,255,${alpha*0.6})`;
+        fwCtx.fillRect(p.x, p.y, 1 * DPR, 1 * DPR);
+      }
+      if (p.life <= 0 || p.y > fwH + 40) fwParticles.splice(i,1);
+    }
+
+    if (fwParticles.length > 0 || fwRockets.length > 0) {
+      fwAnim = requestAnimationFrame(frame);
+    } else {
+      // small graceful fade
+      fwAnim = requestAnimationFrame(()=> {
+        if (fwCtx) {
+          fwCtx.fillStyle = 'rgba(214,199,178,0.10)';
+          fwCtx.fillRect(0,0,fwW,fwH);
+        }
+      });
+    }
+  }
+
+  fwAnim = requestAnimationFrame(frame);
+
+  function explodeRocket(r){
+    const cnt = 70 + Math.floor(Math.random()*90);
+    for (let i=0;i<cnt;i++){
+      const ang = Math.PI*2 * Math.random();
+      const sp = 0.12 + Math.random()*0.6;
+      const col = (function(){ const p = colors[Math.floor(Math.random()*colors.length)]; return { r:p[0], g:p[1], b:p[2] }; })();
+      fwParticles.push({
+        x: r.x,
+        y: r.y,
+        vx: Math.cos(ang)*sp*(0.8 + Math.random()*1.6),
+        vy: Math.sin(ang)*sp*(0.8 + Math.random()*1.6),
+        size: 2 + Math.random()*4,
+        life: 700 + Math.random()*1400,
+        initialLife: 700 + Math.random()*1400,
+        r: col.r, g: col.g, b: col.b
+      });
+    }
+  }
+}
+
+function stopFireworks(){
+  if (fwAnim) cancelAnimationFrame(fwAnim);
+  fwAnim = null;
+  fwParticles = [];
+  fwRockets = [];
+  const c = document.getElementById('fw-canvas');
+  if (c && c.getContext) {
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0,0,c.width,c.height);
+  }
+}
+
+/* show loyalty modal wrapper that uses start/stop */
+function showLoyaltyModal(tier, visitNo){
+  document.getElementById('loyalty-visitno').textContent = visitNo ? String(visitNo) : '';
+  document.getElementById('loyalty-percent').textContent = tier + '%';
+  const modal = document.getElementById('loyalty-modal');
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden','false');
+  // small delay so layout settles then start fireworks
+  setTimeout(()=> startFireworksInBox(), 80);
+
+  // wire ok button
+  document.getElementById('loyalty-ok').onclick = ()=> {
+    stopFireworks();
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden','true');
+    // show confirmation (keeps earlier flow)
+    const title = document.getElementById('confirm-title');
+    const txt = document.getElementById('confirm-text');
+    title.textContent = "Reservation received";
+    txt.innerHTML = `Thank you. A confirmation mail was sent.`;
+    document.getElementById('confirm-ok').onclick = ()=>{ hideConfirmModal(); window.location.href="/"; };
+    showConfirmModal();
+  };
+}
+
+/* ensure fireworks stop when modal closed or user navigates away */
+window.addEventListener('keydown', (e)=> { if (e.key === "Escape") { stopFireworks(); } });
+window.addEventListener('beforeunload', ()=> stopFireworks());
+</script>
+<!-- END: REPLACE-LOYALTY-MODAL-AND-FIREWORKS -->
 
 <script>
 /* ------------------ Basic helpers + initial config ------------------ */
