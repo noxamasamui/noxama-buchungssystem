@@ -8,6 +8,11 @@ import XLSX from "xlsx";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
+import fs from "fs";
+import { promisify } from "util";
+const writeFile = promisify(fs.writeFile);
+const readFile = promisify(fs.readFile);
+
 
 dotenv.config();
 
@@ -580,6 +585,73 @@ app.get("/api/admin/closure", async (_req,res)=>{
 app.delete("/api/admin/closure/:id", async (req,res)=>{
   try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
   catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
+});
+// ---- Simple persistent notices storage (file-based) ----
+// file path (public so frontend can read if desired)
+const NOTICES_FILE = path.join(publicDir, "notices.json");
+
+// helper to read notices.json (returns array of notice objects)
+async function readNoticesFile(): Promise<any[]> {
+  try {
+    if (!fs.existsSync(NOTICES_FILE)) { await writeFile(NOTICES_FILE, JSON.stringify([]), "utf8"); return []; }
+    const txt = await readFile(NOTICES_FILE, "utf8");
+    return JSON.parse(txt || "[]");
+  } catch (err) {
+    console.error("readNoticesFile error", err);
+    return [];
+  }
+}
+async function writeNoticesFile(list: any[]) {
+  try {
+    await writeFile(NOTICES_FILE, JSON.stringify(list, null, 2), "utf8");
+  } catch (err) {
+    console.error("writeNoticesFile error", err);
+  }
+}
+
+// GET notices
+app.get("/api/admin/notice", async (_req, res) => {
+  try {
+    const list = await readNoticesFile();
+    res.json(list);
+  } catch (err) {
+    console.error("GET /api/admin/notice error", err);
+    res.status(500).json([]);
+  }
+});
+
+// POST create notice
+app.post("/api/admin/notice", async (req, res) => {
+  try {
+    const { date, title, message } = req.body || {};
+    if (!date || !message) return res.status(400).json({ error: "Missing date or message" });
+    const list = await readNoticesFile();
+    // generate simple id (timestamp based)
+    const id = `n_${Date.now().toString(36)}`;
+    const rec = { id, date, title: title || "", message };
+    list.push(rec);
+    await writeNoticesFile(list);
+    res.json(rec);
+  } catch (err) {
+    console.error("POST /api/admin/notice error", err);
+    res.status(500).json({ error: "Failed to save notice" });
+  }
+});
+
+// DELETE notice by id
+app.delete("/api/admin/notice/:id", async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    let list = await readNoticesFile();
+    const before = list.length;
+    list = list.filter((x: any) => String(x.id) !== String(id));
+    if (list.length === before) return res.status(404).json({ error: "Not found" });
+    await writeNoticesFile(list);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /api/admin/notice/:id error", err);
+    res.status(500).json({ error: "Failed to delete notice" });
+  }
 });
 
 app.post("/api/admin/reset", async (req,res)=>{
