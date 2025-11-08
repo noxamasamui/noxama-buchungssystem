@@ -5,40 +5,16 @@
   <title>Admin — ROESTILAND BY NOXAMA SAMUI</title>
   <link rel="stylesheet" href="/style.css"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-
   <style>
     .hero-wrap { padding: 18px 0; text-align: center; }
     .hero-banner { max-width: 480px; width: 100%; height: auto; display: inline-block; object-fit: contain; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
     .hero-banner.img-fallback { max-height: 160px; }
-
     .btn, button[type="submit"], .reserve-btn { padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; }
     .table-wrap { overflow:auto; max-width:100%; }
     table { border-collapse: collapse; width:100%; font-size:14px; }
     table th, table td { padding:8px 10px; text-align:left; vertical-align:middle; }
     .badge { display:inline-block; padding:6px 10px; border-radius:6px; background:#f3f0e7; }
     .card { margin-bottom:20px; }
-    .notices-list { display:flex;flex-direction:column;gap:8px; }
-    .notice-item { background:#fff8f0;border:1px solid #e0d7c5;padding:10px;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px; }
-    .notice-item .notice-left { flex:1 1 auto; min-width:0; }
-    .notice-item .notice-left strong{ display:block; margin-bottom:6px; }
-    .notice-item .notice-body { white-space:pre-wrap; color:#6b5b4a; } /* preserve line breaks */
-    .notice-actions { margin-left:12px; display:flex; gap:8px; align-items:center; }
-    .form-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    @media(max-width:520px){ .form-row { flex-direction:column; } }
-
-    /* keep textarea styling consistent with site inputs */
-    textarea.admin-textarea {
-      width:100%;
-      box-sizing: border-box;
-      padding:8px 10px;
-      border-radius:6px;
-      border:1px solid #c8b99e;
-      font-family: inherit;
-      font-size:15px;
-      min-height:72px;
-      background:#fff;
-      resize:vertical;
-    }
   </style>
 </head>
 <body>
@@ -111,11 +87,18 @@
 </div>
 
 <div class="card">
-  <h2>Block restaurant</h2>
+  <h2>Block restaurant / Customer notice</h2>
   <div class="row">
     <div><label>Start</label><input id="cStart" type="datetime-local"/></div>
     <div><label>End</label><input id="cEnd" type="datetime-local"/></div>
-    <div><label>Reason</label><input id="cReason"/></div>
+  </div>
+  <div style="margin-top:8px;">
+    <label>Title (displayed to customers)</label>
+    <input id="cTitle" placeholder="e.g. Christmas menu — special info"/>
+  </div>
+  <div style="margin-top:6px;">
+    <label>Message (reason)</label>
+    <input id="cReason" placeholder="Full message customers see"/>
   </div>
   <div class="row">
     <button id="btnBlock" class="btn" type="button">Create block</button>
@@ -125,35 +108,16 @@
   <div id="closureList" style="margin-top:10px"></div>
 </div>
 
-<div class="card">
-  <h2>Customer notices (date-specific messages)</h2>
-  <p>Use notices to inform customers about special menus, events or other information when they pick a date. Notices do not block booking.</p>
-
-  <div style="margin-bottom:10px;" class="form-row">
-    <div style="flex:0 0 160px;"><label>Date</label><input id="nDate" type="date"/></div>
-    <div style="flex:1 1 200px;"><label>Title</label><input id="nTitle" placeholder="Title (shown in modal header)"/></div>
-    <div style="flex:2 1 300px;"><label>Message</label>
-      <!-- changed from input to textarea to allow Enter/newlines -->
-      <textarea id="nMessage" class="admin-textarea" placeholder="Short message or HTML snippet - use Enter for line breaks"></textarea>
-    </div>
-    <div style="flex:0 0 140px;align-self:flex-end;"><button id="btnAddNotice" class="btn">Add notice</button></div>
-  </div>
-
-  <div class="notices-list" id="noticesList"></div>
-</div>
-
 <script>
   const today = ()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
-
   document.getElementById("fltDate").value = today();
   document.getElementById("wDate").value = today();
-  document.getElementById("nDate").value = today();
 
   function fillWalkInTimes(){
     const sel = document.getElementById("wTime");
     sel.innerHTML = "";
     const from = 10*60, to = 22*60;
-    for(let m=from;m<to;m+=15){
+    for(let m=from;m<=to;m+=15){
       const hh=String(Math.floor(m/60)).padStart(2,"0");
       const mm=String(m%60).padStart(2,"0");
       const opt=document.createElement("option");
@@ -163,12 +127,11 @@
   }
   fillWalkInTimes();
 
-  // --- reservations listing (unchanged) ---
   async function loadList(){
     const d = document.getElementById("fltDate").value || today();
     const v = document.getElementById("view").value || "week";
     const r = await fetch(`/api/admin/reservations?date=${encodeURIComponent(d)}&view=${v}`);
-    if(!r.ok){ console.error("loadList fetch failed", r.status); return; }
+    if(!r.ok){ console.error('loadList error', r.status); return; }
     const data = await r.json();
     const tb = document.querySelector("#tbl tbody");
     tb.innerHTML = "";
@@ -201,12 +164,10 @@
     document.getElementById("sum").textContent = `Total bookings: ${data.length}   Total guests: ${totalGuests}`;
 
     tb.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", async ()=>{
-      await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"});
-      loadList();
+      await fetch(`/api/admin/reservations/${b.getAttribute("data-del")}`, {method:"DELETE"}); loadList();
     }));
     tb.querySelectorAll("[data-ns]").forEach(b=>b.addEventListener("click", async ()=>{
-      await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"});
-      loadList();
+      await fetch(`/api/admin/reservations/${b.getAttribute("data-ns")}/noshow`, {method:"POST"}); loadList();
     }));
   }
   document.getElementById("btnLoad").addEventListener("click", loadList);
@@ -219,35 +180,18 @@
     window.location.href = `/api/export?period=${p}&date=${encodeURIComponent(d)}`;
   });
 
-  // walk-in save
   document.getElementById("btnWalk").addEventListener("click", async ()=>{
     const d = document.getElementById("wDate").value || today();
     const t = document.getElementById("wTime").value;
     const payload = { date:d, time:t, guests:Number(document.getElementById("wGuests").value), notes:document.getElementById("wNotes").value };
     const r = await fetch("/api/admin/walkin", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
     const m = document.getElementById("wMsg");
-    if(r.ok){ m.textContent="Saved"; loadList(); } else { const e = await r.json().catch(()=>({})); m.textContent = e.error || "Error"; }
-  });
-
-  // closures
-  document.getElementById("btnBlock").addEventListener("click", async ()=>{
-    const payload = { startTs: document.getElementById("cStart").value, endTs: document.getElementById("cEnd").value, reason: document.getElementById("cReason").value };
-    const r = await fetch("/api/admin/closure", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-    const m = document.getElementById("cMsg");
-    if(r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json().catch(()=>({})); m.textContent = e.error || "Error"; }
-  });
-  document.getElementById("btnBlockDayPicker").addEventListener("click", async ()=>{
-    const val = document.getElementById("cStart").value; if(!val){ alert("Set 'Start' first"); return; }
-    const d = new Date(val); const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-    const reason = document.getElementById("cReason").value || "Closed";
-    const r = await fetch("/api/admin/closure/day", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ date: iso, reason }) });
-    const m = document.getElementById("cMsg");
-    if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json().catch(()=>({})); m.textContent = e.error || "Error"; }
+    if(r.ok){ m.textContent="Saved"; loadList(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
   });
 
   async function loadClosures(){
     const r = await fetch("/api/admin/closure");
-    if(!r.ok) return;
+    if(!r.ok){ console.error('loadClosures error', r.status); return; }
     const list = await r.json();
     const box = document.getElementById("closureList");
     box.innerHTML = "";
@@ -256,8 +200,11 @@
       d.className = "badge";
       const s = new Date(x.startTs).toLocaleString();
       const e = new Date(x.endTs).toLocaleString();
-      d.textContent = `${s} — ${e} (${x.reason}) `;
-      const btn = document.createElement("button"); btn.textContent = "remove"; btn.className = "btn-plain btn-sm"; btn.type="button";
+      // show title if present, otherwise reason
+      const title = x.title ? x.title : x.reason;
+      d.textContent = `${s} — ${e} (${title}) `;
+      const btn = document.createElement("button");
+      btn.textContent = "remove"; btn.className = "btn-plain btn-sm"; btn.type="button";
       btn.onclick = async ()=>{ await fetch(`/api/admin/closure/${x.id}`, {method:"DELETE"}); loadClosures(); };
       d.appendChild(btn);
       box.appendChild(d);
@@ -265,52 +212,28 @@
   }
   loadClosures();
 
-  // ------------------ Notices management (title + message, message supports newlines) ------------------
-  async function loadNotices(){
-    const r = await fetch("/api/admin/notices");
-    if(!r.ok) return;
-    const list = await r.json();
-    const box = document.getElementById("noticesList");
-    box.innerHTML = "";
-    if(!Array.isArray(list) || list.length===0){ box.innerHTML = "<small>No notices set</small>"; return; }
-    list.forEach(n=>{
-      const div = document.createElement("div"); div.className = "notice-item";
-      const left = document.createElement("div"); left.className = "notice-left";
-      left.innerHTML = `<strong>${n.date} — ${ (n.title) ? (n.title) : '' }</strong><div class="notice-body">${escapeHtml(n.message)}</div>`;
-      const actions = document.createElement("div"); actions.className = "notice-actions";
-      const btnDel = document.createElement("button"); btnDel.className = "btn"; btnDel.textContent = "Delete"; btnDel.onclick = async ()=>{
-        const r = await fetch(`/api/admin/notice/${encodeURIComponent(n.date)}`, { method:"DELETE" });
-        if(r.ok) loadNotices();
-        else { alert("Failed to delete"); }
-      };
-      actions.appendChild(btnDel);
-      div.appendChild(left); div.appendChild(actions);
-      box.appendChild(div);
-    });
-  }
-
-  // simple escaper but preserve line breaks: replace HTML special chars then convert \n to <br>
-  function escapeHtml(str){
-    if(!str) return "";
-    const s = String(str)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    return s.replace(/\r\n?/g,"\n").replace(/\n/g,"<br>");
-  }
-
-  document.getElementById("btnAddNotice").addEventListener("click", async ()=>{
-    const date = document.getElementById("nDate").value;
-    const title = document.getElementById("nTitle").value.trim();
-    const message = document.getElementById("nMessage").value;
-    if(!date || !message){ alert("Set both date and message"); return; }
-    const payload = { date, message, title: title || "Important information" };
-    const r = await fetch("/api/admin/notice", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-    if(r.ok){ document.getElementById("nMessage").value = ""; document.getElementById("nTitle").value = ""; loadNotices(); } else { const e = await r.json().catch(()=>({})); alert(e.error || "Failed to save notice"); }
+  document.getElementById("btnBlock").addEventListener("click", async ()=>{
+    const payload = {
+      startTs: document.getElementById("cStart").value,
+      endTs: document.getElementById("cEnd").value,
+      reason: document.getElementById("cReason").value,
+      title:  document.getElementById("cTitle").value
+    };
+    const r = await fetch("/api/admin/closure", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+    const m = document.getElementById("cMsg");
+    if(r.ok){ m.textContent="Block saved"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
   });
-  loadNotices();
 
-  // banner image load from config (fallback handled)
-  (async function(){ try{ const r = await fetch('/api/config',{cache:"no-store"}); if(!r.ok) return; const cfg = await r.json(); const hero = document.getElementById('heroBanner'); hero.src = cfg.mailHeaderUrl && cfg.mailHeaderUrl.trim() ? cfg.mailHeaderUrl : (cfg.mailLogoUrl && cfg.mailLogoUrl.trim() ? cfg.mailLogoUrl : '/logo-hero.png'); hero.alt = cfg.brand || 'Banner'; hero.onerror = function(){ this.src = '/logo-hero.png'; this.classList.add('img-fallback'); } }catch(e){ const hero = document.getElementById('heroBanner'); if(hero) hero.src='/logo-hero.png'; }})();
+  document.getElementById("btnBlockDayPicker").addEventListener("click", async ()=>{
+    const val = document.getElementById("cStart").value;
+    if(!val){ alert("Set 'Start' first"); return; }
+    const d = new Date(val); const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const reason = document.getElementById("cReason").value || "Closed";
+    const title  = document.getElementById("cTitle").value || "";
+    const r = await fetch("/api/admin/closure/day", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ date: iso, reason, title }) });
+    const m = document.getElementById("cMsg");
+    if(r.ok){ m.textContent="Day blocked"; loadClosures(); } else { const e = await r.json(); m.textContent = e.error || "Error"; }
+  });
 </script>
-
 </body>
 </html>
