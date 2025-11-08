@@ -282,6 +282,85 @@ app.get("/api/slots", async (req,res)=>{
 /* ────────────────────────── Online-Reservierung ───────────────────────── */
 // ... unchanged reservation POST route, loyalty logic, etc. (keep your existing implementation) ...
 // (In your file keep the reservation POST handler exactly as before; omitted here for brevity)
+/* -- START: Wiederhergestellte Mail- / Popup-Templates (bitte unverändert einfügen) -- */
+
+function confirmationHtml(p:{
+  firstName:string; name:string; date:string; time:string; guests:number;
+  cancelUrl:string; visitNo:number; currentDiscount:number;
+}){
+  const header = emailHeader(MAIL_LOGO_URL);
+
+  let reward = "";
+  if (p.currentDiscount === 15) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 Thank you so much! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">15% loyalty thank-you</b>.</div>
+      </div>`;
+  } else if (p.currentDiscount === 10) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 Great news! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">10% loyalty thank-you</b>.</div>
+      </div>`;
+  } else if (p.currentDiscount === 5) {
+    reward = `
+      <div style="margin:20px 0;padding:16px;background:#fff3df;border:1px solid #ead6b6;border-radius:10px;text-align:center;">
+        <div style="font-size:22px;margin-bottom:6px;">🎉 You made our day! 🎉</div>
+        <div style="font-size:16px;">From now on you enjoy a <b style="color:#b3822f;">5% loyalty thank-you</b>.</div>
+      </div>`;
+  }
+
+  const tease = loyaltyTeaseNext(p.visitNo);
+  const teaser = tease ? `
+    <div style="margin:16px 0;padding:12px 14px;background:#eef7ff;border:1px solid #cfe3ff;border-radius:10px;text-align:center;">
+      <div style="font-size:18px;margin-bottom:6px;">Heads-up ✨</div>
+      <div style="font-size:15px;">On your next visit you will receive a <b>${tease}% loyalty thank-you</b>.</div>
+    </div>` : "";
+
+  return `
+  <div style="font-family:Georgia,'Times New Roman',serif;background:#fff8f0;color:#3a2f28;padding:24px;border-radius:12px;max-width:640px;margin:auto;border:1px solid #e0d7c5;">
+    ${header}
+    <h2 style="text-align:center;margin:6px 0 14px 0;">Your Reservation at ${BRAND_NAME}</h2>
+    <p>Hi ${p.firstName} ${p.name},</p>
+    <p>Thank you for your reservation. We look forward to welcoming you.</p>
+
+    <div style="background:#f7efe2;padding:14px 18px;border-radius:10px;margin:10px 0;border:1px solid #ead6b6;">
+      <p style="margin:0;"><b>Date</b> ${p.date}</p>
+      <p style="margin:0;"><b>Time</b> ${p.time}</p>
+      <p style="margin:0;"><b>Guests</b> ${p.guests}</p>
+      <p style="margin:0;"><b>Address</b> ${VENUE_ADDRESS}</p>
+    </div>
+
+    <p style="margin:10px 0 0 0;text-align:center;opacity:.95;">This is your <b>${ordinal(p.visitNo)}</b> visit.</p>
+
+    ${reward}
+    ${teaser}
+
+    <div style="margin-top:14px;padding:12px 14px;background:#fdeee9;border:1px solid #f3d0c7;border-radius:10px;">
+      <b>Punctuality</b><br/>Please arrive on time — tables may be released after <b>15 minutes</b> of delay.
+    </div>
+
+    <p style="margin-top:18px;text-align:center;">
+      <a href="${p.cancelUrl}" style="display:inline-block;background:#b3822f;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;">Cancel reservation</a>
+    </p>
+    <p style="margin-top:16px;font-size:14px;text-align:center;">Warm regards from <b>${BRAND_NAME}</b></p>
+  </div>`;
+}
+
+function createLoyaltyPopupHtml(visitNo:number, discount:number){
+  const title = discount >= 15 ? "Unbelievable — 15% for you!" : (discount >= 10 ? "Awesome — 10% for you!" : "Nice — 5% for you!");
+  const message = discount >= 15 ? `As of now you get ${discount}% off on every visit — thank you!` : `You've reached ${visitNo} visits — enjoy ${discount}% off on your next meal!`;
+  return `
+    <div style="font-family:Georgia,serif;color:#3a2f28;padding:18px;border-radius:12px;background:linear-gradient(180deg,#fffefc,#fff7ea);border:1px solid #ead6b6;max-width:640px;">
+      <div style="font-size:22px;margin-bottom:8px;">${title}</div>
+      <div style="font-size:15px;margin-bottom:12px;">${message}</div>
+      <div style="font-size:13px;color:#6b5b4a;">Show this message at the host stand or mention your email to redeem</div>
+    </div>`;
+}
+
+/* -- END: Wiederhergestellte Mail- / Popup-Templates -- */
+
 app.post("/api/reservations", async (req,res)=>{
   try{
     const { date, time, firstName, name, email, phone, guests, notes } = req.body;
