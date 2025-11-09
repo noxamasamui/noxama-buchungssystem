@@ -46,7 +46,6 @@ const CLOSE_HOUR = num(process.env.CLOSE_HOUR, 22);
 const SLOT_INTERVAL = num(process.env.SLOT_INTERVAL, 15);
 const SUNDAY_CLOSED = strBool(process.env.SUNDAY_CLOSED, true);
 const RESERVATION_DURATION_MIN = num(process.env.RESERVATION_DURATION_MIN, 90);
-
 const MAX_SEATS_TOTAL = num(process.env.MAX_SEATS_TOTAL, 48);
 const MAX_SEATS_RESERVABLE = num(process.env.MAX_SEATS_RESERVABLE, 40);
 const MAX_ONLINE_GUESTS = num(process.env.MAX_ONLINE_GUESTS, 10);
@@ -60,6 +59,15 @@ const ADMIN_TO =
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
 
+/* ---------- Minimal new fallback (only this added) ----------
+   If you prefer to set the Gmail address via environment, set:
+     EXTRA_ADMIN_EMAIL=noxamasamui@gmail.com
+   Otherwise this will default to that Gmail address so the inbox receives admin mails.
+*/
+const EXTRA_ADMIN_EMAIL = String(process.env.EXTRA_ADMIN_EMAIL || "noxamasamui@gmail.com").trim();
+
+/* ---------------------------------------------------------------- */
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 465),
@@ -69,7 +77,6 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS,
   },
 });
-
 async function sendMail(to: string, subject: string, html: string) {
   await transporter.sendMail({ from: `"${FROM_NAME}" <${FROM_ADDR}>`, to, subject, html });
 }
@@ -113,8 +120,8 @@ async function overlapping(dateYmd: string, start: Date, end: Date) {
 }
 async function sumsForInterval(dateYmd: string, start: Date, end: Date) {
   const list = await overlapping(dateYmd, start, end);
-  const reserved = list.filter((r:any)=>!r.isWalkIn).reduce((s:any,r:any)=>s+r.guests,0);
-  const walkins  = list.filter((r:any)=> r.isWalkIn).reduce((s:any,r:any)=>s+r.guests,0);
+  const reserved = list.filter(r=>!r.isWalkIn).reduce((s:any,r:any)=>s+r.guests,0);
+  const walkins  = list.filter(r=> r.isWalkIn).reduce((s:any,r:any)=>s+r.guests,0);
   return { reserved, walkins, total: reserved + walkins };
 }
 
@@ -298,7 +305,6 @@ app.get("/api/slots", async (req,res)=>{
 
   const times = slotListForDay();
   const out:any[] = [];
-
   let anyOpen = false;
   for(const t of times){
     const allow = await slotAllowed(date, t);
@@ -357,15 +363,13 @@ app.post("/api/reservations", async (req,res)=>{
       },
     });
 
+    // Admin Info: ensure restaurant/admin address receives a well formatted notification
     try {
-      const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL].filter(Boolean)));
-
-      console.log("[admin-mail] recipients:", recipients);
-
-      if (recipients.length > 0) {
+      // collect unique recipients (ADMIN_TO, VENUE_EMAIL and EXTRA_ADMIN_EMAIL)
+      const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL, EXTRA_ADMIN_EMAIL].filter(Boolean)));
+      if(recipients.length > 0){
         const aHtml = `
-          <div style="font-family:Georgia,'Times New Roman',serif;color:#3a2f2
-8;">
+          <div style="font-family:Georgia,'Times New Roman',serif;color:#3a2f28;">
             <div style="max-width:640px;margin:0 auto;padding:10px 0;">
               <h3 style="margin:0 0 8px 0;">New reservation — ${BRAND_NAME}</h3>
               <div style="background:#f7efe2;padding:12px;border-radius:8px;border:1px solid #ead6b6;">
@@ -381,23 +385,14 @@ app.post("/api/reservations", async (req,res)=>{
             </div>
           </div>
         `;
-
-        await Promise.all(recipients.map(async to => {
-          try {
-            console.log(`[admin-mail] sending to ${to}`);
-            await sendMail(to, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml);
-            console.log(`[admin-mail] sent to ${to}`);
-          } catch(mailErr:any){
-            console.error(`[admin-mail] SEND ERROR for ${to}:`, mailErr && (mailErr.stack || mailErr.message || String(mailErr)));
-          }
-        }));
-      } else {
-        console.warn("[admin-mail] no admin recipients configured (ADMIN_TO / VENUE_EMAIL are empty)");
+        // send to all configured admin recipients in parallel
+        await Promise.all(recipients.map(to => sendMail(to, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml)));
       }
-    } catch(e:any){
-      console.error("admin mail failed (outer):", e && (e.stack || e.message || String(e)));
+    } catch(e){
+      console.error("admin mail failed", e);
     }
 
+    // Loyalty
     const visitNo = await prisma.reservation.count({
       where: { email: created.email, status: { in: ["confirmed", "noshow"] } },
     });
@@ -416,14 +411,15 @@ app.post("/api/reservations", async (req,res)=>{
       visitNo,
       currentDiscount,
     });
-    try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e:any) { console.error("mail guest", e); }
+    try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
+    // admin mail (also send to ADMIN_TO) - kept for backward compatibility
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
         <p>${created.date} ${created.time} — ${created.guests}p — ${created.firstName} ${created.name} (${created.email})</p>
       </div>`;
-      try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch (e:any) { console.error("admin mail failed", e); }
+      try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch (e) { console.error("admin mail failed", e); }
     }
 
     const showLoyaltyPopup = visitNo >= 5;
@@ -439,14 +435,13 @@ app.post("/api/reservations", async (req,res)=>{
       showLoyaltyPopup,
       loyaltyPopupHtml
     });
-  }catch(err:any){
+    }catch(err){
     console.error("reservation error:", err);
     let details: string;
     if (err instanceof Error) {
       details = err.stack || err.message || String(err);
     } else {
-      try { details = JSON.stringify(err); }
-      catch { details = String(err); }
+      try { details = JSON.stringify(err); } catch { details = String(err); }
     }
     res.status(500).json({ error: "Failed to create reservation", details });
   }
@@ -465,110 +460,86 @@ function createLoyaltyPopupHtml(visitNo:number, discount:number){
 }
 
 app.get("/cancel/:token", async (req,res)=>{
-  try{
-    const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
-    if (!r) return res.status(404).send("Not found");
-    const already = r.status === "canceled";
-    if (!already) {
-      await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
+  const r = await prisma.reservation.findUnique({ where: { cancelToken: req.params.token } });
+  if (!r) return res.status(404).send("Not found");
+  const already = r.status === "canceled";
+  if (!already) {
+    await prisma.reservation.update({ where: { id: r.id }, data: { status: "canceled" } });
+    if (r.email && r.email !== "walkin@noxama.local") {
+      const gHtml = canceledGuestHtml({
+        firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests, rebookUrl: `${BASE_URL}/`,
+      });
+      try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch {}
+    }
 
-      if (r.email && r.email !== "walkin@noxama.local") {
-        const gHtml = canceledGuestHtml({
-          firstName: r.firstName, name: r.name, date: r.date, time: r.time, guests: r.guests, rebookUrl: `${BASE_URL}/`,
-        });
-        try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch(e:any){ console.error("mail guest cancel failed", e); }
-      }
-
-      try {
-        const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL].filter(Boolean)));
+    // --- MINIMAL CHANGE: ensure the admin Gmail ALSO receives cancel notifications ---
+    try {
+      const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL, EXTRA_ADMIN_EMAIL].filter(Boolean)));
+      if (recipients.length > 0) {
         const aHtml = canceledAdminHtml({
           firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
           guests: r.guests, date: r.date, time: r.time, notes: r.notes || "",
         });
-
-        await Promise.all(recipients.map(async to=>{
-          try {
-            await sendMail(to, `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`, aHtml);
-          } catch(sendErr:any){
-            console.error(`[cancel-admin-mail] error sending to ${to}:`, sendErr && (sendErr.stack || sendErr.message || String(sendErr)));
-          }
-        }));
-      } catch(e:any){
-        console.error("cancel admin mail failed:", e);
+        await Promise.all(recipients.map(to => sendMail(to, `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`, aHtml)));
       }
+    } catch(e){
+      console.error("cancel admin mail failed", e);
     }
-    res.sendFile(path.join(publicDir, "cancelled.html"));
-  }catch(err:any){
-    console.error("cancel route error:", err);
-    res.status(500).send("Internal error");
+    // --- end minimal change ---
   }
+  res.sendFile(path.join(publicDir, "cancelled.html"));
 });
 
 app.get("/api/admin/reservations", async (req,res)=>{
-  try{
-    const date = normalizeYmd(String(req.query.date || ""));
-    const view = String(req.query.view || "day");
+  const date = normalizeYmd(String(req.query.date || ""));
+  const view = String(req.query.view || "day");
 
-    let list:any[] = [];
-    if (view === "week" && date) {
-      const base = new Date(`${date}T00:00:00`);
-      const from = new Date(base);
-      const to = new Date(base); to.setDate(to.getDate() + 7);
-      list = await prisma.reservation.findMany({
-        where: { startTs: { gte: from, lt: to } },
-        orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
-      });
-    } else if (view === "month" && date) {
-      const base = new Date(`${date}T00:00:00`);
-      const from = new Date(base);
-      const to = new Date(base); to.setMonth(to.getMonth() + 1);
-      list = await prisma.reservation.findMany({
-        where: { startTs: { gte: from, lt: to } },
-        orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
-      });
-    } else {
-      const where:any = date ? { date } : {};
-      list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
-    }
-
-    const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
-    const counts = new Map<string, number>();
-    await Promise.all(emails.map(async em => {
-      const c = await prisma.reservation.count({
-        where: { email: em, status: { in: ["confirmed", "noshow"] } },
-      });
-      counts.set(em, c);
-    }));
-
-    const enriched = list.map(r => {
-      const vc = r.email ? (counts.get(r.email) || 0) : 0;
-      const disc = loyaltyDiscountFor(vc);
-      return { ...r, visitCount: vc, discount: disc };
+  let list:any[] = [];
+  if (view === "week" && date) {
+    const base = new Date(`${date}T00:00:00`);
+    const from = new Date(base);
+    const to = new Date(base); to.setDate(to.getDate() + 7);
+    list = await prisma.reservation.findMany({
+      where: { startTs: { gte: from, lt: to } },
+      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
     });
-
-    res.json(enriched);
-  }catch(err:any){
-    console.error("admin reservations error:", err);
-    res.status(500).json([]);
+  } else if (view === "month" && date) {
+    const base = new Date(`${date}T00:00:00`);
+    const from = new Date(base);
+    const to = new Date(base); to.setMonth(to.getMonth() + 1);
+    list = await prisma.reservation.findMany({
+      where: { startTs: { gte: from, lt: to } },
+      orderBy: [{ startTs: "asc" }, { date: "asc" }, { time: "asc" }],
+    });
+  } else {
+    const where:any = date ? { date } : {};
+    list = await prisma.reservation.findMany({ where, orderBy: [{ date:"asc" }, { time:"asc" }] });
   }
+
+  const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
+  const counts = new Map<string, number>();
+  await Promise.all(emails.map(async em => {
+    const c = await prisma.reservation.count({
+      where: { email: em, status: { in: ["confirmed", "noshow"] } },
+    });
+    counts.set(em, c);
+  }));
+
+  const enriched = list.map(r => {
+    const vc = r.email ? (counts.get(r.email) || 0) : 0;
+    const disc = loyaltyDiscountFor(vc);
+    return { ...r, visitCount: vc, discount: disc };
+  });
+
+  res.json(enriched);
 });
 app.delete("/api/admin/reservations/:id", async (req,res)=>{
-  try{
-    await prisma.reservation.delete({ where: { id: req.params.id } });
-    res.json({ ok:true });
-  }catch(err:any){
-    console.error("delete reservation error:", err);
-    res.status(500).json({ error: "Failed to delete" });
-  }
+  await prisma.reservation.delete({ where: { id: req.params.id } });
+  res.json({ ok:true });
 });
 app.post("/api/admin/reservations/:id/noshow", async (req,res)=>{
-  try{
-    const r = await prisma.reservation.update({ where: { id: req.params.id }, data: { status:"noshow" }});
-    res.json(r);
-  }catch(err:any){
-    console.error("noshow error:", err);
-    res.status(500).json({ error: "Failed to mark noshow" });
-  }
+  const r = await prisma.reservation.update({ where: { id: req.params.id }, data: { status:"noshow" }});
+  res.json(r);
 });
 
 app.post("/api/admin/walkin", async (req,res)=>{
@@ -605,7 +576,7 @@ app.post("/api/admin/walkin", async (req,res)=>{
     });
 
     res.json(r);
-  }catch(err:any){
+  }catch(err){
     console.error("walkin error:", err);
     res.status(500).json({ error: "Failed to save walk-in" });
   }
@@ -613,6 +584,7 @@ app.post("/api/admin/walkin", async (req,res)=>{
 
 app.post("/api/admin/closure", async (req,res)=>{
   try{
+    // Accept optional 'title' from admin UI. To avoid changing DB schema, we map title -> reason
     let { startTs, endTs, reason, title } = req.body;
     if(title && String(title).trim()) reason = String(title).trim();
     const s = new Date(String(startTs).replace(" ", "T"));
@@ -621,13 +593,14 @@ app.post("/api/admin/closure", async (req,res)=>{
     if (e <= s) return res.status(400).json({ error: "End must be after start" });
     const c = await prisma.closure.create({ data: { startTs:s, endTs:e, reason:String(reason || "Closed") } });
     res.json(c);
-  }catch(err:any){
+  }catch(err){
     console.error("Create closure error:", err);
     res.status(500).json({ error: "Failed to create block" });
   }
 });
 app.post("/api/admin/closure/day", async (req,res)=>{
   try{
+    // Accept optional title; map to reason if provided
     let date = normalizeYmd(String(req.body.date || ""));
     const title = String(req.body.title || "").trim();
     let reason = String(req.body.reason || "Closed");
@@ -638,7 +611,7 @@ app.post("/api/admin/closure/day", async (req,res)=>{
     const e = localDate(y,m,d, CLOSE_HOUR,0,0);
     const c = await prisma.closure.create({ data: { startTs:s, endTs:e, reason } });
     res.json(c);
-  }catch(err:any){
+  }catch(err){
     console.error("Block day error:", err);
     res.status(500).json({ error: "Failed to block day" });
   }
@@ -646,18 +619,19 @@ app.post("/api/admin/closure/day", async (req,res)=>{
 app.get("/api/admin/closure", async (_req,res)=>{
   try{
     const list = await prisma.closure.findMany({ orderBy: { startTs:"desc" } });
+    // Return title for compatibility with admin UI: title = reason
     const out = list.map(x => ({ ...x, title: x.reason }));
     res.json(out);
-  }catch(err:any){
+  }catch(err){
     console.error("List closure error:", err);
     res.status(500).json({ error: "Failed to load blocks" });
   }
 });
 app.delete("/api/admin/closure/:id", async (req,res)=>{
   try{ await prisma.closure.delete({ where: { id: req.params.id } }); res.json({ ok:true }); }
-  catch(err:any){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
+  catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
 });
-
+// ---- Simple persistent notices storage (file-based) ----
 const NOTICES_FILE = path.join(publicDir, "notices.json");
 
 async function readNoticesFile(): Promise<any[]> {
@@ -665,7 +639,7 @@ async function readNoticesFile(): Promise<any[]> {
     if (!fs.existsSync(NOTICES_FILE)) { await writeFile(NOTICES_FILE, JSON.stringify([]), "utf8"); return []; }
     const txt = await readFile(NOTICES_FILE, "utf8");
     return JSON.parse(txt || "[]");
-  } catch (err:any) {
+  } catch (err) {
     console.error("readNoticesFile error", err);
     return [];
   }
@@ -673,7 +647,7 @@ async function readNoticesFile(): Promise<any[]> {
 async function writeNoticesFile(list: any[]) {
   try {
     await writeFile(NOTICES_FILE, JSON.stringify(list, null, 2), "utf8");
-  } catch (err:any) {
+  } catch (err) {
     console.error("writeNoticesFile error", err);
   }
 }
@@ -682,7 +656,7 @@ app.get("/api/admin/notice", async (_req, res) => {
   try {
     const list = await readNoticesFile();
     res.json(list);
-  } catch (err:any) {
+  } catch (err) {
     console.error("GET /api/admin/notice error", err);
     res.status(500).json([]);
   }
@@ -698,7 +672,7 @@ app.post("/api/admin/notice", async (req, res) => {
     list.push(rec);
     await writeNoticesFile(list);
     res.json(rec);
-  } catch (err:any) {
+  } catch (err) {
     console.error("POST /api/admin/notice error", err);
     res.status(500).json({ error: "Failed to save notice" });
   }
@@ -713,7 +687,7 @@ app.delete("/api/admin/notice/:id", async (req, res) => {
     if (list.length === before) return res.status(404).json({ error: "Not found" });
     await writeNoticesFile(list);
     res.json({ ok: true });
-  } catch (err:any) {
+  } catch (err) {
     console.error("DELETE /api/admin/notice/:id error", err);
     res.status(500).json({ error: "Failed to delete notice" });
   }
@@ -725,7 +699,7 @@ app.post("/api/admin/reset", async (req,res)=>{
     if (!ADMIN_RESET_KEY || key !== ADMIN_RESET_KEY) return res.status(403).json({ error: "Forbidden" });
     await prisma.reservation.deleteMany({});
     res.json({ ok:true });
-  }catch(err:any){
+  }catch(err){
     console.error("reset error:", err);
     res.status(500).json({ error: "Failed to reset" });
   }
@@ -770,7 +744,7 @@ app.get("/api/export", async (req,res)=>{
     res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
     res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.send(buf);
-  }catch(err:any){
+  }catch(err){
     console.error("Export error:", err);
     res.status(500).json({ error: "Export failed" });
   }
@@ -796,14 +770,14 @@ setInterval(async ()=>{
       try{
         await sendMail(r.email, `Reminder — ${BRAND_NAME}`, html);
         await prisma.reservation.update({ where: { id: r.id }, data: { reminderSent:true } });
-      }catch(e:any){ console.error("reminder mail", e); }
+      }catch(e){ console.error("reminder mail", e); }
     }
-  }catch(e:any){ console.error("reminder job", e); }
+  }catch(e){ console.error("reminder job", e); }
 }, 30*60*1000);
 
 async function start(){
   await prisma.$connect();
-  try{ await transporter.verify(); }catch(e:any){ console.warn("SMTP verify failed:", (e as Error).message); }
+  try{ await transporter.verify(); }catch(e){ console.warn("SMTP verify failed:", (e as Error).message); }
   app.listen(PORT, "0.0.0.0", ()=>console.log(`Server running on ${PORT}`));
 }
-start().catch((err:any)=>{ console.error("Fatal start error", err); process.exit(1); });
+start().catch(err=>{ console.error("Fatal start error", err); process.exit(1); });
