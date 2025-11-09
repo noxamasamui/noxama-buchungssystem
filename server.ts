@@ -721,19 +721,42 @@ app.get("/api/export", async (req,res)=>{
       default:        to.setDate(to.getDate()+7); break;
     }
 
+    // Buchungen für Zeitraum
     const list = await prisma.reservation.findMany({
       where: { startTs: { gte: from, lt: to } },
       orderBy: [{ startTs:"asc" }, { date:"asc" }, { time:"asc" }],
     });
 
-    const rows = list.map(r=>({
-      Date: r.date, Time: r.time,
-      FirstName: r.firstName, LastName: r.name,
-      Email: r.email, Phone: r.phone || "",
-      Guests: r.guests, Status: r.status,
-      Notes: r.notes || "", WalkIn: r.isWalkIn ? "yes" : "",
-      CreatedAt: r.createdAt ? format(r.createdAt, "yyyy-MM-dd HH:mm") : "",
+    // Besuche je E-Mail (confirmed + noshow) für Rabattberechnung
+    const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
+    const visitCountMap = new Map<string, number>();
+    await Promise.all(emails.map(async em => {
+      const cnt = await prisma.reservation.count({
+        where: { email: em, status: { in: ["confirmed", "noshow"] } },
+      });
+      visitCountMap.set(em, cnt);
     }));
+
+    // Excel-Zeilen inkl. Visits + Discount
+    const rows = list.map(r=>{
+      const visits = r.email ? (visitCountMap.get(r.email) || 0) : 0;
+      const discount = loyaltyDiscountFor(visits);
+      return {
+        Date: r.date,
+        Time: r.time,
+        FirstName: r.firstName,
+        LastName: r.name,
+        Email: r.email,
+        Phone: r.phone || "",
+        Guests: r.guests,
+        Status: r.status,
+        Notes: r.notes || "",
+        WalkIn: r.isWalkIn ? "yes" : "",
+        Visits: visits,                  // Anzahl Besuche
+        Discount: discount ? `${discount}%` : "",  // Rabatt
+        CreatedAt: r.createdAt ? format(r.createdAt, "yyyy-MM-dd HH:mm") : "",
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
