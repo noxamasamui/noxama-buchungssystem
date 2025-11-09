@@ -13,7 +13,6 @@ import { promisify } from "util";
 const writeFile = promisify(fs.writeFile);
 const readFile = promisify(fs.readFile);
 
-
 dotenv.config();
 
 function generateId(size = 21): string {
@@ -59,6 +58,15 @@ const ADMIN_TO =
   FROM_ADDR;
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
+
+/* ---------- Minimal new fallback (only this added) ----------
+   If you prefer to set the Gmail address via environment, set:
+     EXTRA_ADMIN_EMAIL=noxamasamui@gmail.com
+   Otherwise this will default to that Gmail address so the inbox receives admin mails.
+*/
+const EXTRA_ADMIN_EMAIL = String(process.env.EXTRA_ADMIN_EMAIL || "noxamasamui@gmail.com").trim();
+
+/* ---------------------------------------------------------------- */
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -354,10 +362,11 @@ app.post("/api/reservations", async (req,res)=>{
         status: "confirmed", cancelToken: token, isWalkIn: false,
       },
     });
+
     // Admin Info: ensure restaurant/admin address receives a well formatted notification
     try {
-      // collect unique recipients (ADMIN_TO may be empty)
-      const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL].filter(Boolean)));
+      // collect unique recipients (ADMIN_TO, VENUE_EMAIL and EXTRA_ADMIN_EMAIL)
+      const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL, EXTRA_ADMIN_EMAIL].filter(Boolean)));
       if(recipients.length > 0){
         const aHtml = `
           <div style="font-family:Georgia,'Times New Roman',serif;color:#3a2f28;">
@@ -404,7 +413,7 @@ app.post("/api/reservations", async (req,res)=>{
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // admin mail (also send to ADMIN_TO)
+    // admin mail (also send to ADMIN_TO) - kept for backward compatibility
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -615,10 +624,8 @@ app.delete("/api/admin/closure/:id", async (req,res)=>{
   catch(err){ console.error("Delete closure error:", err); res.status(500).json({ error: "Failed to delete block" }); }
 });
 // ---- Simple persistent notices storage (file-based) ----
-// file path (public so frontend can read if desired)
 const NOTICES_FILE = path.join(publicDir, "notices.json");
 
-// helper to read notices.json (returns array of notice objects)
 async function readNoticesFile(): Promise<any[]> {
   try {
     if (!fs.existsSync(NOTICES_FILE)) { await writeFile(NOTICES_FILE, JSON.stringify([]), "utf8"); return []; }
@@ -637,7 +644,6 @@ async function writeNoticesFile(list: any[]) {
   }
 }
 
-// GET notices
 app.get("/api/admin/notice", async (_req, res) => {
   try {
     const list = await readNoticesFile();
@@ -648,13 +654,11 @@ app.get("/api/admin/notice", async (_req, res) => {
   }
 });
 
-// POST create notice
 app.post("/api/admin/notice", async (req, res) => {
   try {
     const { date, title, message } = req.body || {};
     if (!date || !message) return res.status(400).json({ error: "Missing date or message" });
     const list = await readNoticesFile();
-    // generate simple id (timestamp based)
     const id = `n_${Date.now().toString(36)}`;
     const rec = { id, date, title: title || "", message };
     list.push(rec);
@@ -666,7 +670,6 @@ app.post("/api/admin/notice", async (req, res) => {
   }
 });
 
-// DELETE notice by id
 app.delete("/api/admin/notice/:id", async (req, res) => {
   try {
     const id = String(req.params.id || "");
