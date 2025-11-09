@@ -354,6 +354,34 @@ app.post("/api/reservations", async (req,res)=>{
         status: "confirmed", cancelToken: token, isWalkIn: false,
       },
     });
+    // Admin Info: ensure restaurant/admin address receives a well formatted notification
+    try {
+      // collect unique recipients (ADMIN_TO may be empty)
+      const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL].filter(Boolean)));
+      if(recipients.length > 0){
+        const aHtml = `
+          <div style="font-family:Georgia,'Times New Roman',serif;color:#3a2f28;">
+            <div style="max-width:640px;margin:0 auto;padding:10px 0;">
+              <h3 style="margin:0 0 8px 0;">New reservation — ${BRAND_NAME}</h3>
+              <div style="background:#f7efe2;padding:12px;border-radius:8px;border:1px solid #ead6b6;">
+                <p style="margin:6px 0;"><strong>Date</strong> ${created.date}</p>
+                <p style="margin:6px 0;"><strong>Time</strong> ${created.time}</p>
+                <p style="margin:6px 0;"><strong>Guests</strong> ${created.guests}</p>
+                <p style="margin:6px 0;"><strong>Guest</strong> ${created.firstName} ${created.name}</p>
+                <p style="margin:6px 0;"><strong>Email</strong> ${created.email || '-'}</p>
+                <p style="margin:6px 0;"><strong>Phone</strong> ${created.phone || '-'}</p>
+                <p style="margin:6px 0;"><strong>Notes</strong> ${created.notes || '-'}</p>
+              </div>
+              <p style="margin-top:10px;font-size:13px;color:#6b5b4a;">This is an automated notification.</p>
+            </div>
+          </div>
+        `;
+        // send to all configured admin recipients in parallel
+        await Promise.all(recipients.map(to => sendMail(to, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml)));
+      }
+    } catch(e){
+      console.error("admin mail failed", e);
+    }
 
     // Loyalty
     const visitNo = await prisma.reservation.count({
