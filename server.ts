@@ -357,7 +357,13 @@ app.post("/api/reservations", async (req,res)=>{
     try {
       // collect unique recipients (ADMIN_TO may be empty)
       const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL].filter(Boolean)));
-      if(recipients.length > 0){
+      // DEBUG: force ensure the explicit gmail address is present if you want to guarantee delivery
+      // (only uncomment if you want to force delivery to that address regardless of env)
+      // if (!recipients.includes("noxamasamui@gmail.com")) recipients.push("noxamasamui@gmail.com");
+
+      console.log("[admin-mail] recipients:", recipients);
+
+      if (recipients.length > 0) {
         const aHtml = `
           <div style="font-family:Georgia,'Times New Roman',serif;color:#3a2f28;">
             <div style="max-width:640px;margin:0 auto;padding:10px 0;">
@@ -375,11 +381,22 @@ app.post("/api/reservations", async (req,res)=>{
             </div>
           </div>
         `;
+
         // send to all configured admin recipients in parallel
-        await Promise.all(recipients.map(to => sendMail(to, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml)));
+        await Promise.all(recipients.map(async to => {
+          try {
+            console.log(`[admin-mail] sending to ${to}`);
+            await sendMail(to, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml);
+            console.log(`[admin-mail] sent to ${to}`);
+          } catch(mailErr){
+            console.error(`[admin-mail] SEND ERROR for ${to}:`, mailErr && (mailErr.stack || mailErr.message || String(mailErr)));
+          }
+        }));
+      } else {
+        console.warn("[admin-mail] no admin recipients configured (ADMIN_TO / VENUE_EMAIL are empty)");
       }
     } catch(e){
-      console.error("admin mail failed", e);
+      console.error("admin mail failed (outer):", e && (e.stack || e.message || String(e)));
     }
 
     // Loyalty
