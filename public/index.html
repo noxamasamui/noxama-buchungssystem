@@ -148,7 +148,15 @@
     }catch(e){ console.error(e); }
   })();
 
+  // set initial date
   document.getElementById('rDate').value = today();
+
+  // ------------- IMPORTANT: initial load of slots AND check for notice -------------
+  // Minimal and necessary: call updateTimes() and checkNoticeForDate(...) once on load
+  // so the booking page shows accurate times and date-specific notices immediately.
+  // (This is the only addition to restore the missing popups behaviour.)
+  updateTimes();
+  checkNoticeForDate(document.getElementById('rDate').value);
 
   // times are populated from /api/slots - show only allowed slots
   async function updateTimes(){
@@ -242,6 +250,12 @@
 
     }catch(e){ console.error("notice fetch error", e); }
   }
+
+  // ----------------- Ensure check + update run when date changes (minimal necessary) -----------------
+  document.getElementById('rDate').addEventListener('change', ()=>{
+    updateTimes();
+    checkNoticeForDate(document.getElementById('rDate').value);
+  });
 
   document.getElementById('rGuests').addEventListener('change', function(){
     if(this.value === '11plus'){
