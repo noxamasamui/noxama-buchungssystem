@@ -1,13 +1,3 @@
-.logo-container {
-  text-align: center;
-  padding-top: 40px;
-}
-
-.logo-img {
-  max-width: 260px;
-  height: auto;
-}
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -15,19 +5,21 @@
   <title>Reservation canceled</title>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
+    .logo-container, .logo { text-align: center; padding-top: 40px; margin-bottom: 18px; }
+    .logo-img, .logo img { max-width: 260px; width:80%; height: auto; display:inline-block; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.12); }
+
     html,body{ margin:0; padding:0; background:#d8c6aa; color:#3a2f28; font-family:Georgia,serif; }
     .wrap{ max-width:760px; margin:60px auto; padding:18px; }
-    .logo{ text-align:center; margin-bottom:18px; }
-    .logo img{ max-width:280px; width:80%; height:auto; display:inline-block; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.12); }
     .card{ background:#fff8f0; border:1px solid #e0d7c5; border-radius:12px; padding:28px; box-shadow:0 8px 30px rgba(0,0,0,0.08); text-align:left; }
     a{ color:#4c2a91; text-decoration:none; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="logo">
-      <img src="/logo-hero.png" alt="Logo"/>
+    <div class="logo logo-container">
+      <img class="logo-img" src="https://i.imgur.com/LQ4nzwd.png" alt="Logo"/>
     </div>
+
     <div class="card">
       <h2 style="margin-top:0">Reservation canceled</h2>
       <p>We are sad to see you go. If you want to rebook please visit the reservation page.</p>
