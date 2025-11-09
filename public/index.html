@@ -188,33 +188,58 @@
     }
   }
 
-  // fetch and show date-specific notice (Customer notices)
-  async function checkNoticeForDate(date){
-    if(!date) return;
-    try{
-      const r = await fetch(`/api/admin/notice?date=${encodeURIComponent(date)}`, {cache:"no-store"});
-      if(!r.ok) return;
-      const list = await r.json();
-      if(!Array.isArray(list) || list.length === 0) return;
-      // show first notice (administrators may set multiple; show the one(s))
-      // Use title + message; message may contain newlines.
-      list.forEach(n => {
-        const title = n.title || "";
-        const msg = n.message || n.reason || "";
-        showAlertModal(title || "Notice", msg);
-      });
-    }catch(e){ console.error("notice fetch", e); }
-  }
+// ---------- notice check (replace existing checkNoticeForDate) ----------
+async function checkNoticeForDate(date){
+  if(!date) return;
+  try{
+    const r = await fetch(`/api/admin/notice?date=${encodeURIComponent(date)}`, {cache:"no-store"});
+    if(!r.ok) {
+      // if backend returns 404/HTML, quietly ignore (prevents showing for every date)
+      console.warn("notice fetch not ok", r.status);
+      return;
+    }
 
-  // initial
-  updateTimes();
+    // try parse JSON, if not JSON -> ignore
+    let list;
+    try { list = await r.json(); } catch(e){ console.warn("notice response not json", e); return; }
+    if(!Array.isArray(list) || list.length === 0) return;
 
-  document.getElementById('rDate').addEventListener('change', (e)=>{
-    const date = e.target.value;
-    updateTimes();
-    // check notice immediately
-    checkNoticeForDate(date);
-  });
+    // filter: match exact date OR if notice has start/end that contains date
+    const matches = list.filter(n=>{
+      // normalized strings (backend should supply n.date or n.start/n.end)
+      const d = String(date);
+      if(n.date && String(n.date) === d) return true;
+
+      // if admin stored startTs/endTs (timestamps), accept if date in that day-range
+      if(n.startTs && n.endTs){
+        try{
+          const start = new Date(n.startTs);
+          const end = new Date(n.endTs);
+          const check = new Date(d + "T00:00:00");
+          // if check day between start (inclusive) and end (inclusive)
+          if(start <= check && check <= end) return true;
+        }catch(e){ /* ignore parse issues */ }
+      }
+
+      // fallback: if notice has a 'range' field or 'dates' array, check them
+      if(Array.isArray(n.dates) && n.dates.includes(d)) return true;
+      if(n.range && typeof n.range === "string" && n.range.indexOf(d) !== -1) return true;
+
+      return false;
+    });
+
+    if(matches.length === 0) return;
+
+    // show each matching notice (title + message) — preserve newlines
+    matches.forEach(n=>{
+      const title = n.title || "Notice";
+      const msgRaw = n.message || n.reason || "";
+      const html = String(msgRaw).replace(/\n/g, "<br/>");
+      showAlertModal(title, html);
+    });
+
+  }catch(e){ console.error("notice fetch error", e); }
+}
 
   document.getElementById('rGuests').addEventListener('change', function(){
     if(this.value === '11plus'){
