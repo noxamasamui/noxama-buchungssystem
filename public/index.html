@@ -141,8 +141,7 @@
   // load banner from /api/config
   (async()=>{
     try{
-      const r = await fetch('/api/config');
-      const cfg = await r.json();
+      const r = await fetch('/api/config'); const cfg = await r.json();
       const hero = document.getElementById('heroBanner');
       hero.src = cfg.mailHeaderUrl || cfg.mailLogoUrl || '/logo-hero.png';
       hero.alt = cfg.brand || 'Banner';
@@ -173,9 +172,11 @@
       const allowed = slots.filter(s => s.allowed);
       if(allowed.length === 0){
         // immediate friendly popup (choose another date)
-        // prefer reason from slots
-        const reason = (slots[0] && slots[0].reason) ? slots[0].reason : "This date is not available";
-        showAlertModal("Reservation not possible", reason + ". Please choose another date.");
+        // prefer reason from slots but avoid duplicating the "choose another" sentence
+        const reason = (slots[0] && slots[0].reason) ? String(slots[0].reason).trim() : "This date is not available";
+        const lower = reason.toLowerCase();
+        const suffix = (lower.includes('choose') || lower.includes('please choose') || lower.includes('please select')) ? '' : '. Please choose another date.';
+        showAlertModal("Reservation not possible", reason + suffix);
         return;
       }
       allowed.forEach(s=>{
@@ -189,39 +190,40 @@
     }
   }
 
-  // ---------- notice check (robust and accepts object/array) ----------
+  // ---------- notice check (replace existing checkNoticeForDate) ----------
   async function checkNoticeForDate(date){
     if(!date) return;
     try{
       const r = await fetch(`/api/admin/notice?date=${encodeURIComponent(date)}`, {cache:"no-store"});
       if(!r.ok) {
-        // if backend returns 404/HTML, quietly ignore
+        // if backend returns 404/HTML, quietly ignore (prevents showing for every date)
         console.warn("notice fetch not ok", r.status);
         return;
       }
 
       // try parse JSON, if not JSON -> ignore
-      let payload;
-      try { payload = await r.json(); } catch(e){ console.warn("notice response not json", e); return; }
-      if(!payload) return;
-
-      // normalize to array
-      let list = Array.isArray(payload) ? payload : [payload];
+      let list;
+      try { list = await r.json(); } catch(e){ console.warn("notice response not json", e); return; }
+      if(!Array.isArray(list) || list.length === 0) return;
 
       // filter: match exact date OR if notice has start/end that contains date
       const matches = list.filter(n=>{
+        // normalized strings (backend should supply n.date or n.start/n.end)
         const d = String(date);
         if(n.date && String(n.date) === d) return true;
 
+        // if admin stored startTs/endTs (timestamps), accept if date in that day-range
         if(n.startTs && n.endTs){
           try{
             const start = new Date(n.startTs);
             const end = new Date(n.endTs);
             const check = new Date(d + "T00:00:00");
+            // if check day between start (inclusive) and end (inclusive)
             if(start <= check && check <= end) return true;
-          }catch(e){}
+          }catch(e){ /* ignore parse issues */ }
         }
 
+        // fallback: if notice has a 'range' field or 'dates' array, check them
         if(Array.isArray(n.dates) && n.dates.includes(d)) return true;
         if(n.range && typeof n.range === "string" && n.range.indexOf(d) !== -1) return true;
 
@@ -241,7 +243,6 @@
     }catch(e){ console.error("notice fetch error", e); }
   }
 
-  // wire up guest count change
   document.getElementById('rGuests').addEventListener('change', function(){
     if(this.value === '11plus'){
       // show large party modal and revert selection to 1 (prevent booking 11+ online)
@@ -251,18 +252,6 @@
     }
     updateTimes();
   });
-
-  // call updateTimes + checkNotice when date changes
-  document.getElementById('rDate').addEventListener('change', ()=>{
-    updateTimes();
-    checkNoticeForDate(document.getElementById('rDate').value);
-  });
-
-  // initial population on page load
-  (function init(){
-    updateTimes();
-    checkNoticeForDate(document.getElementById('rDate').value);
-  })();
 
   // reserve button
   document.getElementById('btnReserve').addEventListener('click', async ()=>{
