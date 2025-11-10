@@ -10,10 +10,18 @@ import dotenv from "dotenv";
 import { addMinutes, addHours, differenceInMinutes, format } from "date-fns";
 import fs from "fs";
 import { promisify } from "util";
+import { timingSafeEqual } from "crypto"; // ← NEU: für sicheren Vergleich
+
 const writeFile = promisify(fs.writeFile);
 const readFile = promisify(fs.readFile);
 
 dotenv.config();
+
+/* ---------- Basic-Auth ENV (NEU, minimal) ---------- */
+const ADMIN_BASIC_USER = String(process.env.ADMIN_BASIC_USER || "admin").trim();
+// Schutz aktiv nur wenn Passwort gesetzt; leer lässt Admin offen (z. B. Dev)
+const ADMIN_BASIC_PASS = String(process.env.ADMIN_BASIC_PASS || "").trim();
+/* --------------------------------------------------- */
 
 function generateId(size = 21): string {
   const buf = randomBytes(Math.ceil((size * 3) / 4));
@@ -26,6 +34,49 @@ const publicDir = path.resolve(__dirname, "../public");
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+
+/* ---------- Admin-Gate (NEU, minimal) – MUSS vor static() stehen ---------- */
+function safeEqual(a: string, b: string) {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!ADMIN_BASIC_PASS) return next(); // Schutz aus, falls kein Passwort gesetzt
+  const hdr = String(req.headers["authorization"] || "");
+  if (!hdr.startsWith("Basic ")) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="Admin"');
+    return res.status(401).send("Authentication required");
+  }
+  try {
+    const decoded = Buffer.from(hdr.slice(6), "base64").toString("utf8");
+    const idx = decoded.indexOf(":");
+    const user = idx >= 0 ? decoded.slice(0, idx) : "";
+    const pass = idx >= 0 ? decoded.slice(idx + 1) : "";
+    const uOk = safeEqual(user, ADMIN_BASIC_USER);
+    const pOk = safeEqual(pass, ADMIN_BASIC_PASS);
+    if (uOk && pOk) return next();
+  } catch {
+    // fallthrough to 401
+  }
+  res.setHeader("WWW-Authenticate", 'Basic realm="Admin"');
+  return res.status(401).send("Unauthorized");
+}
+// nur Admin-Pfade schützen, alles andere unverändert lassen
+app.use((req, res, next) => {
+  const p = req.path.toLowerCase();
+  const isAdminPath =
+    p === "/admin" ||
+    p === "/admin.html" ||
+    p.startsWith("/api/admin/") ||
+    p === "/api/admin" ||
+    p === "/api/export";
+  if (isAdminPath) return requireAdminAuth(req, res, next);
+  return next();
+});
+/* ------------------------------------------------------------------------- */
+
 app.use(express.static(publicDir));
 
 const PORT = Number(process.env.PORT || 4020);
@@ -59,14 +110,9 @@ const ADMIN_TO =
 
 const ADMIN_RESET_KEY = process.env.ADMIN_RESET_KEY || "";
 
-/* ---------- Minimal new fallback (only this added) ----------
-   If you prefer to set the Gmail address via environment, set:
-     EXTRA_ADMIN_EMAIL=noxamasamui@gmail.com
-   Otherwise this will default to that Gmail address so the inbox receives admin mails.
-*/
+/* ---------- Minimaler Fallback für Admin-Mail (bereits vorhanden) ---------- */
 const EXTRA_ADMIN_EMAIL = String(process.env.EXTRA_ADMIN_EMAIL || "noxamasamui@gmail.com").trim();
-
-/* ---------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -385,7 +431,6 @@ app.post("/api/reservations", async (req,res)=>{
             </div>
           </div>
         `;
-        // send to all configured admin recipients in parallel
         await Promise.all(recipients.map(to => sendMail(to, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml)));
       }
     } catch(e){
@@ -413,7 +458,7 @@ app.post("/api/reservations", async (req,res)=>{
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // admin mail (also send to ADMIN_TO) - kept for backward compatibility
+    // admin mail (auch an ADMIN_TO) – belassen zur Kompatibilität
     if (ADMIN_TO) {
       const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
         <p><b>New reservation</b></p>
@@ -471,21 +516,13 @@ app.get("/cancel/:token", async (req,res)=>{
       });
       try { await sendMail(r.email, "We hope this goodbye is only for now 😢", gHtml); } catch {}
     }
-
-    // --- MINIMAL CHANGE: ensure the admin Gmail ALSO receives cancel notifications ---
-    try {
-      const recipients = Array.from(new Set([ADMIN_TO, VENUE_EMAIL, EXTRA_ADMIN_EMAIL].filter(Boolean)));
-      if (recipients.length > 0) {
-        const aHtml = canceledAdminHtml({
-          firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
-          guests: r.guests, date: r.date, time: r.time, notes: r.notes || "",
-        });
-        await Promise.all(recipients.map(to => sendMail(to, `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`, aHtml)));
-      }
-    } catch(e){
-      console.error("cancel admin mail failed", e);
+    if (ADMIN_TO) {
+      const aHtml = canceledAdminHtml({
+        firstName: r.firstName, lastName: r.name, email: r.email || "", phone: r.phone || "",
+        guests: r.guests, date: r.date, time: r.time, notes: r.notes || "",
+      });
+      try { await sendMail(ADMIN_TO, `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`, aHtml); } catch {}
     }
-    // --- end minimal change ---
   }
   res.sendFile(path.join(publicDir, "cancelled.html"));
 });
@@ -721,42 +758,19 @@ app.get("/api/export", async (req,res)=>{
       default:        to.setDate(to.getDate()+7); break;
     }
 
-    // Buchungen für Zeitraum
     const list = await prisma.reservation.findMany({
       where: { startTs: { gte: from, lt: to } },
       orderBy: [{ startTs:"asc" }, { date:"asc" }, { time:"asc" }],
     });
 
-    // Besuche je E-Mail (confirmed + noshow) für Rabattberechnung
-    const emails = Array.from(new Set(list.map(r => r.email).filter(Boolean))) as string[];
-    const visitCountMap = new Map<string, number>();
-    await Promise.all(emails.map(async em => {
-      const cnt = await prisma.reservation.count({
-        where: { email: em, status: { in: ["confirmed", "noshow"] } },
-      });
-      visitCountMap.set(em, cnt);
+    const rows = list.map(r=>({
+      Date: r.date, Time: r.time,
+      FirstName: r.firstName, LastName: r.name,
+      Email: r.email, Phone: r.phone || "",
+      Guests: r.guests, Status: r.status,
+      Notes: r.notes || "", WalkIn: r.isWalkIn ? "yes" : "",
+      CreatedAt: r.createdAt ? format(r.createdAt, "yyyy-MM-dd HH:mm") : "",
     }));
-
-    // Excel-Zeilen inkl. Visits + Discount
-    const rows = list.map(r=>{
-      const visits = r.email ? (visitCountMap.get(r.email) || 0) : 0;
-      const discount = loyaltyDiscountFor(visits);
-      return {
-        Date: r.date,
-        Time: r.time,
-        FirstName: r.firstName,
-        LastName: r.name,
-        Email: r.email,
-        Phone: r.phone || "",
-        Guests: r.guests,
-        Status: r.status,
-        Notes: r.notes || "",
-        WalkIn: r.isWalkIn ? "yes" : "",
-        Visits: visits,                  // Anzahl Besuche
-        Discount: discount ? `${discount}%` : "",  // Rabatt
-        CreatedAt: r.createdAt ? format(r.createdAt, "yyyy-MM-dd HH:mm") : "",
-      };
-    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
