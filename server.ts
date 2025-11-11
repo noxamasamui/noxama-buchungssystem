@@ -35,10 +35,9 @@ const publicDir = path.resolve(__dirname, "../public");
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-/* ---------- Admin-Gate (NEU, minimal) – MUSS vor static() stehen ---------- */
+/* ---------- Admin-Gate (nur Admin, Notice-GET ausnehmen) ---------- */
 function safeEqual(a: string, b: string) {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
+  const ab = Buffer.from(a); const bb = Buffer.from(b);
   if (ab.length !== bb.length) return false;
   return timingSafeEqual(ab, bb);
 }
@@ -54,27 +53,36 @@ function requireAdminAuth(req: express.Request, res: express.Response, next: exp
     const idx = decoded.indexOf(":");
     const user = idx >= 0 ? decoded.slice(0, idx) : "";
     const pass = idx >= 0 ? decoded.slice(idx + 1) : "";
-    const uOk = safeEqual(user, ADMIN_BASIC_USER);
-    const pOk = safeEqual(pass, ADMIN_BASIC_PASS);
-    if (uOk && pOk) return next();
-  } catch {
-    // fallthrough to 401
-  }
+    if (safeEqual(user, ADMIN_BASIC_USER) && safeEqual(pass, ADMIN_BASIC_PASS)) return next();
+  } catch {}
   res.setHeader("WWW-Authenticate", 'Basic realm="Admin"');
   return res.status(401).send("Unauthorized");
 }
-// nur Admin-Pfade schützen, alles andere unverändert lassen
+
+// WICHTIG: vor express.static() lassen
 app.use((req, res, next) => {
   const p = req.path.toLowerCase();
+
+  // Öffentliche Ausnahme: die Buchungsseite ruft GET /api/admin/notice?date=... auf
+  const isPublicNoticeGet =
+    req.method === "GET" &&
+    (p === "/api/admin/notice" || p.startsWith("/api/admin/notice/"));
+
+  if (isPublicNoticeGet) return next();
+
+  // Geschützte Admin-Bereiche
   const isAdminPath =
     p === "/admin" ||
     p === "/admin.html" ||
     p.startsWith("/api/admin/") ||
     p === "/api/admin" ||
     p === "/api/export";
+
   if (isAdminPath) return requireAdminAuth(req, res, next);
   return next();
 });
+/* ------------------------------------------------------------------ */
+
 /* ------------------------------------------------------------------------- */
 
 app.use(express.static(publicDir));
@@ -458,14 +466,36 @@ app.post("/api/reservations", async (req,res)=>{
     });
     try { await sendMail(created.email, `${BRAND_NAME} — Reservation`, html); } catch (e) { console.error("mail guest", e); }
 
-    // admin mail (auch an ADMIN_TO) – belassen zur Kompatibilität
-    if (ADMIN_TO) {
-      const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
-        <p><b>New reservation</b></p>
-        <p>${created.date} ${created.time} — ${created.guests}p — ${created.firstName} ${created.name} (${created.email})</p>
-      </div>`;
-      try { await sendMail(ADMIN_TO, `[NEW] ${created.date} ${created.time} — ${created.guests}p`, aHtml); } catch (e) { console.error("admin mail failed", e); }
+{
+  const aHtml = canceledAdminHtml({
+    firstName: r.firstName,
+    lastName: r.name,
+    email: r.email || "",
+    phone: r.phone || "",
+    guests: r.guests,
+    date: r.date,
+    time: r.time,
+    notes: r.notes || "",
+  });
+
+  // gleiche Empfängerliste wie bei Buchung: ADMIN_TO, VENUE_EMAIL, EXTRA_ADMIN_EMAIL
+  const recipients = Array.from(
+    new Set([ADMIN_TO, VENUE_EMAIL, EXTRA_ADMIN_EMAIL].filter(Boolean))
+  );
+
+  if (recipients.length) {
+    try {
+      await Promise.all(
+        recipients.map(to =>
+          sendMail(to, `[CANCELED] ${r.date} ${r.time} — ${r.guests}p`, aHtml)
+        )
+      );
+    } catch (e) {
+      console.error("admin cancel mail failed", e);
     }
+  }
+}
+
 
     const showLoyaltyPopup = visitNo >= 5;
     const loyaltyPopupHtml = showLoyaltyPopup ? createLoyaltyPopupHtml(visitNo, currentDiscount) : null;
