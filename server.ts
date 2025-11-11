@@ -610,22 +610,27 @@ app.post("/api/reservations", async (req, res) => {
       console.error("mail guest", e);
     }
 
-    // admin mail (also send to ADMIN_TO) - kept for backward compatibility
-    if (ADMIN_TO) {
-      const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
-        <p><b>New reservation</b></p>
-        <p>${created.date} ${created.time} — ${created.guests}p — ${created.firstName} ${created.name} (${created.email})</p>
-      </div>`;
-      try {
-        await sendMail(
-          ADMIN_TO,
-          `[NEW] ${created.date} ${created.time} — ${created.guests}p`,
-          aHtml
-        );
-      } catch (e) {
-        console.error("admin mail failed", e);
-      }
-    }
+// admin mail (legacy) – nur senden, wenn ADMIN_TO nicht schon oben enthalten war
+if (
+  ADMIN_TO &&
+  ADMIN_TO !== VENUE_EMAIL &&
+  ADMIN_TO !== EXTRA_ADMIN_EMAIL
+) {
+  const aHtml = `<div style="font-family:Georgia,serif;color:#3a2f28">
+    <p><b>New reservation</b></p>
+    <p>${created.date} ${created.time} — ${created.guests}p — ${created.firstName} ${created.name} (${created.email})</p>
+  </div>`;
+  try {
+    await sendMail(
+      ADMIN_TO,
+      `[NEW] ${created.date} ${created.time} — ${created.guests}p`,
+      aHtml
+    );
+  } catch (e) {
+    console.error("admin mail failed", e);
+  }
+}
+
 
     const showLoyaltyPopup = visitNo >= 5;
     const loyaltyPopupHtml = showLoyaltyPopup
