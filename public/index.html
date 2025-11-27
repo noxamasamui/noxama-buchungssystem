@@ -354,6 +354,10 @@
     box.style.width = "92%";
     box.style.boxShadow = "0 10px 35px rgba(0,0,0,0.25)";
     box.style.textAlign = "center";
+    box.style.maxHeight = "80vh";
+box.style.overflowY = "auto";
+box.style.webkitOverflowScrolling = "touch";
+
     if(title){
       const h = document.createElement("h3");
       h.textContent = title;
