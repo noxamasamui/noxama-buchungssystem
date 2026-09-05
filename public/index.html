@@ -268,7 +268,16 @@
   });
 
   // reserve button
+  let reservationInProgress = false;
+
   document.getElementById('btnReserve').addEventListener('click', async ()=>{
+    if(reservationInProgress) return;
+
+    reservationInProgress = true;
+
+    const btnReserve = document.getElementById('btnReserve');
+    btnReserve.disabled = true;
+
     const payload = {
       date: document.getElementById('rDate').value,
       time: document.getElementById('rTime').value,
@@ -285,6 +294,8 @@
     // minimal validation
     if(!payload.firstName || !payload.name || !payload.email || !payload.guests){
       msg.textContent = 'Please fill first name, last name, email and guests';
+      reservationInProgress = false;
+      btnReserve.disabled = false;
       return;
     }
 
@@ -307,6 +318,9 @@
           showConfirm("Reservation received", `Thank you. A confirmation mail was sent to <b>${payload.email}</b>.`);
         }
       } else {
+        reservationInProgress = false;
+        btnReserve.disabled = false;
+
         const err = (json && json.error) ? String(json.error).toLowerCase() : "Error";
         if(err.includes("closed") || err.includes("blocked") || err.includes("fully booked") || err.includes("sunday")){
           showAlertModal("Reservation not possible", json.error || "This date or slot is not available. Please choose another day.");
@@ -317,6 +331,9 @@
     }catch(e){
       console.error('reservation post error', e);
       msg.textContent = 'Network error';
+
+      reservationInProgress = false;
+      btnReserve.disabled = false;
     }
   });
 
@@ -355,8 +372,8 @@
     box.style.boxShadow = "0 10px 35px rgba(0,0,0,0.25)";
     box.style.textAlign = "center";
     box.style.maxHeight = "80vh";
-box.style.overflowY = "auto";
-box.style.webkitOverflowScrolling = "touch";
+    box.style.overflowY = "auto";
+    box.style.webkitOverflowScrolling = "touch";
 
     if(title){
       const h = document.createElement("h3");
