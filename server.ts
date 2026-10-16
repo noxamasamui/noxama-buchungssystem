@@ -101,7 +101,7 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const BRAND_NAME = process.env.BRAND_NAME || "RÖSTILAND BY NOXAMA SAMUI";
 const VENUE_ADDRESS =
   process.env.VENUE_ADDRESS || "Moo 4 Lamai Beach, 84310 Suratthani, Thailand";
-const VENUE_PHONE = process.env.VENUE_PHONE || "+66 077 270 675";
+const VENUE_PHONE = process.env.VENUE_PHONE || "+66 611 186 732";
 const VENUE_EMAIL = process.env.VENUE_EMAIL || "info@noxamasamui.com";
 
 const MAIL_LOGO_URL = process.env.MAIL_LOGO_URL || "/logo-hero.png";
