@@ -17,9 +17,7 @@ function showLoyaltyModal(tier){
     document.getElementById('loyalty-close').onclick = hideLoyaltyModal;
   }
   const txt = document.getElementById('loyalty-text');
-  if (tier === 15) txt.textContent = 'Herzlichen Glueckwunsch! Ab sofort erhaeltst du 15 Prozent Loyalty Danke.';
-  else if (tier === 10) txt.textContent = 'Herzlichen Glueckwunsch! Ab sofort erhaeltst du 10 Prozent Loyalty Danke.';
-  else txt.textContent = 'Herzlichen Glueckwunsch! Ab sofort erhaeltst du 5 Prozent Loyalty Danke.';
+  else if (tier === 10) txt.textContent = 'Herzlichen Glückwunsch! Ab sofort eräeltst du 10 Prozent Loyalty Danke.';
   document.getElementById('loyalty-modal').style.display = 'flex';
   startFireworks();
 }
