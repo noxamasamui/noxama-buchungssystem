@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -60,8 +61,6 @@
         <th class="col-guests">Guests</th>
         <th>Status</th>
         <th>Notes</th>
-        <th>Visit</th>
-        <th>Discount</th>
         <th class="col-walkin">Walk in</th>
         <th class="col-actions">Action</th>
       </tr>
@@ -254,8 +253,6 @@
         <td class="col-guests">${row.guests}</td>
         <td>${row.status}</td>
         <td>${row.notes || ""}</td>
-        <td>${row.visitCount ?? ""}</td>
-        <td>${row.discount ? row.discount + "%" : ""}</td>
         <td class="col-walkin">${row.isWalkIn ? "yes" : ""}</td>
         <td class="col-actions actions-cell">
           <span class="btn-group">
